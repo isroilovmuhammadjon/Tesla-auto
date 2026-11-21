@@ -72,7 +72,7 @@ showRim.position.set(-2, 2.5, -5);
 scene.add(showLight, showLight.target, showRim);
 
 // ---------------------------------------------------------------- systems
-const world = new World(scene, renderer, MOBILE ? { lampLights: 4, buildingsPerSide: 22 } : {});
+const world = new World(scene, renderer);
 const traffic = new Traffic(scene);
 const rival = new Rival(scene);
 traffic.extra = [rival];
@@ -863,6 +863,9 @@ const actions = {
     if (mp.connected) openMp(); else toMenu();
   },
   mpOpen: () => openMp(),
+  settings: () => openSettings(),
+  settingsBack: () => closeSettings(),
+  set: (btn) => setSetting(btn),
   mpBack: () => toMenu(),
   mpConnect: () => mpConnect(),
   mpLeave: () => { mp.disconnect(); G.mp = null; renderMp(); },
@@ -903,6 +906,85 @@ function trackRival() {
   G.rivalAhead = ahead;
   ui.setRival(lead, rival.def.name);
 }
+
+// ================================================================ graphics settings
+// Presets. Resolution is a fraction of the screen's native pixels (Retina / phone screens included).
+const GFX = {
+  low:    { res: 0.5,  shadows: 0,    soft: false, msaa: 0, bloom: false, lights: 2, label: 'Fast: no shadows, no glow, 2 street lights' },
+  medium: { res: 0.75, shadows: 1024, soft: false, msaa: 2, bloom: true,  lights: 4, label: 'Shadows 1024 · MSAA 2× · glow · 4 street lights' },
+  high:   { res: 1.0,  shadows: 2048, soft: false, msaa: 4, bloom: true,  lights: 8, label: 'Native resolution · shadows 2048 · MSAA 4× · 8 street lights' },
+  ultra:  { res: 1.0,  shadows: 4096, soft: true,  msaa: 8, bloom: true,  lights: 8, label: 'Max: soft shadows 4096 · MSAA 8× · native resolution' },
+};
+const S = {
+  quality: storageGet('sr3d_quality', 'high'),
+  res: storageGet('sr3d_res', 'preset'),          // 'preset' | '0.5' | '0.75' | '1'
+  fps: Number(storageGet('sr3d_fps', '0')) || 0,  // 0 = no limit (follows the display: 60/120/144 Hz)
+  showFps: storageGet('sr3d_showfps', '1') === '1',
+};
+if (!GFX[S.quality] && S.quality !== 'auto') S.quality = 'high';
+
+function applyGraphics() {
+  const preset = GFX[S.quality] || GFX.high;
+  const dpr = window.devicePixelRatio || 1;
+  // resolution
+  const frac = S.res === 'preset' ? preset.res : Number(S.res);
+  const pr = Math.min(3, Math.max(0.5, dpr * frac));
+  Q.max = Math.max(pr, Math.min(dpr, 2));
+  Q.min = Math.min(pr, Math.max(0.5, dpr * 0.5));
+  setQuality(pr);
+  // shadows
+  const want = preset.shadows;
+  moon.castShadow = want > 0;
+  if (want > 0 && moon.shadow.mapSize.x !== want) {
+    moon.shadow.mapSize.set(want, want);
+    if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; }
+  }
+  const type = preset.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.type !== type) {
+    renderer.shadowMap.type = type;
+    scene.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); });
+  }
+  // anti-aliasing (MSAA on the composer's render targets)
+  if (renderer.capabilities.isWebGL2) {
+    const samples = Math.min(preset.msaa, renderer.capabilities.maxSamples || 4);
+    for (const rt of [composer.renderTarget1, composer.renderTarget2]) {
+      if (rt.samples !== samples) { rt.samples = samples; rt.dispose(); }
+    }
+  }
+  bloom.enabled = preset.bloom;
+  world.setLampLightCount(preset.lights);
+  document.getElementById('fps').classList.toggle('hidden', !S.showFps);
+  renderSettings();
+}
+
+function renderSettings() {
+  document.querySelectorAll('[data-action=set]').forEach((b) => {
+    b.classList.toggle('on', String(S[b.dataset.key]) === b.dataset.val);
+  });
+  const preset = GFX[S.quality];
+  const el = document.getElementById('gfxInfo');
+  if (el) el.textContent = S.quality === 'auto'
+    ? 'Auto: lowers or raises resolution to hold your screen\'s refresh rate'
+    : `${preset.label} · render ${Math.round(Q.pr * 100) / 100}×`;
+}
+
+function setSetting(btn) {
+  const key = btn.dataset.key, val = btn.dataset.val;
+  if (key === 'fps') S.fps = Number(val);
+  else if (key === 'showFps') S.showFps = val === 'true';
+  else S[key] = val;
+  storageSet({ quality: 'sr3d_quality', res: 'sr3d_res', fps: 'sr3d_fps', showFps: 'sr3d_showfps' }[key],
+    key === 'showFps' ? (S.showFps ? 1 : 0) : S[key]);
+  applyGraphics();
+}
+
+let settingsFrom = 'menu';
+function openSettings() {
+  settingsFrom = G.mode === 'paused' ? 'pause' : 'menu';
+  ui.show('settings');
+  renderSettings();
+}
+function closeSettings() { ui.show(settingsFrom); }
 
 // ================================================================ Wi-Fi multiplayer
 const mp = new Multiplayer(scene, {
@@ -1172,8 +1254,12 @@ window.addEventListener('resize', onResize);
 
 // ---------------------------------------------------------------- main loop
 const clock = new THREE.Clock();
-function frame() {
+let lastFrameAt = 0;
+function frame(now = performance.now()) {
   requestAnimationFrame(frame);
+  // FPS limit (Settings): skip display refreshes until the next frame is due
+  if (S.fps > 0 && now - lastFrameAt < 1000 / S.fps - 1) return;
+  lastFrameAt = now;
   const raw = clock.getDelta();
   step(Math.min(raw, 1 / 20));
   composer.render();
@@ -1196,6 +1282,8 @@ function adaptQuality(raw) {
     ui.setFps(Math.round(Q.fpsFrames / Q.fpsTimer));
     Q.fpsFrames = 0; Q.fpsTimer = 0;
   }
+  // Only the AUTO graphics setting changes resolution by itself
+  if (S.quality !== 'auto') return;
   // Measure for 1.5 s, then adjust resolution
   Q.frames++; Q.time += raw; Q.best.push(raw);
   if (Q.time < 1.5) return;
@@ -1204,6 +1292,7 @@ function adaptQuality(raw) {
   const snapped = COMMON_HZ.reduce((p, c) => (Math.abs(c - fastHz) < Math.abs(p - fastHz) ? c : p), 60);
   Q.refresh = Math.max(Q.refresh, snapped);
   const fps = Q.frames / Q.time;
+  if (S.fps > 0) Q.refresh = Math.min(Q.refresh, S.fps);
   if (fps < 20) { Q.frames = 0; Q.time = 0; Q.best.length = 0; return; } // throttled/background tab, not a GPU limit
   let pr = Q.pr;
   if (fps < Q.refresh * 0.9 && Q.pr > Q.min) { pr = Math.max(Q.min, Q.pr - 0.1); Q.good = 0; }
@@ -1236,6 +1325,7 @@ function boot() {
   setPlayerCar(G.carIndex);
   if (TOUCH && storageGet(STORAGE.tilt, '0') === '1') setTilt(true).then(applyTiltUi);
   setupNative();
+  applyGraphics();
   document.getElementById('viewBtn').classList.toggle('active', G.view === 'cockpit');
 
   // Compile every shader up front so the first spawn doesn't stutter

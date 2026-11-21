@@ -286,6 +286,14 @@ kbd {
 .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { font-family: var(--display); font-size: 11px; letter-spacing: 0.12em; padding: 9px 12px; background: transparent; color: var(--muted); border: 0; cursor: pointer; }
 .seg button.on { background: var(--neon); color: #00121b; }
+.settings-card { width: min(600px, calc(100vw - 32px)); gap: 10px; }
+/* long cards (settings, multiplayer) scroll instead of being cut off on short screens */
+.card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.settings-card .seg button { padding: 9px 11px; }
+.card > * { flex-shrink: 0; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.set-row .seg { flex-wrap: wrap; }
+.set-info { font-size: 13px; line-height: 1.4; text-align: center; min-height: 18px; }
 .seg button:disabled { cursor: default; }
 .mp-results { list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: place; }
 .mp-results li { display: flex; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); font-family: var(--display); font-size: 14px; }
@@ -325,6 +333,11 @@ body.touch-mode .hud-hint { display: none; }
 }
 /* Phones in landscape: compact everything so the road stays visible */
 @media (max-height: 520px) {
+  #menu { justify-content: center; padding-bottom: 0; }
+  .menu-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .menu-buttons .btn { padding: 11px 18px; font-size: 14px; }
+  .logo-top { font-size: clamp(24px, 4.6vw, 40px) !important; }
+  .logo-chip { font-size: 14px; }
   .controls-help { display: none; }
   .menu-info { margin-top: 14px; }
   .info-chip { padding: 6px 10px; }

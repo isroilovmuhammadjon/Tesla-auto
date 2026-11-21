@@ -283,11 +283,16 @@ export class World {
     }
   }
 
+  // graphics setting: how many street lamps cast real light (hidden lights cost nothing)
+  setLampLightCount(n) {
+    this.lampLights.forEach((L, i) => { L.visible = i < n; });
+  }
+
   placeLampLights() {
     const near = this.lamps
       .filter((l) => l.position.z < 30 && l.position.z > -150)
       .sort((a, b) => Math.abs(a.position.z + 25) - Math.abs(b.position.z + 25));
-    this.lampLights.forEach((L, i) => {
+    this.lampLights.filter((L) => L.visible).forEach((L, i) => {
       const l = near[i];
       if (!l) { L.intensity = 0; return; }
       const s = Math.sign(l.position.x);

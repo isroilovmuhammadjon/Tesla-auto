@@ -51,6 +51,7 @@
         <button class="btn primary" data-action="play"><span>PLAY</span></button>
         <button class="btn" data-action="garage"><span>GARAGE</span></button>
         <button class="btn" data-action="mpOpen"><span>MULTIPLAYER</span></button>
+        <button class="btn" data-action="settings"><span>SETTINGS</span></button>
       </nav>
       <div class="menu-info">
         <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
@@ -95,6 +96,44 @@
       </div>
       <button id="selectBtn" class="btn primary wide" data-action="select"><span>SELECT CAR</span></button>
       <p class="muted hint-drag">Drag to rotate the camera · ← → to switch</p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="settings" class="screen dim">
+    <div class="card settings-card">
+      <h2 class="screen-title">SETTINGS</h2>
+      <div class="set-row"><span class="label">GRAPHICS</span>
+        <div class="seg">
+          <button data-action="set" data-key="quality" data-val="low">LOW</button>
+          <button data-action="set" data-key="quality" data-val="medium">MED</button>
+          <button data-action="set" data-key="quality" data-val="high">HIGH</button>
+          <button data-action="set" data-key="quality" data-val="ultra">ULTRA</button>
+          <button data-action="set" data-key="quality" data-val="auto">AUTO</button>
+        </div></div>
+      <p id="gfxInfo" class="muted set-info"></p>
+      <div class="set-row"><span class="label">RESOLUTION</span>
+        <div class="seg">
+          <button data-action="set" data-key="res" data-val="preset">BY PRESET</button>
+          <button data-action="set" data-key="res" data-val="0.5">50%</button>
+          <button data-action="set" data-key="res" data-val="0.75">75%</button>
+          <button data-action="set" data-key="res" data-val="1">100%</button>
+        </div></div>
+      <div class="set-row"><span class="label">FPS LIMIT</span>
+        <div class="seg">
+          <button data-action="set" data-key="fps" data-val="30">30</button>
+          <button data-action="set" data-key="fps" data-val="60">60</button>
+          <button data-action="set" data-key="fps" data-val="90">90</button>
+          <button data-action="set" data-key="fps" data-val="120">120</button>
+          <button data-action="set" data-key="fps" data-val="0">MAX</button>
+        </div></div>
+      <div class="set-row"><span class="label">SHOW FPS</span>
+        <div class="seg">
+          <button data-action="set" data-key="showFps" data-val="true">ON</button>
+          <button data-action="set" data-key="showFps" data-val="false">OFF</button>
+        </div></div>
+      <p class="muted set-info">Higher settings look better but use more battery. If the game stutters, lower GRAPHICS or RESOLUTION.</p>
+      <button class="btn primary wide" data-action="settingsBack"><span>DONE</span></button>
     </div>
   </section>
 
@@ -190,6 +229,7 @@
       <h2 class="screen-title">PAUSED</h2>
       <button class="btn primary wide" data-action="resume"><span>RESUME</span></button>
       <button class="btn wide touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
+      <button class="btn wide" data-action="settings"><span>SETTINGS</span></button>
       <button class="btn wide" data-action="restart"><span>RESTART</span></button>
       <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
     </div>
