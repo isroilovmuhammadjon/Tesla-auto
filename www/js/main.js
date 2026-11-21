@@ -19,6 +19,8 @@ import { Rival } from './rival.js';
 import { Powertrain } from './physics.js';
 import { Multiplayer } from './multiplayer.js';
 import { LocalRoom } from './lanroom.js';
+import { CityMode } from './city.js';
+import { setTrafficPalette } from './carModels.js';
 import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
 import { LANES } from './config.js';
 import { UI } from './ui.js';
@@ -77,6 +79,25 @@ scene.add(showLight, showLight.target, showRim);
 const world = new World(scene, renderer);
 const traffic = new Traffic(scene);
 const rival = new Rival(scene);
+// open-city free roam (TOSHKENT SHAHAR)
+const city = new CityMode(scene, {
+  getPlayer: () => player,
+  get pt() { return pt; },
+  input, tilt, camera, moon,
+  get audio() { return audio; },
+  get fx() { return fx; },
+  get ui() { return ui; },
+  get world() { return world; },
+  get lampLights() { return world.lampLights; },
+  mobile: MOBILE,
+  time: () => G.time,
+  getView: () => G.view,
+  setFov: (f, dt) => setFov(f, dt),
+  shake: (v) => { G.shake = Math.max(G.shake, v); },
+  shakeAmount: () => { G.shake *= 0.9; return G.shake; },
+  hud: (o) => ui.updateHud({ speedKmh: o.speedKmh, gear: o.gear, nitro: o.nitro, nitroActive: o.nitroActive,
+    score: o.distance, distance: o.distance, best: G.best, combo: 1, comboOn: false }),
+});
 traffic.extra = [rival];
 const fx = new Effects(scene);
 const audio = new AudioEngine();
@@ -175,6 +196,7 @@ function setPlayerCar(index) {
 
 // ---------------------------------------------------------------- mode changes
 function toMenu() {
+  if (G.inCity) leaveCity();
   G.mode = 'menu';
   rival.hide();
   player.setInterior(false);
@@ -261,8 +283,41 @@ function startRun(opts = {}) {
   }
 }
 
+function startCity() {
+  if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
+  if (player.def !== CARS[G.carIndex]) setPlayerCar(G.carIndex);
+  G.mp = null;
+  resetInput();
+  traffic.clear();
+  rival.hide();
+  fx.clear();
+  ui.show(null);
+  ui.setHud(true);
+  ui.setAltitude(null);
+  ui.countdown(null);
+  ui.setSpeedLines(0);
+  P.y = 0; P.fly = 0;
+  G.inCity = true;
+  G.mode = 'city';
+  G.shake = 0;
+  city.enter(CARS[G.carIndex]);
+  document.body.classList.toggle('touch-mode', TOUCH);
+  document.getElementById('touch').classList.toggle('hidden', !TOUCH);
+  audio.setMusicLevel(0.22);
+  ui.popup('TOSHKENT SHAHAR');
+}
+
+function leaveCity() {
+  city.exit();
+  G.inCity = false;
+  moon.position.set(-30, 60, 25);
+  moon.target.position.set(0, 0, -15);
+  setTrafficPalette(G.map);
+  player.group.position.set(P.x, 0, 0);
+}
+
 function pauseGame() {
-  if (G.mode !== 'playing' && G.mode !== 'countdown') return;
+  if (G.mode !== 'playing' && G.mode !== 'countdown' && G.mode !== 'city') return;
   G.pausedFrom = G.mode;
   G.mode = 'paused';
   resetInput();
@@ -833,13 +888,13 @@ function onKey(e) {
   switch (e.code) {
     case 'KeyP':
     case 'Escape':
-      if (G.mode === 'playing' || G.mode === 'countdown') pauseGame();
+      if (G.mode === 'playing' || G.mode === 'countdown' || G.mode === 'city') pauseGame();
       else if (G.mode === 'paused') resumeGame();
       else if (G.mode === 'garage') leaveGarage();
       else if (G.mode === 'mplobby' && !mp.connected && e.code === 'Escape') toMenu();
       break;
     case 'KeyM': toggleMute(); break;
-    case 'KeyC': if (G.mode === 'playing' || G.mode === 'countdown') toggleView(); break;
+    case 'KeyC': if (G.mode === 'playing' || G.mode === 'countdown' || G.mode === 'city') toggleView(); break;
     case 'Enter':
       if (G.mode === 'menu' || G.mode === 'gameover') { G.mp = null; startRun(); }
       else if (G.mode === 'mplobby' && !mp.connected) mpConnect();
@@ -859,7 +914,12 @@ const actions = {
   next: () => changeGarageCar(1),
   select: selectGarageCar,
   resume: resumeGame,
-  restart: () => { if (G.mp) { resumeGame(); respawnMp(); } else startRun(); },
+  restart: () => {
+    if (G.mp) { resumeGame(); respawnMp(); }
+    else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[G.carIndex]); }
+    else startRun();
+  },
+  city: () => startCity(),
   menu: () => {
     if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
     if (mp.connected) openMp(); else toMenu();
@@ -1371,7 +1431,7 @@ async function setupNative() {
   try { App = await getPlugin('App'); } catch (e) { App = null; }
   if (!App || !App.addListener) return;
   App.addListener('backButton', () => {
-    if (G.mode === 'playing' || G.mode === 'countdown') pauseGame();
+    if (G.mode === 'playing' || G.mode === 'countdown' || G.mode === 'city') pauseGame();
     else if (G.mode === 'paused') resumeGame();
     else if (G.mode === 'garage') leaveGarage();
     else if (G.mode === 'gameover' || G.mode === 'crashing') toMenu();
@@ -1480,6 +1540,7 @@ function step(dt) {
     case 'menu':
     case 'garage':
     case 'mplobby': updateShowcase(dt); break;
+    case 'city': city.update(dt); world.followCamera(camera); break;
     case 'countdown': updateCountdown(dt); break;
     case 'playing': updatePlaying(dt); break;
     case 'crashing': updateCrashing(dt); break;
@@ -1519,7 +1580,7 @@ function boot() {
 
 // expose a small debug handle for testing in the console
 window.__sr3d = {
-  G, P, traffic, rival, world, startRun, toMenu,
+  G, P, traffic, rival, world, city, startRun, startCity, toMenu,
   Q, setQuality,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
 };

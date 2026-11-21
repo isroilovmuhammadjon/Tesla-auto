@@ -79,6 +79,10 @@ export class World {
   constructor(scene, renderer, opts = {}) {
     this.scene = scene;
     this.opts = opts;
+    // everything of the highway lives in `root`, so the city mode can hide it in one go
+    // (sky, stars and the real street-light pool stay in the scene and are shared)
+    this.root = new THREE.Group();
+    scene.add(this.root);
     this.aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     this.time = 0;
     this.buildSky();
@@ -111,7 +115,7 @@ export class World {
     this.treeScale = Array.from({ length: this.treeRows.length * this.treesPerRow }, () => 0.75 + Math.random() * 0.35);
     this.treeJitter = Array.from({ length: this.treeRows.length * this.treesPerRow }, () => (Math.random() - 0.5) * 3);
     this.treePhase = 0;
-    this.scene.add(t.trunks, t.crowns);
+    this.root.add(t.trunks, t.crowns);
     // landmarks are built lazily and reused
     this.landmarkCache = new Map();
     this.activeLandmarks = [];
@@ -167,7 +171,7 @@ export class World {
       L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
       L.position.set(0, -1000, 0);
       this.landmarkCache.set(idx, L);
-      this.scene.add(L);
+      this.root.add(L);
     });
     const all = [...this.landmarkCache.values()];
     all.forEach((L) => { L.visible = true; });
@@ -182,7 +186,7 @@ export class World {
       L.userData.blinkers = [];
       L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
       this.landmarkCache.set(idx, L);
-      this.scene.add(L);
+      this.root.add(L);
     }
     const w = L.userData.width;
     const z = this.frontier[s] - w / 2;
@@ -239,7 +243,7 @@ export class World {
     this.studs.frustumCulled = false;
     this.nRef = nRef; this.nStud = nStud;
     this._m = new THREE.Matrix4();
-    this.scene.add(this.reflectors, this.studs);
+    this.root.add(this.reflectors, this.studs);
     this.updateSpeedCues(0);
   }
 
@@ -331,14 +335,14 @@ export class World {
     );
     ground.position.y = -0.05;
     ground.receiveShadow = true;
-    this.scene.add(ground);
+    this.root.add(ground);
 
     const walk = new THREE.MeshStandardMaterial({ color: 0x1a1d26, roughness: 0.85 });
     for (const s of [-1, 1]) {
       const sw = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, ROAD_LEN), walk);
       sw.position.set(s * 14, 0.12, ROAD_Z0 - ROAD_LEN / 2);
       sw.receiveShadow = true;
-      this.scene.add(sw);
+      this.root.add(sw);
     }
   }
 
@@ -352,7 +356,7 @@ export class World {
     const road = new THREE.Mesh(new THREE.PlaneGeometry(18, ROAD_LEN).rotateX(-Math.PI / 2), mat);
     road.position.set(0, 0, ROAD_Z0 - ROAD_LEN / 2);
     road.receiveShadow = true;
-    this.scene.add(road);
+    this.root.add(road);
     this.roadOffset = 0;
   }
 
@@ -366,7 +370,7 @@ export class World {
       b.receiveShadow = true;
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, ROAD_LEN), neon);
       strip.position.set(s * (BARRIER_X - 0.26), 0.78, ROAD_Z0 - ROAD_LEN / 2);
-      this.scene.add(b, strip);
+      this.root.add(b, strip);
     }
   }
 
@@ -409,7 +413,7 @@ export class World {
         }
         g.position.set(s * BARRIER_X, 0.9, 40 - i * spacing - (s > 0 ? spacing / 2 : 0));
         pool.position.y = -0.88;
-        this.scene.add(g);
+        this.root.add(g);
         this.lamps.push(g);
       }
     }
@@ -422,6 +426,10 @@ export class World {
       this.lampLights.push(L);
     }
   }
+
+  setVisible(on) { this.root.visible = on; }
+
+  followCamera(camera) { this.sky.position.copy(camera.position); this.stars.position.copy(camera.position); }
 
   // graphics setting: how many street lamps cast real light (hidden lights cost nothing)
   setLampLightCount(n) {
@@ -483,7 +491,7 @@ export class World {
     const antenna = new THREE.Mesh(this.boxGeo, new THREE.MeshStandardMaterial({ color: 0x222630 }));
     const beacon = new THREE.Mesh(this.boxGeo, this.redLight);
     group.add(mesh, neonV, neonH, antenna, beacon);
-    this.scene.add(group);
+    this.root.add(group);
     return { group, mesh, mat, tex, styleIndex, neonV, neonH, antenna, beacon, w: 10, d: 10, h: 20 };
   }
 
@@ -609,7 +617,7 @@ export class World {
       g.userData.sign = sign;
       g.userData.signIndex = i;
       g.position.z = -150 - i * 320;
-      this.scene.add(g);
+      this.root.add(g);
       this.gantries.push(g);
     }
   }

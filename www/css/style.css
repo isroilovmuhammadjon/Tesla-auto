@@ -206,6 +206,10 @@ kbd {
 .hud-score { font-family: var(--display); font-weight: 900; font-size: clamp(24px, 3.4vw, 36px); color: #fff; text-shadow: var(--glow); margin: 2px 0 6px; font-variant-numeric: tabular-nums; }
 .hud-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; font-family: var(--display); font-size: 13px; margin-top: 2px; }
 
+.minimap {
+  position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 140px); left: max(16px, env(safe-area-inset-left));
+  width: 160px; height: 160px; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
 .combo { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); font-family: var(--display); font-weight: 900; font-size: 18px; color: var(--pink); text-shadow: 0 0 14px rgba(255, 43, 214, 0.7); letter-spacing: 0.2em; opacity: 0; transition: opacity 0.3s; }
 .combo.on { opacity: 1; }
 #popups { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); width: 0; }
@@ -365,6 +369,7 @@ body.touch-mode .hud-hint { display: none; }
   .hud-tl { padding: 8px 12px; min-width: 150px; }
   .hud-score { font-size: 22px; margin: 0 0 2px; }
   .hud-row { font-size: 10px; }
+  .minimap { top: calc(max(16px, env(safe-area-inset-top)) + 104px); width: 104px; height: 104px; }
   .speedo { width: 130px; right: 12px; bottom: 12px; }
   body.touch-mode .speedo { width: 112px; top: 64px; bottom: auto; right: max(10px, env(safe-area-inset-right)); }
   .hud-speed { font-size: 26px; }
