@@ -1,4 +1,8 @@
-name: Deploy web game (GitHub Pages)
+name: Publish web game (gh-pages)
+
+# Copies www/ to the gh-pages branch on every push to main.
+# GitHub Pages serves that branch at https://<user>.github.io/<repo>/
+# (Settings -> Pages -> Source: Deploy from a branch -> gh-pages / root).
 
 on:
   push:
@@ -6,32 +10,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload the game (www/)
-        uses: actions/upload-pages-artifact@v3
         with:
-          path: www
+          fetch-depth: 0
 
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Push www/ to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git subtree split --prefix www -b gh-pages-build
+          git push -f origin gh-pages-build:gh-pages
