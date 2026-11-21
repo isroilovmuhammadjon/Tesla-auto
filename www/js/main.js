@@ -858,6 +858,7 @@ document.addEventListener('click', (e) => {
 // Unlock audio on the first interaction anywhere
 const unlock = () => audio.init();
 window.addEventListener('pointerdown', unlock);
+window.addEventListener('touchend', unlock);   // iOS unlocks Web Audio on touchend
 
 // Garage drag-to-rotate
 let dragX = null;
