@@ -151,7 +151,9 @@ export class CityMode {
     let nw = 0, ng = 0;
     const treeSpots = [];
     this.landmarks = [];
+    let curBlock = null;
     const addBuilding = (x, z, sx, sz, h, glass) => {
+      if (curBlock) curBlock.h = Math.max(curBlock.h, h + 0.2);
       const geo = new THREE.BoxGeometry(sx, h, sz).translate(x, h / 2 + 0.2, z);
       const uv = geo.attributes.uv;
       const lenFor = (face) => (face < 2 ? sz : face < 4 ? 0 : sx);
@@ -174,14 +176,17 @@ export class CityMode {
         const r = blockRect(i, j);
         const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
         const sxB = r.x1 - r.x0, szB = r.z1 - r.z0;
+        r.h = 1;                     // tallest thing in the block (updated below)
+        curBlock = r;
         this.blocks.push(r);
         m4.compose(new THREE.Vector3(cx, 0, cz), new THREE.Quaternion(), new THREE.Vector3(sxB, 1, szB));
         walks.setMatrixAt(nw++, m4);
         const sp = SPECIAL[`${i},${j}`] || {};
         // sidewalk trees along the block edges
-        for (let t = r.x0 + 6; t < r.x1 - 4; t += 20) { treeSpots.push([t, r.z0 + 2.2]); treeSpots.push([t, r.z1 - 2.2]); }
-        for (let t = r.z0 + 16; t < r.z1 - 14; t += 20) { treeSpots.push([r.x0 + 2.2, t]); treeSpots.push([r.x1 - 2.2, t]); }
+        for (let t = r.x0 + 6; t < r.x1 - 4; t += 20) { treeSpots.push([t, r.z0 + 3.6]); treeSpots.push([t, r.z1 - 3.6]); }
+        for (let t = r.z0 + 16; t < r.z1 - 14; t += 20) { treeSpots.push([r.x0 + 3.6, t]); treeSpots.push([r.x1 - 3.6, t]); }
         if (sp.park) {
+          r.h = 9;   // trees
           m4.compose(new THREE.Vector3(cx, 0.21, cz), new THREE.Quaternion(), new THREE.Vector3(sxB - 2 * SIDEWALK, 1, szB - 2 * SIDEWALK));
           grass.setMatrixAt(ng++, m4);
           for (let p = 0; p < 26; p++) {
@@ -196,6 +201,8 @@ export class CityMode {
           L.userData.blinkers = [];
           L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
           root.add(L);
+          L.updateMatrixWorld(true);
+          r.h = Math.max(r.h, new THREE.Box3().setFromObject(L).max.y);
           this.landmarks.push({ idx: sp.landmark, x: cx, z: cz, obj: L });
           continue;
         }
@@ -316,9 +323,11 @@ export class CityMode {
     setTrafficPalette('tashkent');
     const player = this.d.getPlayer();
     player.setInterior(false);
+    document.body.classList.remove('cockpit');
     this.state = {
       x: LANE[0], z: 250, yaw: 0, v: 0, steer: 0, nitro: 1, nitroOn: false, dist: 0, latV: 0,
       pitch: 0, pitchV: 0, roll: 0, rollV: 0, bumpCd: 0, spin: 0, def,
+      y: 0, vy: 0, altT: 0, fly: 0,                 // flying car (AERO ION)
     };
     this.camPos = new THREE.Vector3(LANE[0], 3, 258);
     this.camOff = null;
@@ -474,7 +483,8 @@ export class CityMode {
       const bi = Math.floor(px / B), bj = Math.floor(pz / B);
       for (let a = bi - 1; a <= bi + 1; a++) for (let b = bj - 1; b <= bj + 1; b++) {
         if (a < -K || a >= K || b < -K || b >= K) continue;
-        const r = blockRect(a, b);
+        const r = this.blocks[(a + K) * 2 * K + (b + K)];
+        if (s.y > r.h + 0.5) continue;                  // flying above this block
         const cx = Math.max(r.x0, Math.min(px, r.x1)), cz = Math.max(r.z0, Math.min(pz, r.z1));
         const dx = px - cx, dz = pz - cz, d = Math.hypot(dx, dz);
         if (d >= rad) continue;
@@ -497,6 +507,7 @@ export class CityMode {
     if (Math.abs(s.z) > lim) { s.z = Math.sign(s.z) * lim; s.v *= 0.5; }
     // traffic
     for (const c of this.cars) {
+      if (s.y > c.height + 0.3) continue;                // flying over the traffic
       if (Math.abs(c.x - s.x) > 14 || Math.abs(c.z - s.z) > 14) continue;
       const r = CityMode.obb(s.x, s.z, s.yaw, 0.95, 2.2, c.x, c.z, c.yaw, c.halfW, c.halfL);
       if (!r) continue;
@@ -535,6 +546,18 @@ export class CityMode {
       s.v = Math.max(-7, Math.min(0, s.v + a * dt));
       pt.rev(dt, input.down);
     }
+    // ---- flight (AERO ION): thrust holds a target altitude against gravity, like the race mode
+    if (def.flying) {
+      const lift = (input.rise ? 1 : 0) - (input.sink ? 1 : 0);
+      s.altT = Math.max(0, Math.min(80, s.altT + lift * 10 * dt));
+      const G = 9.81;
+      const thrust = G + Math.max(-G * 0.9, Math.min(14, (s.altT - s.y) * 5 - s.vy * 3.6));
+      const engaged = s.altT > 0.05 || s.y > 0.05;
+      s.vy += ((engaged ? thrust : 0) - G) * dt;
+      s.y += s.vy * dt;
+      if (s.y <= 0) { if (s.vy < -4) { d.audio.thud(-s.vy); d.shake(Math.min(1, -s.vy * 0.08)); } s.y = 0; s.vy = 0; }
+      s.fly += ((s.y > 0.12 || s.altT > 0.05 ? 1 : 0) - s.fly) * Math.min(1, dt * 3);
+    }
     // ---- steering (bicycle model) + small slide after crashes
     const yawRate = (s.v * Math.tan(s.steer)) / 2.6;
     s.yaw -= yawRate * dt;
@@ -555,10 +578,11 @@ export class CityMode {
     const latAcc = s.v * yawRate;
     s.rollV += ((Math.max(-0.08, Math.min(0.08, latAcc * 0.006)) - s.roll) * k - s.rollV * c) * dt;
     s.roll += s.rollV * dt;
-    player.group.position.set(s.x, 0, s.z);
-    player.group.rotation.set(0, s.yaw, 0);
-    player.body.rotation.set(s.pitch, 0, s.roll);
-    player.update(dt, Math.abs(s.v), steerIn * 0.8, input.down, s.nitroOn, d.time(), 0, 0);
+    player.group.position.set(s.x, s.y, s.z);
+    // in the air the car banks into turns and pitches with climb / descent
+    player.group.rotation.set(Math.max(-0.18, Math.min(0.18, s.vy * 0.03)) * s.fly, s.yaw, -yawRate * 0.35 * s.fly);
+    player.body.rotation.set(s.pitch, 0, s.roll * (1 - s.fly));
+    player.update(dt, Math.abs(s.v), steerIn * 0.8, input.down, s.nitroOn, d.time(), s.fly, s.y);
 
     // ---- light pool near the player + shadows follow the player
     this.lightTimer -= dt;
@@ -578,7 +602,8 @@ export class CityMode {
     const kmh = Math.abs(s.v) * 3.6;
     d.hud({ speedKmh: kmh, gear: s.v < -0.1 ? 'R' : s.v < 0.5 && !input.up ? 'N' : pt.gear, nitro: s.nitro, nitroActive: s.nitroOn, distance: s.dist, rpm: pt.rpm });
     d.ui.setInfo('KO\'CHA', this.streetName(s.x, s.z), 'win');
-    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90, nitro: s.nitroOn, electric: !!def.flying });
+    d.ui.setAltitude(def.flying ? s.y : null);
+    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90 + s.y * 0.004, nitro: s.nitroOn, electric: !!def.flying, hover: s.fly });
     this.drawMinimap();
   }
 
@@ -586,6 +611,7 @@ export class CityMode {
     const s = this.state, d = this.d, cam = d.camera, player = d.getPlayer();
     const cockpit = d.getView() === 'cockpit';
     player.setInterior(cockpit);
+    document.body.classList.toggle('cockpit', cockpit);
     const look = d.input.look;
     if (cockpit) {
       player.group.updateMatrixWorld(true);
@@ -606,13 +632,13 @@ export class CityMode {
     const back = (look ? -1 : 1) * (6.4 + sf * 1.4);
     // smooth the camera's OFFSET from the car (not its world position), so it never falls
     // behind at speed; the offset swings around smoothly when the car turns
-    const targetOff = new THREE.Vector3(-fx * back, 2.5 + sf * 0.3, -fz * back);
+    const targetOff = new THREE.Vector3(-fx * back * (1 + s.fly * 0.25), 2.5 + sf * 0.3 + s.fly * 0.8, -fz * back * (1 + s.fly * 0.25));
     if (!this.camOff || look !== this.lookWas) { this.camOff = targetOff.clone(); this.lookWas = look; }
     this.camOff.lerp(targetOff, 1 - Math.exp(-dt * 5));
-    this.camPos.set(s.x + this.camOff.x, this.camOff.y, s.z + this.camOff.z);
-    this.camLook.set(s.x + fx * 8 * (look ? -1 : 1), 1, s.z + fz * 8 * (look ? -1 : 1));
+    this.camPos.set(s.x + this.camOff.x, s.y + this.camOff.y, s.z + this.camOff.z);
+    this.camLook.set(s.x + fx * 8 * (look ? -1 : 1), s.y + 1, s.z + fz * 8 * (look ? -1 : 1));
     // keep the camera out of buildings: pull in if the camera point is inside a block
-    const pull = this.blocks.find((r) => this.camPos.x > r.x0 && this.camPos.x < r.x1 && this.camPos.z > r.z0 && this.camPos.z < r.z1);
+    const pull = this.blocks.find((r) => this.camPos.y < r.h && this.camPos.x > r.x0 && this.camPos.x < r.x1 && this.camPos.z > r.z0 && this.camPos.z < r.z1);
     if (pull) this.camPos.lerp(new THREE.Vector3(s.x, this.camPos.y + 0.5, s.z), 0.5);
     const shake = d.shakeAmount();
     cam.position.set(this.camPos.x + (Math.random() - 0.5) * shake * 0.3, this.camPos.y + (Math.random() - 0.5) * shake * 0.2, this.camPos.z);

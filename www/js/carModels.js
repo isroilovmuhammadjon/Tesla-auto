@@ -282,16 +282,16 @@ export function createSportsCar(def) {
     return m;
   };
   // dashboard: from the windshield base back towards the driver, top just below the window line
-  const dashTop = eye.y - 0.25;
-  const dashFront = zOf(0.85), dashBack = eye.z - 0.5;
+  const dashTop = eye.y - 0.33;
+  const dashFront = zOf(0.85), dashBack = eye.z - 0.6;
   const dashLen = dashBack - dashFront;
   const dash = new THREE.Mesh(new RoundedBoxGeometry(W * 0.86, 0.42, dashLen, 2, 0.05), imat.trim);
   dash.position.set(0, dashTop - 0.21, (dashFront + dashBack) / 2);
   const dashStrip = new THREE.Mesh(new THREE.BoxGeometry(W * 0.82, 0.006, 0.006), imat.accent);
   dashStrip.position.set(0, dashTop - 0.07, dashBack + 0.005);
   // instrument binnacle hood over the cluster
-  const binnacle = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.06, 0.2, 2, 0.025), imat.soft);
-  binnacle.position.set(eye.x, dashTop + 0.115, dashBack - 0.06);
+  const binnacle = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.035, 0.14, 2, 0.015), imat.soft);
+  binnacle.position.set(eye.x, dashTop + 0.09, dashBack - 0.04);
   // floor + centre console: nothing of the road shows through the cabin
   const floor = new THREE.Mesh(new THREE.BoxGeometry(W * 0.86, 0.04, 2.6), imat.soft);
   floor.position.set(0, 0.32, zOf(-0.2));
@@ -306,7 +306,7 @@ export function createSportsCar(def) {
     doorStrip.position.set(sx * (W * 0.43 - 0.03), beltY - 0.05, zOf(-0.35));
     interior.add(door, doorStrip);
     // A-pillars from the windshield base up to the roof
-    beam(new THREE.Vector3(sx * W * 0.39, beltY, zOf(0.82)), new THREE.Vector3(sx * W * 0.34, eye.y + 0.3, zOf(0.05)), 0.055, imat.soft);
+    beam(new THREE.Vector3(sx * W * 0.39, beltY, zOf(0.82)), new THREE.Vector3(sx * W * 0.34, eye.y + 0.3, zOf(0.05)), 0.03, imat.soft);
   }
   // roof lining and header above the windshield
   const roofLine = eye.y + 0.3;
@@ -315,11 +315,7 @@ export function createSportsCar(def) {
   const header = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.035, 0.1), imat.soft);
   header.position.set(0, roofLine, zOf(0.05));
   // small rear-view mirror with a light "glass" face
-  const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.055, 0.025, 2, 0.012), imat.trim);
-  mirror.position.set(0, roofLine - 0.07, zOf(0.15));
-  const mirrorGlass = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.04), new THREE.MeshBasicMaterial({ color: 0x3a4658 }));
-  mirrorGlass.position.set(0, roofLine - 0.07, zOf(0.15) + 0.014);
-  interior.add(mirrorGlass);
+
   // seats and rear bulkhead (seen when looking back)
   const seatMat = new THREE.MeshStandardMaterial({ color: 0x1b1d24, roughness: 0.9 });
   const rearBlockers = [];
@@ -333,10 +329,10 @@ export function createSportsCar(def) {
   const bulk = new THREE.Mesh(new THREE.BoxGeometry(W * 0.8, 0.5, 0.05), imat.soft);
   bulk.position.set(0, beltY - 0.1, zOf(-1.25));
   rearBlockers.push(bulk);
-  interior.add(roof, header, mirror, bulk);
+  interior.add(roof, header, bulk);
   // steering wheel (turns with steering input)
   const wheelPivot = new THREE.Group();
-  wheelPivot.position.set(eye.x, eye.y - 0.4, eye.z - 0.46);
+  wheelPivot.position.set(eye.x, eye.y - 0.56, eye.z - 0.55);
   wheelPivot.rotation.x = -0.38;
   const wheelSpin = new THREE.Group();
   wheelPivot.add(wheelSpin);
@@ -364,11 +360,11 @@ export function createSportsCar(def) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: tex, color: 0xb8c4d6 }));
     return { c, ctx: c.getContext('2d'), tex, mesh };
   };
-  const cluster = makeScreen(320, 128, 0.36, 0.144);
-  cluster.mesh.position.set(eye.x, dashTop + 0.035, dashBack - 0.012);
+  const cluster = makeScreen(320, 128, 0.26, 0.104);
+  cluster.mesh.position.set(eye.x, dashTop + 0.03, dashBack - 0.012);
   cluster.mesh.rotation.x = -0.12;
-  const centre = makeScreen(220, 140, 0.2, 0.127);
-  centre.mesh.position.set(0.12, dashTop - 0.12, dashBack - 0.012);
+  const centre = makeScreen(220, 140, 0.16, 0.1);
+  centre.mesh.position.set(0.12, dashTop - 0.08, dashBack - 0.012);
   centre.mesh.rotation.x = -0.1;
   interior.add(cluster.mesh, centre.mesh);
   body.add(interior);
