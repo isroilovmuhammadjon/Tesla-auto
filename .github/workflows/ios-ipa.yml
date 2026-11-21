@@ -12,21 +12,24 @@ permissions:
 
 jobs:
   ios:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 45
     env:
       IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: |
+          npm install --no-audit --no-fund
+          command -v pod >/dev/null || sudo gem install cocoapods --no-document
+          xcodebuild -version
 
       - name: Create iOS project
         run: |
@@ -39,6 +42,7 @@ jobs:
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
           mkdir -p dist Payload
           cp -R build/device/Build/Products/Release-iphoneos/App.app Payload/
@@ -49,7 +53,7 @@ jobs:
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim \
-            CODE_SIGNING_ALLOWED=NO build
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 CODE_SIGNING_ALLOWED=NO build
           ditto -c -k --keepParent build/sim/Build/Products/Release-iphonesimulator/App.app dist/StreetRacing3D-simulator.app.zip
 
       # Optional signed ad-hoc IPA (installs directly on registered iPhones). Add repository secrets:
@@ -83,6 +87,7 @@ jobs:
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath build/App.xcarchive archive \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE="$PROFILE_UUID"
           PB=/usr/libexec/PlistBuddy
