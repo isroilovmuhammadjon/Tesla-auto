@@ -11,6 +11,21 @@ ES modules need a local web server (opening `index.html` directly won't work):
 
 then open http://localhost:8765
 
+## Wi-Fi multiplayer (phones, laptops, iPhones together)
+1. On a laptop on the Wi-Fi run: `python3 server/mp_server.py` (no installs needed).
+   It prints addresses like `http://192.168.1.5:8080`.
+2. Laptops / phone browsers open that address. The Android / iOS app goes to
+   **MULTIPLAYER** and enters `192.168.1.5:8080`.
+3. The first player is the host and picks **FREE DRIVE** or **RACE** (2 / 5 / 10 km).
+   Other players appear as name-tagged ghost cars (no collisions, so lag never causes a crash);
+   crashing respawns you after a short penalty; a results table ends each race.
+
+## Build the iOS app (GitHub Actions)
+The workflow `.github/workflows/ios-ipa.yml` (macOS runner) produces the **StreetRacing3D-ios**
+artifact with `StreetRacing3D-unsigned.ipa` (sideload with AltStore / Sideloadly) and a
+Simulator build. Add `IOS_CERTIFICATE_P12_BASE64`, `IOS_CERTIFICATE_PASSWORD`,
+`IOS_PROVISIONING_PROFILE_BASE64` and `IOS_TEAM_ID` secrets to also get a signed ad-hoc IPA.
+
 ## Build the Android APK (GitHub Actions)
 1. Push this folder to a GitHub repository (branch `main` or `master`).
 2. The workflow `.github/workflows/android-apk.yml` runs automatically
@@ -48,6 +63,8 @@ launcher icon, and the Android back button pauses / goes back / exits.
 | Nitro | Space | N₂O |
 | Fly up / down (AERO ION) | E / Q (Shift / Ctrl) | ▲ ▼ |
 | Pause / mute | P or Esc / M | ❚❚ / ♪, Android back button |
+| Cockpit / chase camera | C | ◉ |
+| Look back | hold B | hold ↺ |
 
 ## Features
 - 8 cars, including the flying **AERO ION** (wheels fold into hover discs).
