@@ -3,6 +3,9 @@ name: Publish web game (gh-pages)
 # Copies www/ to the gh-pages branch on every push to main.
 # GitHub Pages serves that branch at https://<user>.github.io/<repo>/
 # (Settings -> Pages -> Source: Deploy from a branch -> gh-pages / root).
+#
+# Every JS/CSS URL gets ?v=<commit> so phones and browsers load the new
+# version right away instead of a cached old one.
 
 on:
   push:
@@ -22,12 +25,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
-      - name: Push www/ to gh-pages
+      - name: Build versioned copy of www/
         run: |
+          V="${GITHUB_SHA::8}"
+          rm -rf site && cp -r www site
+          # module imports: from './x.js'  ->  from './x.js?v=V'
+          sed -i -E "s#(from '\./[A-Za-z0-9_]+\.js)'#\1?v=${V}'#g" site/js/*.js
+          # page entry points
+          sed -i -E "s#src=\"js/main\.js\"#src=\"js/main.js?v=${V}\"#; s#href=\"css/style\.css\"#href=\"css/style.css?v=${V}\"#" site/index.html
+          grep -c "?v=${V}" site/index.html site/js/main.js
+
+      - name: Push to gh-pages
+        run: |
+          cd site
+          git init -q -b gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git subtree split --prefix www -b gh-pages-build
-          git push -f origin gh-pages-build:gh-pages
+          git add -A
+          git commit -q -m "Publish ${GITHUB_SHA::8}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
