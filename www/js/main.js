@@ -805,7 +805,7 @@ function updateCockpitCamera(dt) {
   // keep the chase camera parked nearby so switching back is smooth
   camBase.set(P.x * 0.85, P.y + 2.3, 6.2);
   camLook.set(P.x * 0.9, P.y + 0.9, -10);
-  setFov(70 + sf * 10 + P.nitroBlend * 6, dt);
+  setFov(60 + sf * 8 + P.nitroBlend * 4, dt);
   const extra = rival.active ? [`AI ${rival.lead > 0 ? '+' : '-'}${Math.round(Math.abs(rival.lead))} M`] : [];
   if (player.canFly) extra.push(`ALT ${P.y.toFixed(1)} M`);
   player.updateInterior((input.right ? 1 : 0) - (input.left ? 1 : 0) || (tilt.enabled ? tilt.axis : 0),

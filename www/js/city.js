@@ -595,7 +595,10 @@ export class CityMode {
       player.body.getWorldQuaternion(cam.quaternion);
       if (look) cam.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI));
       player.setLookBack(look);
-      d.setFov(70 + Math.min(1, Math.abs(s.v) / 60) * 10, dt);
+      // live dashboard + steering wheel in the city too
+      player.updateInterior(((d.input.right ? 1 : 0) - (d.input.left ? 1 : 0)) || (d.tilt.enabled ? d.tilt.axis : 0),
+        Math.abs(s.v) * 3.6, d.pt.rpm, s.v < -0.1 ? 'R' : d.pt.gear, s.nitro, [this.streetName(s.x, s.z).slice(0, 16)]);
+      d.setFov(60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
       this.camPos.copy(cam.position); this.camLook.set(s.x + fx * 10, 1, s.z + fz * 10);
       return;
     }

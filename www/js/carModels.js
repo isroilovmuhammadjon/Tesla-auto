@@ -174,7 +174,6 @@ export function createSportsCar(def) {
     body.add(hl, drl);
     // mirrors
     const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.11, 0.16, 2, 0.03), mats.body);
-    mirror.userData.keepInCockpit = true;
     mirror.position.set(sx * (W * 0.42 + 0.06), ys(0.95), -0.55 * st.sx + st.cabinShift);
     body.add(mirror);
     // exhausts
@@ -272,7 +271,7 @@ export function createSportsCar(def) {
     trim: new THREE.MeshStandardMaterial({ color: 0x15171d, roughness: 0.85, metalness: 0.1 }),
     soft: new THREE.MeshStandardMaterial({ color: 0x0c0d11, roughness: 0.95 }),
     metal: new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.3, metalness: 0.9 }),
-    accent: new THREE.MeshBasicMaterial({ color: new THREE.Color(def.accent).multiplyScalar(1.6) }),
+    accent: new THREE.MeshBasicMaterial({ color: new THREE.Color(def.accent).multiplyScalar(0.75) }),
   };
   const beam = (a, b, thick, mat) => {                                         // box stretched between two points
     const len = a.distanceTo(b);
@@ -288,11 +287,11 @@ export function createSportsCar(def) {
   const dashLen = dashBack - dashFront;
   const dash = new THREE.Mesh(new RoundedBoxGeometry(W * 0.86, 0.42, dashLen, 2, 0.05), imat.trim);
   dash.position.set(0, dashTop - 0.21, (dashFront + dashBack) / 2);
-  const dashStrip = new THREE.Mesh(new THREE.BoxGeometry(W * 0.82, 0.012, 0.012), imat.accent);
+  const dashStrip = new THREE.Mesh(new THREE.BoxGeometry(W * 0.82, 0.006, 0.006), imat.accent);
   dashStrip.position.set(0, dashTop - 0.07, dashBack + 0.005);
   // instrument binnacle hood over the cluster
   const binnacle = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.06, 0.2, 2, 0.025), imat.soft);
-  binnacle.position.set(eye.x, dashTop + 0.06, dashBack - 0.08);
+  binnacle.position.set(eye.x, dashTop + 0.115, dashBack - 0.06);
   // floor + centre console: nothing of the road shows through the cabin
   const floor = new THREE.Mesh(new THREE.BoxGeometry(W * 0.86, 0.04, 2.6), imat.soft);
   floor.position.set(0, 0.32, zOf(-0.2));
@@ -303,19 +302,24 @@ export function createSportsCar(def) {
   for (const sx of [-1, 1]) {
     const door = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 1.9), imat.soft);
     door.position.set(sx * (W * 0.43), beltY - 0.2, zOf(-0.35));
-    const doorStrip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 1.6), imat.accent);
+    const doorStrip = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.006, 1.6), imat.accent);
     doorStrip.position.set(sx * (W * 0.43 - 0.03), beltY - 0.05, zOf(-0.35));
     interior.add(door, doorStrip);
     // A-pillars from the windshield base up to the roof
-    beam(new THREE.Vector3(sx * W * 0.39, beltY, zOf(0.82)), new THREE.Vector3(sx * W * 0.33, roofY - 0.03, zOf(0.05)), 0.07, imat.soft);
+    beam(new THREE.Vector3(sx * W * 0.39, beltY, zOf(0.82)), new THREE.Vector3(sx * W * 0.34, eye.y + 0.3, zOf(0.05)), 0.055, imat.soft);
   }
   // roof lining and header above the windshield
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.03, 1.5), imat.soft);
-  roof.position.set(0, roofY - 0.03, zOf(-0.75));
-  const header = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.06, 0.12), imat.soft);
-  header.position.set(0, roofY - 0.045, zOf(0.05));
-  const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.07, 0.03, 2, 0.015), imat.trim);
-  mirror.position.set(0, roofY - 0.12, zOf(0.1));
+  const roofLine = eye.y + 0.3;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.02, 1.5), imat.soft);
+  roof.position.set(0, roofLine + 0.02, zOf(-0.75));
+  const header = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.035, 0.1), imat.soft);
+  header.position.set(0, roofLine, zOf(0.05));
+  // small rear-view mirror with a light "glass" face
+  const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.055, 0.025, 2, 0.012), imat.trim);
+  mirror.position.set(0, roofLine - 0.07, zOf(0.15));
+  const mirrorGlass = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.04), new THREE.MeshBasicMaterial({ color: 0x3a4658 }));
+  mirrorGlass.position.set(0, roofLine - 0.07, zOf(0.15) + 0.014);
+  interior.add(mirrorGlass);
   // seats and rear bulkhead (seen when looking back)
   const seatMat = new THREE.MeshStandardMaterial({ color: 0x1b1d24, roughness: 0.9 });
   const rearBlockers = [];
@@ -332,11 +336,11 @@ export function createSportsCar(def) {
   interior.add(roof, header, mirror, bulk);
   // steering wheel (turns with steering input)
   const wheelPivot = new THREE.Group();
-  wheelPivot.position.set(eye.x, eye.y - 0.33, eye.z - 0.4);
+  wheelPivot.position.set(eye.x, eye.y - 0.4, eye.z - 0.46);
   wheelPivot.rotation.x = -0.38;
   const wheelSpin = new THREE.Group();
   wheelPivot.add(wheelSpin);
-  wheelSpin.add(new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.024, 10, 40), imat.soft));
+  wheelSpin.add(new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.02, 10, 40), imat.soft));
   for (const a of [0, Math.PI * 0.5, Math.PI]) {
     const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.02), imat.trim);
     spoke.position.set(Math.cos(a + Math.PI) * 0.085 * (a === Math.PI * 0.5 ? 0 : 1), a === Math.PI * 0.5 ? -0.085 : 0, 0);
@@ -361,7 +365,7 @@ export function createSportsCar(def) {
     return { c, ctx: c.getContext('2d'), tex, mesh };
   };
   const cluster = makeScreen(320, 128, 0.36, 0.144);
-  cluster.mesh.position.set(eye.x, dashTop + 0.0, dashBack - 0.012);
+  cluster.mesh.position.set(eye.x, dashTop + 0.035, dashBack - 0.012);
   cluster.mesh.rotation.x = -0.12;
   const centre = makeScreen(220, 140, 0.2, 0.127);
   centre.mesh.position.set(0.12, dashTop - 0.12, dashBack - 0.012);
