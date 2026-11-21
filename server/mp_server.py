@@ -305,3 +305,10 @@ if __name__ == '__main__':
         asyncio.run(main(args.port))
     except KeyboardInterrupt:
         print('\n  Server stopped.')
+    except OSError as e:
+        if e.errno in (48, 98, 10048):   # address already in use (macOS / Linux / Windows)
+            print(f'\n  Port {args.port} is already in use — the server is probably running already')
+            print(f'  (another terminal?). Stop it with Ctrl+C there, or use another port:')
+            print(f'      python3 server/mp_server.py --port {args.port + 1}\n')
+            raise SystemExit(1)
+        raise
