@@ -1,0 +1,9 @@
+{
+  "appId": "com.streetracing3d.game",
+  "appName": "Street Racing 3D",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#05070f",
+    "allowMixedContent": false
+  }
+}

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05070f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Street Racing 3D</title>
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./lib/three/build/three.module.js",
+      "three/addons/": "./lib/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Screen-space overlays -->
+  <div id="vignette"></div>
+  <div id="speedlines"></div>
+  <div id="flash"></div>
+
+  <!-- Loading -->
+  <section id="loading" class="screen active">
+    <div class="logo small">
+      <span class="logo-top">STREET RACING</span><span class="logo-chip">3D</span>
+    </div>
+    <div class="loader"><div class="loader-bar"></div></div>
+    <p id="loadingText" class="loading-text">LOADING ENGINE…</p>
+  </section>
+
+  <!-- Main menu -->
+  <section id="menu" class="screen">
+    <div class="menu-shade"></div>
+    <div class="menu-panel">
+      <div class="logo">
+        <span class="logo-top">STREET RACING</span><span class="logo-chip">3D</span>
+      </div>
+      <p class="tagline">NIGHT CITY · ENDLESS HIGHWAY</p>
+      <nav class="menu-buttons">
+        <button class="btn primary" data-action="play"><span>PLAY</span></button>
+        <button class="btn" data-action="garage"><span>GARAGE</span></button>
+      </nav>
+      <div class="menu-info">
+        <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
+        <div class="info-chip"><span class="label">CAR</span><span id="menuCar">VOLT GT</span></div>
+        <button class="btn small ghost touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
+      </div>
+      <div class="controls-help">
+        <div><kbd>W</kbd><kbd>↑</kbd> Accelerate</div>
+        <div><kbd>S</kbd><kbd>↓</kbd> Brake</div>
+        <div><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd> Steer</div>
+        <div><kbd>SPACE</kbd> Nitro</div>
+        <div><kbd>E</kbd><kbd>Q</kbd> Fly up / down (AERO ION)</div>
+        <div><kbd>P</kbd> Pause · <kbd>M</kbd> Mute</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Garage -->
+  <section id="garage" class="screen">
+    <div class="garage-top">
+      <button class="btn ghost small" data-action="back"><span>← BACK</span></button>
+      <h2 class="screen-title">GARAGE</h2>
+      <span id="garageCount" class="garage-count">1 / 3</span>
+    </div>
+    <button class="arrow-btn left" data-action="prev" aria-label="Previous car">‹</button>
+    <button class="arrow-btn right" data-action="next" aria-label="Next car">›</button>
+    <div class="garage-panel">
+      <div class="garage-head">
+        <div>
+          <h3 id="garageName">VOLT GT</h3>
+          <p id="garageTag" class="muted">Balanced electric grand tourer</p>
+        </div>
+        <span id="garageBadge" class="badge">EQUIPPED</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="label">TOP SPEED</span><div class="stat-bar"><i id="statSpeed"></i></div><span id="statSpeedVal" class="stat-val">290</span></div>
+        <div class="stat"><span class="label">ACCELERATION</span><div class="stat-bar"><i id="statAccel"></i></div><span id="statAccelVal" class="stat-val">8</span></div>
+        <div class="stat"><span class="label">HANDLING</span><div class="stat-bar"><i id="statHandling"></i></div><span id="statHandlingVal" class="stat-val">8</span></div>
+        <div class="stat"><span class="label">NITRO</span><div class="stat-bar"><i id="statNitro"></i></div><span id="statNitroVal" class="stat-val">8</span></div>
+      </div>
+      <button id="selectBtn" class="btn primary wide" data-action="select"><span>SELECT CAR</span></button>
+      <p class="muted hint-drag">Drag to rotate the camera · ← → to switch</p>
+    </div>
+  </section>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl panel">
+      <span class="label">SCORE</span>
+      <div id="hudScore" class="hud-score">0</div>
+      <div class="hud-row"><span class="label">DISTANCE</span><span id="hudDist">0.00 KM</span></div>
+      <div class="hud-row"><span class="label">BEST</span><span id="hudBest">0</span></div>
+      <div id="altRow" class="hud-row hidden"><span class="label">ALTITUDE</span><span id="hudAlt">0 M</span></div>
+      <div id="rivalRow" class="hud-row rival-row hidden"><span class="label">AI RIVAL</span><span id="hudRival">0 M</span></div>
+    </div>
+    <div id="combo" class="combo"></div>
+    <div id="popups"></div>
+    <div class="speedo">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <linearGradient id="spdGrad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3d7bff"/>
+            <stop offset="70%" stop-color="#00d4ff"/>
+            <stop offset="100%" stop-color="#ff2bd6"/>
+          </linearGradient>
+        </defs>
+        <g id="speedoTicks"></g>
+        <circle class="spd-track" cx="100" cy="100" r="84"/>
+        <circle id="spdArc" class="spd-arc" cx="100" cy="100" r="84"/>
+      </svg>
+      <div class="speed-readout">
+        <div id="hudSpeed" class="hud-speed">0</div>
+        <div class="unit">KM/H</div>
+        <div class="gear">GEAR <b id="hudGear">N</b></div>
+      </div>
+      <div class="nitro">
+        <span class="label">NITRO</span>
+        <div class="nitro-bar"><i id="hudNitro"></i></div>
+      </div>
+    </div>
+    <div id="hudHint" class="hud-hint">W / ↑ accelerate · A D / ← → steer · SPACE nitro</div>
+  </div>
+
+  <div id="countdown" class="countdown"></div>
+
+  <!-- Top buttons -->
+  <div class="top-buttons">
+    <span id="fps" class="fps" title="Frames per second">-- FPS</span>
+    <button id="pauseBtn" class="icon-btn hidden" data-action="pause" aria-label="Pause">❚❚</button>
+    <button id="muteBtn" class="icon-btn" data-action="mute" aria-label="Toggle sound">♪</button>
+  </div>
+
+  <!-- Pause -->
+  <section id="pause" class="screen dim">
+    <div class="card">
+      <h2 class="screen-title">PAUSED</h2>
+      <button class="btn primary wide" data-action="resume"><span>RESUME</span></button>
+      <button class="btn wide touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
+      <button class="btn wide" data-action="restart"><span>RESTART</span></button>
+      <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
+    </div>
+  </section>
+
+  <!-- Game over -->
+  <section id="gameover" class="screen dim">
+    <div class="card">
+      <p class="eyebrow danger">CRASHED</p>
+      <h2 class="screen-title big">GAME OVER</h2>
+      <div id="newBest" class="new-best hidden">★ NEW BEST SCORE ★</div>
+      <div class="result-score"><span class="label">SCORE</span><span id="goScore">0</span></div>
+      <div class="results">
+        <div><span class="label">DISTANCE</span><b id="goDist">0 KM</b></div>
+        <div><span class="label">TOP SPEED</span><b id="goTop">0</b></div>
+        <div><span class="label">NEAR MISSES</span><b id="goNear">0</b></div>
+        <div><span class="label">BEST</span><b id="goBest">0</b></div>
+        <div id="goRivalBox" class="rival-result"><span class="label">VS AI RIVAL</span><b id="goRival">—</b></div>
+      </div>
+      <button class="btn primary wide" data-action="restart"><span>RESTART</span></button>
+      <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
+    </div>
+  </section>
+
+  <!-- Touch controls (shown on touch devices) -->
+  <div id="touch" class="touch hidden">
+    <div class="touch-left">
+      <button class="tbtn" data-key="left" aria-label="Steer left">◀</button>
+      <button class="tbtn" data-key="right" aria-label="Steer right">▶</button>
+      <div class="fly-btns">
+        <button class="tbtn fly" data-key="rise" aria-label="Fly up">▲</button>
+        <button class="tbtn fly" data-key="sink" aria-label="Fly down">▼</button>
+      </div>
+    </div>
+    <div class="touch-right">
+      <button class="tbtn nitro" data-key="nitro">N₂O</button>
+      <button class="tbtn brake" data-key="down">BRAKE</button>
+      <button class="tbtn gas" data-key="up">GAS</button>
+    </div>
+  </div>
+
+  <script>
+    // Fallback if the 3D engine fails to load (e.g. offline)
+    window.addEventListener('error', function (e) {
+      var t = document.getElementById('loadingText');
+      if (t && !window.__sr3dReady) t.textContent = 'ERROR: ' + (e.message || 'failed to load');
+    });
+    setTimeout(function () {
+      if (!window.__sr3dReady) {
+        var t = document.getElementById('loadingText');
+        if (t) t.textContent = 'STILL LOADING…';
+      }
+    }, 15000);
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
