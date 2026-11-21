@@ -17,6 +17,7 @@ if (!existsSync(app)) {
 const pkgDir = join(app, 'src/main/java/com/streetracing3d/game');
 mkdirSync(pkgDir, { recursive: true });
 cpSync(join(root, 'android-template/MainActivity.java'), join(pkgDir, 'MainActivity.java'));
+cpSync(join(root, 'android-template/LanHostPlugin.java'), join(pkgDir, 'LanHostPlugin.java'));
 
 // 2. Icon resources (overwrites the default adaptive icon definitions)
 cpSync(join(root, 'android-template/res'), join(app, 'src/main/res'), { recursive: true });

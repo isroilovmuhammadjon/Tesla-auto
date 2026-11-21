@@ -44,11 +44,12 @@ export class Multiplayer {
 
   get isHost() { return this.id !== null && this.id === this.hostId; }
 
+  // addr: "192.168.1.5:8080" for a Wi-Fi server, or a ready socket object for a room hosted on this phone
   connect(addr, name, car) {
     this.disconnect();
     return new Promise((resolve, reject) => {
       let ws;
-      try { ws = new WebSocket(wsUrlFrom(addr)); } catch (e) { reject(e); return; }
+      try { ws = typeof addr === 'object' && addr ? addr : new WebSocket(wsUrlFrom(addr)); } catch (e) { reject(e); return; }
       const timer = setTimeout(() => { try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('timeout')); }, 6000);
       ws.onopen = () => {
         clearTimeout(timer);

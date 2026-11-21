@@ -295,6 +295,26 @@ kbd {
 .set-row .seg { flex-wrap: wrap; }
 .set-info { font-size: 13px; line-height: 1.4; text-align: center; min-height: 18px; }
 .seg button:disabled { cursor: default; }
+.mp-rooms { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 34vh; overflow-y: auto; }
+.mp-rooms li button {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; cursor: pointer;
+  padding: 12px 14px; border-radius: 10px; text-align: left; color: var(--text);
+  background: rgba(0, 212, 255, 0.07); border: 1px solid var(--line); font-family: var(--display);
+}
+.mp-rooms li button:hover { background: rgba(0, 212, 255, 0.16); box-shadow: var(--glow); }
+.mp-rooms .room-name { font-size: 14px; font-weight: 700; }
+.mp-rooms .room-meta { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; margin-top: 4px; }
+.mp-rooms .room-join { font-size: 11px; color: #00121b; background: var(--neon); padding: 6px 10px; border-radius: 6px; letter-spacing: 0.15em; }
+.mp-rooms .empty { font-size: 13px; color: var(--muted); text-align: center; padding: 10px; border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 10px; }
+.scan-bar { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.scan-bar i { display: block; height: 100%; width: 0; background: var(--neon); transition: width 0.2s; }
+.mp-manual summary { cursor: pointer; padding: 6px 0; }
+.mp-manual-row { display: flex; gap: 8px; margin-top: 8px; }
+.mp-manual-row input {
+  flex: 1; min-width: 0; font-family: var(--display); font-size: 14px; color: var(--text); padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); border-radius: 8px; outline: none;
+  user-select: text; -webkit-user-select: text; touch-action: manipulation;
+}
 .mp-results { list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: place; }
 .mp-results li { display: flex; justify-content: space-between; padding: 10px 14px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); font-family: var(--display); font-size: 14px; }
 .mp-results li.me { border: 1px solid var(--neon); }

@@ -18,6 +18,8 @@ import { input, initInput, resetInput, isTouchDevice, tilt, setTilt, calibrateTi
 import { Rival } from './rival.js';
 import { Powertrain } from './physics.js';
 import { Multiplayer } from './multiplayer.js';
+import { LocalRoom } from './lanroom.js';
+import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
 import { LANES } from './config.js';
 import { UI } from './ui.js';
 
@@ -866,9 +868,12 @@ const actions = {
   settings: () => openSettings(),
   settingsBack: () => closeSettings(),
   set: (btn) => setSetting(btn),
-  mpBack: () => toMenu(),
+  mpBack: () => { stopScan(); toMenu(); },
   mpConnect: () => mpConnect(),
-  mpLeave: () => { mp.disconnect(); G.mp = null; renderMp(); },
+  mpJoinRoom: (btn) => mpConnect(btn.dataset.addr),
+  mpScan: () => startScan(),
+  mpHost: () => hostRoom(),
+  mpLeave: () => { mp.disconnect(); stopHosting(); G.mp = null; renderMp(); startScan(); },
   mpMode: (btn) => mp.send({ t: 'config', mode: btn.dataset.mode }),
   mpDist: (btn) => mp.send({ t: 'config', distance: Number(btn.dataset.dist) }),
   mpStart: () => {
@@ -997,8 +1002,9 @@ const mp = new Multiplayer(scene, {
   onResults: (m) => { if (m.mode === 'race') showMpResults(m.list); else if (G.mp) openMp(); },
   onDisconnect: () => {
     G.mp = null;
+    stopHosting();
     openMp();
-    setMpStatus('Disconnected from the server.', true);
+    setMpStatus('Disconnected from the room.', true);
   },
   onError: (msg) => setMpStatus(msg, true),
 });
@@ -1038,13 +1044,139 @@ function openMp() {
   if (!$id('mpName').value) $id('mpName').value = storageGet('sr3d_name', '') || `Racer${Math.floor(10 + Math.random() * 89)}`;
   if (!$id('mpAddr').value) $id('mpAddr').value = mpDefaultAddr();
   ui.show('mp');
+  renderHostButton();
   renderMp();
+  if (!mp.connected) startScan();
 }
 
-async function mpConnect() {
+// ---------- Wi-Fi room list
+let scanCtrl = null;
+G.rooms = [];
+G.scanning = false;
+
+function startScan() {
+  if (scanCtrl) scanCtrl.abort();
+  scanCtrl = new AbortController();
+  const ctrl = scanCtrl;
+  G.rooms = [];
+  G.scanning = true;
+  G.scanProgress = 0;
+  renderRooms();
+  scanRooms({
+    signal: ctrl.signal,
+    knownAddrs: [storageGet('sr3d_mp_addr', ''), G.mpAddr || ''],
+    onFound: (room) => { if (ctrl === scanCtrl) { G.rooms.push(room); renderRooms(); } },
+    onProgress: (p) => { if (ctrl === scanCtrl) { G.scanProgress = p; renderRooms(); } },
+  }).finally(() => { if (ctrl === scanCtrl) { G.scanning = false; renderRooms(); } });
+}
+
+function stopScan() { if (scanCtrl) { scanCtrl.abort(); scanCtrl = null; } G.scanning = false; }
+
+function renderRooms() {
+  const ul = $id('mpRooms');
+  if (!ul) return;
+  ul.innerHTML = '';
+  for (const r of G.rooms) {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.dataset.action = 'mpJoinRoom';
+    b.dataset.addr = r.addr;
+    const left = document.createElement('span');
+    const name = document.createElement('div');
+    name.className = 'room-name';
+    name.textContent = r.name || 'Room';
+    const meta = document.createElement('div');
+    meta.className = 'room-meta';
+    const what = r.mode === 'free' ? 'FREE DRIVE' : `RACE ${Math.round((r.distance || 3000) / 1000)} KM`;
+    const state = r.phase === 'racing' ? ' · RACING NOW' : r.phase === 'driving' ? ' · DRIVING NOW' : '';
+    meta.textContent = `${what} · ${r.players}/${r.max} PLAYERS${state} · ${r.host === 'localhost' ? 'this computer' : r.host}`;
+    left.append(name, meta);
+    const join = document.createElement('span');
+    join.className = 'room-join';
+    join.textContent = r.players >= r.max ? 'FULL' : 'JOIN';
+    b.append(left, join);
+    li.appendChild(b);
+    ul.appendChild(li);
+  }
+  if (G.scanning) {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="empty">Searching your Wi-Fi for rooms…<div class="scan-bar"><i></i></div></div>';
+    li.querySelector('.scan-bar i').style.width = Math.round((G.scanProgress || 0) * 100) + '%';
+    ul.appendChild(li);
+  } else if (!G.rooms.length) {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="empty"></div>';
+    li.firstChild.textContent = canHostOnThisDevice()
+      ? 'No rooms found on this Wi-Fi. Host one below, and your friends will see it here.'
+      : 'No rooms found on this Wi-Fi. Ask a friend with Android to host a room, or run python3 server/mp_server.py on a laptop.';
+    ul.appendChild(li);
+  }
+}
+
+function renderHostButton() {
+  const btn = $id('mpHostBtn');
+  const hint = $id('mpHostHint');
+  const can = canHostOnThisDevice();
+  btn.classList.toggle('hidden', !can);
+  hint.classList.toggle('hidden', can);
+  const plat = nativePlatform();
+  hint.textContent = plat === 'ios'
+    ? 'Hosting from an iPhone is coming soon. Join a room hosted on an Android phone or a laptop.'
+    : 'To host on this computer run: python3 server/mp_server.py — or host from the Android app. Everyone then picks the room from this list.';
+}
+
+// ---------- hosting a room on this phone (Android app)
+let host = null;   // { plugin, room, listeners }
+
+async function hostRoom() {
   const name = $id('mpName').value.trim() || 'Racer';
-  const addr = $id('mpAddr').value.trim();
+  storageSet('sr3d_name', name);
+  const plugin = await getPlugin('LanHost');
+  if (!plugin) { setMpStatus('Hosting needs the Android app (or a laptop running the server).', true); return; }
+  setMpStatus('Opening a room…');
+  stopScan();
+  let res;
+  try {
+    res = await plugin.start({ port: LAN_PORT });
+  } catch (e) {
+    setMpStatus('Could not open a room: ' + (e && e.message ? e.message : e), true);
+    return;
+  }
+  const room = new LocalRoom({
+    sendTo: (id, obj) => plugin.send({ id, text: JSON.stringify(obj) }),
+    broadcastAll: (obj, exclude) => plugin.broadcast({ exclude, text: JSON.stringify(obj) }),
+    onInfo: (info) => plugin.setInfo({ json: JSON.stringify(info) }),
+  });
+  const listeners = await Promise.all([
+    plugin.addListener('open', (e) => room.onOpen(e.id)),
+    plugin.addListener('message', (e) => { let m; try { m = JSON.parse(e.text); } catch (err) { return; } room.onMessage(e.id, m); }),
+    plugin.addListener('close', (e) => room.onClose(e.id)),
+  ]);
+  host = { plugin, room, listeners };
+  try {
+    await mp.connect(room.createLocalSocket(), name, G.carIndex);
+    G.mpAddr = res && res.ip ? `${res.ip}:${res.port || LAN_PORT}` : 'this phone';
+    setMpStatus('');
+    renderMp();
+  } catch (e) {
+    stopHosting();
+    setMpStatus('Could not start the room.', true);
+  }
+}
+
+function stopHosting() {
+  if (!host) return;
+  const h = host;
+  host = null;
+  h.listeners.forEach((l) => { try { l.remove(); } catch (e) { /* ignore */ } });
+  try { h.plugin.stop(); } catch (e) { /* ignore */ }
+}
+
+async function mpConnect(addrOverride) {
+  const name = $id('mpName').value.trim() || 'Racer';
+  const addr = (addrOverride || $id('mpAddr').value).trim();
   if (!addr) { setMpStatus('Enter the server address, e.g. 192.168.1.5:8080', true); return; }
+  stopScan();
   storageSet('sr3d_name', name);
   storageSet('sr3d_mp_addr', addr);
   setMpStatus('Connecting…');
@@ -1097,6 +1229,7 @@ function renderMp() {
     start.querySelector('span').textContent = 'END RACE';
     hint = 'A race is in progress — you will join the next one.';
   }
+  if (host && l.phase === 'lobby' && l.players.length < 2) hint = `Your room is open at ${G.mpAddr}. Friends on this Wi-Fi will see it in their room list.`;
   $id('mpLobbyHint').textContent = hint;
 }
 
@@ -1201,16 +1334,17 @@ function showMpResults(list) {
 }
 
 // Android back button / app switching (Capacitor native shell)
-function setupNative() {
+async function setupNative() {
   if (!NATIVE) return;
   let App = null;
-  try { App = window.Capacitor.Plugins?.App || window.Capacitor.registerPlugin?.('App'); } catch (e) { App = null; }
+  try { App = await getPlugin('App'); } catch (e) { App = null; }
   if (!App || !App.addListener) return;
   App.addListener('backButton', () => {
     if (G.mode === 'playing' || G.mode === 'countdown') pauseGame();
     else if (G.mode === 'paused') resumeGame();
     else if (G.mode === 'garage') leaveGarage();
     else if (G.mode === 'gameover' || G.mode === 'crashing') toMenu();
+    else if (G.mode === 'mplobby') { if (mp.connected) actions.mpLeave(); else { stopScan(); toMenu(); } }
     else if (App.exitApp) App.exitApp();
   });
   App.addListener('pause', () => pauseGame());

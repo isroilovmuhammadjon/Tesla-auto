@@ -131,6 +131,14 @@ class Room:
         await self.check_race_done()
         await self.broadcast(self.lobby())
 
+    def info(self):
+        joined = [p for p in self.players.values() if p.joined]
+        host = self.players.get(self.host_id)
+        return {'game': 'street-racing-3d',
+                'name': f"{host.name}'s room" if host else f'{socket.gethostname().split(".")[0]} (laptop)',
+                'mode': self.mode, 'distance': self.distance, 'phase': self.phase,
+                'players': len(joined), 'max': MAX_PLAYERS}
+
     def start_msg(self):
         return {'t': 'start', 'mode': self.mode, 'distance': self.distance, 'seed': random.randint(1, 2**31 - 1),
                 'order': [q.id for q in self.players.values() if q.joined]}
@@ -202,8 +210,22 @@ room = Room()
 
 
 # ----------------------------------------------------------------- HTTP + upgrade
-async def serve_file(writer, raw_path):
+CORS = (b'Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\n'
+        b'Access-Control-Allow-Headers: *\r\nAccess-Control-Allow-Private-Network: true\r\n')
+
+
+async def serve_file(writer, raw_path, method='GET'):
     path = urllib.parse.unquote(raw_path.split('?', 1)[0].split('#', 1)[0])
+    if method == 'OPTIONS':                       # CORS preflight from apps scanning the Wi-Fi
+        writer.write(b'HTTP/1.1 204 No Content\r\n' + CORS + b'Content-Length: 0\r\nConnection: close\r\n\r\n')
+        await writer.drain()
+        return
+    if path == '/info':                           # Wi-Fi room discovery
+        body = json.dumps(room.info()).encode()
+        writer.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\n' + CORS +
+                     b'Content-Length: %d\r\nConnection: close\r\n\r\n' % len(body) + body)
+        await writer.drain()
+        return
     if path.endswith('/'):
         path += 'index.html'
     full = os.path.realpath(os.path.join(WWW, path.lstrip('/')))
@@ -231,8 +253,8 @@ async def handle(reader, writer):
                 k, v = line.split(':', 1)
                 headers[k.strip().lower()] = v.strip()
         if headers.get('upgrade', '').lower() != 'websocket':
-            if method in ('GET', 'HEAD'):
-                await serve_file(writer, path)
+            if method in ('GET', 'HEAD', 'OPTIONS'):
+                await serve_file(writer, path, method)
             return
         key = headers.get('sec-websocket-key', '')
         accept = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()

@@ -31,6 +31,9 @@ jobs:
           command -v pod >/dev/null || sudo gem install cocoapods --no-document
           xcodebuild -version
 
+      - name: Bundle Capacitor JS core (lets the game call native plugins)
+        run: cp node_modules/@capacitor/core/dist/capacitor.js www/lib/capacitor-core.js && ls -la www/lib/capacitor-core.js || echo "capacitor.js not found - the game falls back to the native bridge"
+
       - name: Create iOS project
         run: |
           npx cap add ios

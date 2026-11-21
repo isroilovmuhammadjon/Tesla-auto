@@ -5,3 +5,4 @@ android/
 .DS_Store
 .claude/
 ios/
+www/lib/capacitor-core.js

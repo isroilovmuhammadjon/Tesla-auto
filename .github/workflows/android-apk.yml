@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Bundle Capacitor JS core (lets the game call native plugins)
+        run: cp node_modules/@capacitor/core/dist/capacitor.js www/lib/capacitor-core.js && ls -la www/lib/capacitor-core.js || echo "capacitor.js not found - the game falls back to the native bridge"
+
       - name: Create Android project
         run: |
           npx cap add android

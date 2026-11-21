@@ -142,12 +142,20 @@
     <div class="card mp-card">
       <h2 class="screen-title">MULTIPLAYER</h2>
       <div id="mpConnect" class="mp-section">
-        <p class="muted mp-help">All devices on the same Wi-Fi. On a laptop run
-          <code>python3 server/mp_server.py</code> and enter the address it prints.</p>
         <label class="field"><span class="label">YOUR NAME</span><input id="mpName" maxlength="16" autocomplete="off" spellcheck="false"></label>
-        <label class="field"><span class="label">SERVER ADDRESS</span><input id="mpAddr" placeholder="192.168.1.5:8080" autocomplete="off" spellcheck="false" inputmode="url"></label>
+        <div class="mp-row"><span class="label">ROOMS ON YOUR WI-FI</span>
+          <button class="btn small ghost" data-action="mpScan"><span>↻ SCAN</span></button></div>
+        <ul id="mpRooms" class="mp-rooms"></ul>
         <p id="mpStatus" class="mp-status"></p>
-        <button class="btn primary wide" data-action="mpConnect"><span>CONNECT</span></button>
+        <button id="mpHostBtn" class="btn primary wide" data-action="mpHost"><span>HOST A ROOM ON THIS PHONE</span></button>
+        <p id="mpHostHint" class="muted mp-help hidden"></p>
+        <details class="mp-manual">
+          <summary class="label">ENTER ADDRESS MANUALLY</summary>
+          <div class="mp-manual-row">
+            <input id="mpAddr" placeholder="192.168.1.5:8080" autocomplete="off" spellcheck="false" inputmode="url">
+            <button class="btn small" data-action="mpConnect"><span>JOIN</span></button>
+          </div>
+        </details>
         <button class="btn ghost wide" data-action="mpBack"><span>BACK</span></button>
       </div>
       <div id="mpLobby" class="mp-section hidden">
