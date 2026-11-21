@@ -53,6 +53,7 @@ export class UI {
   setHud(visible) {
     this.hud.classList.toggle('hidden', !visible);
     this.els.pauseBtn.classList.toggle('hidden', !visible);
+    document.querySelectorAll('.race-only').forEach((b) => b.classList.toggle('hidden', !visible));
   }
 
   setMuted(m) {

@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Street Racing 3D</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%2305070f%22/%3E%3Cpath d=%22M16 56 28 10M48 56 36 10%22 stroke=%22%2300d4ff%22 stroke-width=%225%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M22 42l10-8 10 8%22 stroke=%22%23ff2bd6%22 stroke-width=%226%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="fonts/fonts.css">
   <link rel="stylesheet" href="css/style.css">
   <!-- Polyfill: lets iOS < 16.4 (no native import maps) run the ES modules. No-op elsewhere. -->
@@ -61,6 +62,8 @@
         <div><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd> Steer</div>
         <div><kbd>SPACE</kbd> Nitro</div>
         <div><kbd>E</kbd><kbd>Q</kbd> Fly up / down (AERO ION)</div>
+        <div><kbd>C</kbd> Cockpit / chase camera</div>
+        <div><kbd>B</kbd> (hold) Look back</div>
         <div><kbd>P</kbd> Pause · <kbd>M</kbd> Mute</div>
       </div>
     </div>
@@ -137,6 +140,8 @@
   <!-- Top buttons -->
   <div class="top-buttons">
     <span id="fps" class="fps" title="Frames per second">-- FPS</span>
+    <button id="viewBtn" class="icon-btn race-only hidden" data-action="view" aria-label="Change camera (C)" title="Camera: chase / cockpit (C)">◉</button>
+    <button id="lookBtn" class="icon-btn race-only hidden" data-key="look" aria-label="Look back (hold B)" title="Look back (hold B)">↺</button>
     <button id="pauseBtn" class="icon-btn hidden" data-action="pause" aria-label="Pause">❚❚</button>
     <button id="muteBtn" class="icon-btn" data-action="mute" aria-label="Toggle sound">♪</button>
   </div>

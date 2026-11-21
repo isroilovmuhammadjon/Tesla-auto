@@ -142,10 +142,12 @@ export function createSportsCar(def) {
   body.add(cabin);
 
   // Racing stripes (track style)
+  const stripes = [];
   if (st.stripes) {
     const g = extrudeSide(bodyShape(st), 0.26, 0.02);
     for (const sx of [-0.2, 0.2]) {
       const stripe = new THREE.Mesh(g, mats.stripe);
+      stripes.push(stripe);
       stripe.scale.set(1, 1.012, 1.004);
       stripe.position.set(sx, -0.003, 0);
       body.add(stripe);
@@ -172,6 +174,7 @@ export function createSportsCar(def) {
     body.add(hl, drl);
     // mirrors
     const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.11, 0.16, 2, 0.03), mats.body);
+    mirror.userData.keepInCockpit = true;
     mirror.position.set(sx * (W * 0.42 + 0.06), ys(0.95), -0.55 * st.sx + st.cabinShift);
     body.add(mirror);
     // exhausts
@@ -255,6 +258,145 @@ export function createSportsCar(def) {
     barF.position.set(0, ys(0.66), -2.18 * st.sx);
     barF.rotation.x = -0.45;
     body.add(barF);
+  }
+
+  // ---------- Interior (only visible in cockpit view) ----------
+  const interior = new THREE.Group();
+  interior.visible = false;
+  const shift = st.cabinShift;
+  const beltY = ys(0.84);                                                    // window line
+  const roofY = BASE_Y + (0.84 - BASE_Y) * st.sy + (1.24 - 0.84) * st.cabinSy; // inside roof height
+  const zOf = (shapeX) => -(shapeX + shift) * st.sx;                           // cabin shape x -> body z
+  const eye = new THREE.Vector3(-0.38, roofY - 0.22, zOf(-0.3));               // driver's eyes (left-hand drive)
+  const imat = {
+    trim: new THREE.MeshStandardMaterial({ color: 0x15171d, roughness: 0.85, metalness: 0.1 }),
+    soft: new THREE.MeshStandardMaterial({ color: 0x0c0d11, roughness: 0.95 }),
+    metal: new THREE.MeshStandardMaterial({ color: 0x9aa0aa, roughness: 0.3, metalness: 0.9 }),
+    accent: new THREE.MeshBasicMaterial({ color: new THREE.Color(def.accent).multiplyScalar(1.6) }),
+  };
+  const beam = (a, b, thick, mat) => {                                         // box stretched between two points
+    const len = a.distanceTo(b);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(thick, thick, len), mat);
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.clone().sub(a).normalize());
+    interior.add(m);
+    return m;
+  };
+  // dashboard: from the windshield base back towards the driver, top just below the window line
+  const dashTop = eye.y - 0.25;
+  const dashFront = zOf(0.85), dashBack = eye.z - 0.5;
+  const dashLen = dashBack - dashFront;
+  const dash = new THREE.Mesh(new RoundedBoxGeometry(W * 0.86, 0.42, dashLen, 2, 0.05), imat.trim);
+  dash.position.set(0, dashTop - 0.21, (dashFront + dashBack) / 2);
+  const dashStrip = new THREE.Mesh(new THREE.BoxGeometry(W * 0.82, 0.012, 0.012), imat.accent);
+  dashStrip.position.set(0, dashTop - 0.07, dashBack + 0.005);
+  // instrument binnacle hood over the cluster
+  const binnacle = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.06, 0.2, 2, 0.025), imat.soft);
+  binnacle.position.set(eye.x, dashTop + 0.06, dashBack - 0.08);
+  // floor + centre console: nothing of the road shows through the cabin
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(W * 0.86, 0.04, 2.6), imat.soft);
+  floor.position.set(0, 0.32, zOf(-0.2));
+  const consoleBox = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.3, 1.1, 2, 0.04), imat.trim);
+  consoleBox.position.set(0, 0.5, zOf(-0.15));
+  interior.add(dash, dashStrip, binnacle, floor, consoleBox);
+  // doors
+  for (const sx of [-1, 1]) {
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 1.9), imat.soft);
+    door.position.set(sx * (W * 0.43), beltY - 0.2, zOf(-0.35));
+    const doorStrip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 1.6), imat.accent);
+    doorStrip.position.set(sx * (W * 0.43 - 0.03), beltY - 0.05, zOf(-0.35));
+    interior.add(door, doorStrip);
+    // A-pillars from the windshield base up to the roof
+    beam(new THREE.Vector3(sx * W * 0.39, beltY, zOf(0.82)), new THREE.Vector3(sx * W * 0.33, roofY - 0.03, zOf(0.05)), 0.07, imat.soft);
+  }
+  // roof lining and header above the windshield
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.03, 1.5), imat.soft);
+  roof.position.set(0, roofY - 0.03, zOf(-0.75));
+  const header = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.06, 0.12), imat.soft);
+  header.position.set(0, roofY - 0.045, zOf(0.05));
+  const mirror = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.07, 0.03, 2, 0.015), imat.trim);
+  mirror.position.set(0, roofY - 0.12, zOf(0.1));
+  // seats and rear bulkhead (seen when looking back)
+  const seatMat = new THREE.MeshStandardMaterial({ color: 0x1b1d24, roughness: 0.9 });
+  const rearBlockers = [];
+  for (const sx of [-0.38, 0.38]) {
+    const seat = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.75, 0.16, 2, 0.06), seatMat);
+    rearBlockers.push(seat);
+    seat.position.set(sx, beltY - 0.05, zOf(-0.62));
+    seat.rotation.x = 0.18;
+    interior.add(seat);
+  }
+  const bulk = new THREE.Mesh(new THREE.BoxGeometry(W * 0.8, 0.5, 0.05), imat.soft);
+  bulk.position.set(0, beltY - 0.1, zOf(-1.25));
+  rearBlockers.push(bulk);
+  interior.add(roof, header, mirror, bulk);
+  // steering wheel (turns with steering input)
+  const wheelPivot = new THREE.Group();
+  wheelPivot.position.set(eye.x, eye.y - 0.33, eye.z - 0.4);
+  wheelPivot.rotation.x = -0.38;
+  const wheelSpin = new THREE.Group();
+  wheelPivot.add(wheelSpin);
+  wheelSpin.add(new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.024, 10, 40), imat.soft));
+  for (const a of [0, Math.PI * 0.5, Math.PI]) {
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.025, 0.02), imat.trim);
+    spoke.position.set(Math.cos(a + Math.PI) * 0.085 * (a === Math.PI * 0.5 ? 0 : 1), a === Math.PI * 0.5 ? -0.085 : 0, 0);
+    if (a === Math.PI * 0.5) spoke.rotation.z = Math.PI / 2;
+    wheelSpin.add(spoke);
+  }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 18).rotateX(Math.PI / 2), imat.trim);
+  const topMark = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.025), imat.accent);
+  topMark.position.set(0, 0.17, 0.005);
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.3, 10).rotateX(Math.PI / 2), imat.trim);
+  column.position.set(0, 0, -0.16);
+  wheelSpin.add(hub, topMark);
+  wheelPivot.add(column);
+  interior.add(wheelPivot);
+  // live instrument cluster (canvas texture) + centre screen
+  const makeScreen = (w, h, pw, ph) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: tex, color: 0xb8c4d6 }));
+    return { c, ctx: c.getContext('2d'), tex, mesh };
+  };
+  const cluster = makeScreen(320, 128, 0.36, 0.144);
+  cluster.mesh.position.set(eye.x, dashTop + 0.0, dashBack - 0.012);
+  cluster.mesh.rotation.x = -0.12;
+  const centre = makeScreen(220, 140, 0.2, 0.127);
+  centre.mesh.position.set(0.12, dashTop - 0.12, dashBack - 0.012);
+  centre.mesh.rotation.x = -0.1;
+  interior.add(cluster.mesh, centre.mesh);
+  body.add(interior);
+  const accentCss = '#' + new THREE.Color(def.accent).getHexString();
+  let screenTick = 0;
+  function drawScreens(kmh, rpm, gear, nitro, extra) {
+    if ((screenTick = (screenTick + 1) % 3) !== 0) return; // ~20-40 updates/s is plenty
+    const g = cluster.ctx, W2 = 320, H2 = 128;
+    g.fillStyle = '#05070c'; g.fillRect(0, 0, W2, H2);
+    // rpm bar
+    const f = Math.min(1, Math.max(0, (rpm - 800) / 6800));
+    for (let i = 0; i < 30; i++) {
+      const on = i / 30 < f;
+      g.fillStyle = on ? (i > 24 ? '#ff3b5c' : i > 19 ? '#ffd166' : accentCss) : '#1a1f2b';
+      g.fillRect(14 + i * 9.8, 14, 7, 18);
+    }
+    g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 58px Orbitron, sans-serif'; g.fillText(String(Math.round(kmh)), 150, 76);
+    g.font = '14px Orbitron, sans-serif'; g.fillStyle = '#8aa0bf'; g.fillText('KM/H', 150, 112);
+    g.font = 'bold 40px Orbitron, sans-serif'; g.fillStyle = accentCss; g.fillText(String(gear), 272, 78);
+    g.font = '12px Orbitron, sans-serif'; g.fillStyle = '#8aa0bf'; g.fillText('GEAR', 272, 108);
+    g.fillText('RPM', 30, 50);
+    cluster.tex.needsUpdate = true;
+    const c2 = centre.ctx;
+    c2.fillStyle = '#05070c'; c2.fillRect(0, 0, 220, 140);
+    c2.fillStyle = '#8aa0bf'; c2.font = '13px Orbitron, sans-serif'; c2.textAlign = 'left';
+    c2.fillText('NITRO', 14, 26);
+    c2.fillStyle = '#1a1f2b'; c2.fillRect(14, 36, 192, 14);
+    c2.fillStyle = '#00d4ff'; c2.fillRect(14, 36, 192 * nitro, 14);
+    c2.fillStyle = '#e8f4ff'; c2.font = 'bold 15px Orbitron, sans-serif';
+    (extra || []).slice(0, 3).forEach((line, i) => c2.fillText(line, 14, 76 + i * 24));
+    centre.tex.needsUpdate = true;
   }
 
   // Raised ride height (rally): lift the whole shell, wheels stay on the road
@@ -342,6 +484,23 @@ export function createSportsCar(def) {
     group, body, wheels, flames, underglow, mats, def,
     halfLength: 2.3 * st.sx, width: W,
     canFly: !!st.hover,
+    eye, interior,
+    setInterior(on) {
+      interior.visible = on;
+      // the shell is one solid shape: hide it from inside so the dashboard is visible
+      // hide every exterior body part except the side mirrors (you see those from the driver's seat)
+      for (const c of body.children) {
+        if (c === interior || c.userData.keepInCockpit) continue;
+        c.visible = !on;
+      }
+      for (const s of stripes) s.visible = !on;
+    },
+    // looking back from the driver's seat: the seat backs would fill the view, so hide them
+    setLookBack(on) { for (const m of rearBlockers) m.visible = !on; },
+    updateInterior(steer, kmh, rpm, gear, nitro, extra) {
+      wheelSpin.rotation.z += (-steer * 1.7 - wheelSpin.rotation.z) * 0.25;
+      drawScreens(kmh, rpm, gear, nitro, extra);
+    },
     update(dt, speed, steer, braking, nitro, t, fly = 0, altitude = 0) {
       const rot = (speed * dt) / WHEEL_R * (1 - fly);
       for (const w of wheels) {
@@ -378,6 +537,8 @@ export function createSportsCar(def) {
       Object.values(mats).forEach((m) => m.dispose());
       glowMat.dispose(); outer.dispose(); inner.dispose(); beamMat.dispose(); brakeGlowMat.dispose();
       if (hoverMat) hoverMat.dispose();
+      Object.values(imat).forEach((m) => m.dispose()); seatMat.dispose();
+      cluster.tex.dispose(); centre.tex.dispose();
     },
   };
 }

@@ -127,6 +127,8 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 }
 .icon-btn:hover { background: rgba(0, 212, 255, 0.18); box-shadow: var(--glow); }
 .icon-btn.off { color: var(--muted); text-decoration: line-through; }
+.icon-btn.pressed, .icon-btn.active { background: rgba(0, 212, 255, 0.3); color: #fff; box-shadow: var(--glow); }
+body.cockpit .speedo { opacity: 0.35; }   /* the car's own dashboard shows speed in cockpit view */
 .top-buttons { position: fixed; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); z-index: 40; display: flex; gap: 10px; }
 .fps { align-self: center; font-family: var(--display); font-size: 10px; letter-spacing: 0.12em; color: var(--muted); padding: 6px 8px; border-radius: 6px; background: rgba(8, 14, 30, 0.6); border: 1px solid rgba(0, 212, 255, 0.15); font-variant-numeric: tabular-nums; min-width: 62px; text-align: center; }
 

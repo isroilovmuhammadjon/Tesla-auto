@@ -1,5 +1,5 @@
 // Keyboard + touch input.
-export const input = { left: false, right: false, up: false, down: false, nitro: false, rise: false, sink: false };
+export const input = { left: false, right: false, up: false, down: false, nitro: false, rise: false, sink: false, look: false };
 
 const KEYMAP = {
   ArrowLeft: 'left', KeyA: 'left',
@@ -9,6 +9,7 @@ const KEYMAP = {
   Space: 'nitro',
   KeyE: 'rise', ShiftLeft: 'rise', ShiftRight: 'rise', PageUp: 'rise',
   KeyQ: 'sink', ControlLeft: 'sink', ControlRight: 'sink', PageDown: 'sink',
+  KeyB: 'look',
 };
 
 export function resetInput() {
@@ -32,7 +33,7 @@ export function initInput(onKey) {
   window.addEventListener('blur', resetInput);
 
   // Touch buttons
-  document.querySelectorAll('.tbtn').forEach((btn) => {
+  document.querySelectorAll('[data-key]').forEach((btn) => {
     const key = btn.dataset.key;
     const down = (e) => { e.preventDefault(); input[key] = true; btn.classList.add('pressed'); btn.setPointerCapture?.(e.pointerId); };
     const up = (e) => { e.preventDefault(); input[key] = false; btn.classList.remove('pressed'); };

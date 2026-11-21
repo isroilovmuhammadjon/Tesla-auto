@@ -107,6 +107,8 @@ const G = {
   lastCount: 0,
   shake: 0,
   hintTimer: 0,
+  view: storageGet('sr3d_view', 'chase') === 'cockpit' ? 'cockpit' : 'chase',
+  lookWas: false,
 };
 const freshPlayer = () => ({
   x: 2, y: 0, vy: 0, altTarget: 0, fly: 0,
@@ -124,6 +126,8 @@ let headlight = null;
 const camBase = new THREE.Vector3().copy(camera.position);
 const camLook = new THREE.Vector3(0, 1, -8);
 const tmpV = new THREE.Vector3();
+const tmpL = new THREE.Vector3();
+const FLIP_Y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 function clampIndex(i) { return Number.isFinite(i) && i >= 0 && i < CARS.length ? i : 0; }
 
@@ -169,6 +173,8 @@ function setPlayerCar(index) {
 function toMenu() {
   G.mode = 'menu';
   rival.hide();
+  player.setInterior(false);
+  document.body.classList.remove('cockpit');
   resetInput();
   traffic.clear();
   fx.clear();
@@ -716,13 +722,49 @@ function fadeShowLights(dt) {
   showRim.intensity *= Math.exp(-dt * 4);
 }
 
+// Driver's-eye view from inside the car. Follows the body exactly (suspension pitch/roll included).
+function updateCockpitCamera(dt) {
+  const sf = Math.min(1, P.speed / 90);
+  player.group.updateMatrixWorld(true);
+  tmpV.copy(player.eye);
+  player.body.localToWorld(tmpV);
+  G.shake *= Math.exp(-dt * 3);
+  const s = (G.shake + sf * sf * 0.02 * (1 - P.fly)) * 0.25;  // engine/road vibration
+  const t = G.time;
+  camera.position.set(tmpV.x + Math.sin(t * 43.1) * s * 0.3, tmpV.y + Math.sin(t * 37.3) * s * 0.4, tmpV.z);
+  player.body.getWorldQuaternion(camera.quaternion);
+  if (input.look) camera.quaternion.multiply(FLIP_Y);
+  player.setLookBack(input.look);
+  // keep the chase camera parked nearby so switching back is smooth
+  camBase.set(P.x * 0.85, P.y + 2.3, 6.2);
+  camLook.set(P.x * 0.9, P.y + 0.9, -10);
+  setFov(70 + sf * 10 + P.nitroBlend * 6, dt);
+  const extra = rival.active ? [`AI ${rival.lead > 0 ? '+' : '-'}${Math.round(Math.abs(rival.lead))} M`] : [];
+  if (player.canFly) extra.push(`ALT ${P.y.toFixed(1)} M`);
+  player.updateInterior((input.right ? 1 : 0) - (input.left ? 1 : 0) || (tilt.enabled ? tilt.axis : 0),
+    P.speed * 3.6, P.rpm, P.gear, P.nitro, extra);
+}
+
+function toggleView() {
+  G.view = G.view === 'cockpit' ? 'chase' : 'cockpit';
+  storageSet('sr3d_view', G.view);
+  document.getElementById('viewBtn').classList.toggle('active', G.view === 'cockpit');
+  ui.popup(G.view === 'cockpit' ? 'COCKPIT VIEW' : 'CHASE VIEW');
+}
+
 function updateChaseCamera(dt, extraBack = 0) {
+  const cockpit = G.view === 'cockpit' && G.mode !== 'crashing' && G.mode !== 'gameover';
+  player.setInterior(cockpit);
+  document.body.classList.toggle('cockpit', cockpit);
+  if (cockpit) { updateCockpitCamera(dt); return; }
   const sf = Math.min(1, P.speed / 90);
   const nf = P.nitroBlend;
   const portrait = camera.aspect < 1 ? (1 - camera.aspect) * 4 : 0; // pull back on tall screens
   const x = P.x * 0.85;
   // lower and closer than before: nearby road detail streaming past is what sells the speed
-  const z = 5.9 + sf * 1.0 + nf * 0.8 + extraBack + portrait + P.fly * 1.2;
+  const back = input.look && G.mode !== 'crashing';           // look-back: camera swings in front of the car
+  const dist = 5.9 + sf * 1.0 + nf * 0.8 + extraBack + portrait + P.fly * 1.2;
+  const z = back ? -(dist - 0.4) : dist;
   let y = P.y + 2.2 + sf * 0.15 + extraBack * 0.5 + portrait * 0.4;
   // Never let the camera end up inside a vehicle: rise over anything that occupies the camera spot
   for (const c of traffic.active) {
@@ -731,8 +773,13 @@ function updateChaseCamera(dt, extraBack = 0) {
     }
   }
   tmpV.set(x, y, z);
-  camBase.lerp(tmpV, 1 - Math.exp(-dt * 7));
-  camLook.lerp(tmpV.set(P.x * 0.9, P.y + 0.9, -10), 1 - Math.exp(-dt * 9));
+  tmpL.set(P.x * 0.9, P.y + 0.9, back ? 14 : -10);
+  if (back !== G.lookWas) {                                    // cut instantly instead of flying through the car
+    camBase.copy(tmpV); camLook.copy(tmpL); G.lookWas = back;
+  } else {
+    camBase.lerp(tmpV, 1 - Math.exp(-dt * 7));
+    camLook.lerp(tmpL, 1 - Math.exp(-dt * 9));
+  }
 
   // Smooth shake (impacts, barrier scrapes, nitro) instead of random per-frame jitter
   G.shake *= Math.exp(-dt * 3);
@@ -779,6 +826,7 @@ function onKey(e) {
       else if (G.mode === 'garage') leaveGarage();
       break;
     case 'KeyM': toggleMute(); break;
+    case 'KeyC': if (G.mode === 'playing' || G.mode === 'countdown') toggleView(); break;
     case 'Enter':
       if (G.mode === 'menu' || G.mode === 'gameover') startRun();
       else if (G.mode === 'garage') selectGarageCar();
@@ -801,6 +849,7 @@ const actions = {
   menu: () => { if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex); toMenu(); },
   pause: () => (G.mode === 'paused' ? resumeGame() : pauseGame()),
   mute: toggleMute,
+  view: toggleView,
   tilt: async () => {
     const on = await setTilt(!tilt.enabled);
     storageSet(STORAGE.tilt, on ? 1 : 0);
@@ -944,6 +993,7 @@ function boot() {
   setPlayerCar(G.carIndex);
   if (TOUCH && storageGet(STORAGE.tilt, '0') === '1') setTilt(true).then(applyTiltUi);
   setupNative();
+  document.getElementById('viewBtn').classList.toggle('active', G.view === 'cockpit');
 
   // Compile every shader up front so the first spawn doesn't stutter
   const releaseWarm = traffic.prewarm(4);
