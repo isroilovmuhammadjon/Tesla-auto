@@ -17,6 +17,8 @@ import { AudioEngine } from './audio.js';
 import { input, initInput, resetInput, isTouchDevice, tilt, setTilt, calibrateTilt } from './input.js';
 import { Rival } from './rival.js';
 import { Powertrain } from './physics.js';
+import { Multiplayer } from './multiplayer.js';
+import { LANES } from './config.js';
 import { UI } from './ui.js';
 
 // ---------------------------------------------------------------- renderer
@@ -220,21 +222,22 @@ function leaveGarage() {
   toMenu();
 }
 
-function startRun() {
+// opts.lane: start lane x (multiplayer grid); opts.noRival: no AI rival (multiplayer)
+function startRun(opts = {}) {
   if (player.def !== CARS[G.carIndex]) setPlayerCar(G.carIndex);
   resetInput();
   traffic.clear();
   fx.clear();
   Object.assign(P, freshPlayer());
   pt.reset();
+  if (typeof opts.lane === 'number') P.x = opts.lane;
   player.group.position.set(P.x, 0, 0);
   player.group.rotation.set(0, 0, 0);
   player.body.rotation.set(0, 0, 0);
   player.body.position.y = 0;
   ui.setAltitude(player.canFly ? 0 : null);
-  rival.spawn(G.carIndex);
-  G.rivalAhead = false;
-  ui.setRival(0, rival.def.name);
+  if (opts.noRival) rival.hide();
+  else { rival.spawn(G.carIndex); G.rivalAhead = false; ui.setRival(0, rival.def.name); }
   camBase.set(P.x * 0.82, 2.6, 6.8);
   camLook.set(P.x, 1, -9);
   G.shake = 0;
@@ -368,13 +371,13 @@ function computeRpm(dt, throttle) {
 }
 
 function updateShowcase(dt) {
-  const target = G.mode === 'menu' ? 30 : 0;
+  const target = G.mode === 'garage' ? 0 : 30;
   P.speed += (target - P.speed) * (1 - Math.exp(-dt * 1.2));
   if (Math.abs(P.speed - target) < 0.05) P.speed = target;
   const dz = P.speed * dt;
   world.update(dz, camera, dt);
   fx.update(dt, dz);
-  const tx = G.mode === 'menu' ? 2 + Math.sin(G.time * 0.35) * 0.7 : 2;
+  const tx = G.mode === 'garage' ? 2 : 2 + Math.sin(G.time * 0.35) * 0.7;
   const prevX = P.x;
   P.x += (tx - P.x) * Math.min(1, dt * 1.5);
   const lat = (P.x - prevX) / Math.max(dt, 1e-4);
@@ -388,7 +391,7 @@ function updateShowcase(dt) {
 
   // Orbit camera
   let pos, look;
-  if (G.mode === 'menu') {
+  if (G.mode !== 'garage') {
     const a = G.time * 0.12 + 0.6;
     pos = tmpV.set(P.x + Math.sin(a) * 5.6, 1.9 + P.y + Math.sin(G.time * 0.3) * 0.5, Math.cos(a) * 8.5);
     look = new THREE.Vector3(P.x - 1.2, 0.8 + P.y, 0);
@@ -426,10 +429,12 @@ function updateCountdown(dt) {
     ui.countdown('GO!');
     audio.beep(true);
     G.mode = 'playing';
+    if (G.mp) G.mp.t0 = G.time;
     setTimeout(() => { if (G.mode === 'playing' || G.mode === 'paused') ui.countdown(null); }, 900);
   }
   world.update(0, camera, dt);
   rival.update(dt, P, traffic, G.time, false);
+  if (G.mp) { mp.update(dt, P.distance, G.time); mp.sendState(dt, mpState()); }
   if (tilt.enabled) calibrateTilt();            // whatever angle you hold the phone at = straight
   pt.rev(dt, input.up);
   P.rpm = pt.rpm; P.gear = 'N';
@@ -466,8 +471,9 @@ function applyBodyPose() {
 
 function updatePlaying(dt) {
   const def = CARS[G.carIndex];
-  const throttle = input.up;
-  const brake = input.down;
+  const finished = !!(G.mp && G.mp.finished);
+  const throttle = input.up && !finished;
+  const brake = input.down || (finished && P.speed > 12);
   const keySteer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
   const steer = keySteer !== 0 ? keySteer : (tilt.enabled ? tilt.axis : 0);
   P.bumpCooldown = Math.max(0, P.bumpCooldown - dt);
@@ -542,6 +548,7 @@ function updatePlaying(dt) {
   traffic.update(dt, P.speed, P.distance, G.time, true);
   rival.update(dt, P, traffic, G.time, true);
   trackRival();
+  if (G.mp) updateMpSession(dt);
   fx.update(dt, dz);
 
   checkCollisions();
@@ -696,7 +703,8 @@ function updateCrashing(dt) {
   audio.update({ rpm: 900, load: 0, engine: Math.max(0, 1 - crash.t), wind: P.speed / 90, scrape: grounded && P.speed > 6 });
   ui.setSpeedLines(0);
   pushHud();
-  if (crash.t > 2.8) gameOver();
+  if (G.mp) { mp.update(dt, P.distance, G.time); mp.sendState(dt, mpState()); }
+  if (crash.t > 2.8) { if (G.mp) respawnMp(); else gameOver(); }
 }
 
 function updateGameOver(dt) {
@@ -824,11 +832,13 @@ function onKey(e) {
       if (G.mode === 'playing' || G.mode === 'countdown') pauseGame();
       else if (G.mode === 'paused') resumeGame();
       else if (G.mode === 'garage') leaveGarage();
+      else if (G.mode === 'mplobby' && !mp.connected && e.code === 'Escape') toMenu();
       break;
     case 'KeyM': toggleMute(); break;
     case 'KeyC': if (G.mode === 'playing' || G.mode === 'countdown') toggleView(); break;
     case 'Enter':
-      if (G.mode === 'menu' || G.mode === 'gameover') startRun();
+      if (G.mode === 'menu' || G.mode === 'gameover') { G.mp = null; startRun(); }
+      else if (G.mode === 'mplobby' && !mp.connected) mpConnect();
       else if (G.mode === 'garage') selectGarageCar();
       break;
     case 'ArrowLeft': case 'KeyA': if (G.mode === 'garage') changeGarageCar(-1); break;
@@ -838,15 +848,31 @@ function onKey(e) {
 }
 
 const actions = {
-  play: startRun,
+  play: () => { G.mp = null; startRun(); },
   garage: toGarage,
   back: leaveGarage,
   prev: () => changeGarageCar(-1),
   next: () => changeGarageCar(1),
   select: selectGarageCar,
   resume: resumeGame,
-  restart: startRun,
-  menu: () => { if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex); toMenu(); },
+  restart: () => { if (G.mp) { resumeGame(); respawnMp(); } else startRun(); },
+  menu: () => {
+    if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
+    if (mp.connected) openMp(); else toMenu();
+  },
+  mpOpen: () => openMp(),
+  mpBack: () => toMenu(),
+  mpConnect: () => mpConnect(),
+  mpLeave: () => { mp.disconnect(); G.mp = null; renderMp(); },
+  mpMode: (btn) => mp.send({ t: 'config', mode: btn.dataset.mode }),
+  mpDist: (btn) => mp.send({ t: 'config', distance: Number(btn.dataset.dist) }),
+  mpStart: () => {
+    const l = mp.lobby;
+    if (l && l.phase === 'driving' && !mp.isHost) mp.send({ t: 'join' });
+    else if (l && l.phase !== 'lobby') mp.send({ t: 'end' });
+    else mp.send({ t: 'start' });
+  },
+  mpToLobby: () => openMp(),
   pause: () => (G.mode === 'paused' ? resumeGame() : pauseGame()),
   mute: toggleMute,
   view: toggleView,
@@ -876,6 +902,220 @@ function trackRival() {
   ui.setRival(lead, rival.def.name);
 }
 
+// ================================================================ Wi-Fi multiplayer
+const mp = new Multiplayer(scene, {
+  onLobby: () => { if (G.mode === 'mplobby') renderMp(); },
+  onStart: (m) => startMpSession(m),
+  onFinished: (m) => {
+    if (m.id !== mp.id && G.mp) ui.popup(`${m.name} FINISHED P${m.place}`);
+    if (m.id === mp.id && G.mp) G.mp.place = m.place;
+  },
+  onResults: (m) => { if (m.mode === 'race') showMpResults(m.list); else if (G.mp) openMp(); },
+  onDisconnect: () => {
+    G.mp = null;
+    openMp();
+    setMpStatus('Disconnected from the server.', true);
+  },
+  onError: (msg) => setMpStatus(msg, true),
+});
+G.mp = null;
+
+const $id = (id) => document.getElementById(id);
+const mpDefaultAddr = () => {
+  const saved = storageGet('sr3d_mp_addr', '');
+  if (saved) return saved;
+  // if this page was opened from the multiplayer server, that server is the room
+  return /^https?:$/.test(location.protocol) && location.host ? location.host : '';
+};
+
+function setMpStatus(text, err = false) {
+  const el = $id('mpStatus');
+  el.textContent = text;
+  el.classList.toggle('err', err);
+}
+
+function openMp() {
+  if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
+  G.mp = null;
+  G.mode = 'mplobby';
+  resetInput();
+  traffic.clear();
+  fx.clear();
+  rival.hide();
+  mp.clearRemotes();
+  player.setInterior(false);
+  player.group.rotation.set(0, 0, 0);
+  P.y = 0; P.fly = 0;
+  document.body.classList.remove('cockpit');
+  ui.setHud(false);
+  ui.countdown(null);
+  ui.setSpeedLines(0);
+  document.getElementById('touch').classList.add('hidden');
+  if (!$id('mpName').value) $id('mpName').value = storageGet('sr3d_name', '') || `Racer${Math.floor(10 + Math.random() * 89)}`;
+  if (!$id('mpAddr').value) $id('mpAddr').value = mpDefaultAddr();
+  ui.show('mp');
+  renderMp();
+}
+
+async function mpConnect() {
+  const name = $id('mpName').value.trim() || 'Racer';
+  const addr = $id('mpAddr').value.trim();
+  if (!addr) { setMpStatus('Enter the server address, e.g. 192.168.1.5:8080', true); return; }
+  storageSet('sr3d_name', name);
+  storageSet('sr3d_mp_addr', addr);
+  setMpStatus('Connecting…');
+  try {
+    await mp.connect(addr, name, G.carIndex);
+    G.mpAddr = addr;
+    setMpStatus('');
+    renderMp();
+  } catch (e) {
+    setMpStatus('Could not connect. Check the address, that the server is running, and that both devices are on the same Wi-Fi.', true);
+  }
+}
+
+function renderMp() {
+  const on = mp.connected;
+  $id('mpConnect').classList.toggle('hidden', on);
+  $id('mpLobby').classList.toggle('hidden', !on);
+  if (!on) return;
+  const l = mp.lobby || { players: [], phase: 'lobby', mode: 'race', distance: 3000 };
+  $id('mpRoomAddr').textContent = G.mpAddr || '';
+  $id('mpPlayers').innerHTML = '';
+  for (const p of l.players) {
+    const li = document.createElement('li');
+    if (p.id === mp.id) li.classList.add('me');
+    const name = document.createElement('span');
+    name.textContent = p.name + (p.id === mp.id ? ' (you)' : '');
+    if (p.id === l.hostId) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'HOST'; name.appendChild(t); }
+    const car = document.createElement('span');
+    car.className = 'car';
+    car.textContent = (CARS[p.car] || CARS[0]).name;
+    li.append(name, car);
+    $id('mpPlayers').appendChild(li);
+  }
+  const host = mp.isHost && l.phase === 'lobby';
+  document.querySelectorAll('[data-action=mpMode]').forEach((b) => { b.classList.toggle('on', b.dataset.mode === l.mode); b.disabled = !host; });
+  document.querySelectorAll('[data-action=mpDist]').forEach((b) => { b.classList.toggle('on', Number(b.dataset.dist) === l.distance); b.disabled = !host; });
+  $id('mpDistRow').classList.toggle('hidden', l.mode !== 'race');
+  const start = $id('mpStartBtn');
+  let hint = '';
+  if (l.phase === 'lobby') {
+    start.classList.toggle('hidden', !mp.isHost);
+    start.querySelector('span').textContent = l.mode === 'race' ? `START ${l.distance / 1000} KM RACE` : 'START FREE DRIVE';
+    hint = mp.isHost ? (l.players.length < 2 ? 'Waiting for friends to join… (you can also start alone)' : '') : 'Waiting for the host to start…';
+  } else if (l.phase === 'driving') {
+    start.classList.remove('hidden');
+    start.querySelector('span').textContent = mp.isHost ? 'END FREE DRIVE' : 'JOIN FREE DRIVE';
+    if (!mp.isHost) start.dataset.join = '1';
+  } else {
+    start.classList.toggle('hidden', !mp.isHost);
+    start.querySelector('span').textContent = 'END RACE';
+    hint = 'A race is in progress — you will join the next one.';
+  }
+  $id('mpLobbyHint').textContent = hint;
+}
+
+function startMpSession(m) {
+  G.mp = { mode: m.mode, distance: m.distance, finished: false, t0: null, place: null, synced: false };
+  const idx = Math.max(0, (m.order || []).indexOf(mp.id));
+  ui.show(null);
+  startRun({ lane: LANES[[2, 1, 3, 0][idx % 4]], noRival: true });
+  ui.setInfo(m.mode === 'race' ? 'POSITION' : 'PLAYERS', '—');
+  ui.popup(m.mode === 'race' ? `RACE · ${m.distance / 1000} KM` : 'FREE DRIVE');
+}
+
+// what other players need to draw our car
+function mpState() {
+  return {
+    d: P.distance, x: P.x, y: P.y, v: P.speed, yaw: player.group.rotation.y,
+    rx: G.mode === 'crashing' ? crash.rx : 0, rz: G.mode === 'crashing' ? crash.rz : 0,
+    brake: input.down, nitro: P.nitroActive, fly: P.fly, car: G.carIndex,
+  };
+}
+
+function updateMpSession(dt) {
+  mp.update(dt, P.distance, G.time);
+  mp.sendState(dt, mpState());
+  const others = mp.remoteDistances();
+  if (G.mp.mode === 'free') {
+    // late joiner in free drive: jump next to the group instead of starting kilometres behind
+    if (!G.mp.synced && others.length) {
+      G.mp.synced = true;
+      const lead = Math.max(...others.map((o) => o.d));
+      if (Math.abs(lead - P.distance) > 400) {
+        P.distance = Math.max(0, lead - 25);
+        traffic.clear();
+      }
+    }
+    ui.setInfo('PLAYERS', `${others.length + 1} ONLINE`, 'win');
+    return;
+  }
+  // race: position by distance, finish line at the chosen distance
+  const ahead = others.filter((o) => o.d > P.distance).length;
+  const left = Math.max(0, G.mp.distance - P.distance);
+  if (!G.mp.finished && P.distance >= G.mp.distance) {
+    G.mp.finished = true;
+    const time = G.mp.t0 === null ? 0 : G.time - G.mp.t0;
+    G.mp.time = time;
+    mp.send({ t: 'finish', time });
+    ui.popup(`FINISH! ${time.toFixed(2)} S`);
+    audio.nearMiss();
+  }
+  if (G.mp.finished) ui.setInfo('FINISHED', G.mp.place ? `P${G.mp.place}` : '…', 'win');
+  else ui.setInfo('POSITION', `P${ahead + 1}/${others.length + 1} · ${(left / 1000).toFixed(2)} KM`, ahead === 0 ? 'win' : 'lose');
+}
+
+// multiplayer crashes don't end the session: back on the road after a short penalty
+function respawnMp() {
+  for (const c of [...traffic.active]) {
+    if (Math.abs(c.z) < 70) { traffic.release(c); traffic.active.splice(traffic.active.indexOf(c), 1); }
+  }
+  P.speed = 0; P.latVel = 0; P.y = 0; P.vy = 0; P.altTarget = 0; P.fly = 0;
+  P.x = LANES.reduce((a, b) => (Math.abs(b - P.x) < Math.abs(a - P.x) ? b : a));
+  pt.reset();
+  player.group.position.set(P.x, 0, 0);
+  player.group.rotation.set(0, 0, 0);
+  player.body.rotation.set(0, 0, 0);
+  G.shake = 0;
+  G.mode = 'playing';
+  ui.setHud(true);
+  ui.popup('RESPAWN');
+  audio.setMusicLevel(0.26);
+}
+
+function showMpResults(list) {
+  const was = G.mp;
+  G.mp = null;
+  const players = (mp.lobby && mp.lobby.players) || [];
+  const ol = $id('mpResultList');
+  ol.innerHTML = '';
+  const done = new Set(list.map((f) => f.id));
+  for (const f of list) {
+    const li = document.createElement('li');
+    if (f.id === mp.id) li.classList.add('me');
+    li.innerHTML = '<span></span><span></span>';
+    li.children[0].textContent = `P${f.place}  ${f.name}`;
+    li.children[1].textContent = `${f.time.toFixed(2)} S`;
+    ol.appendChild(li);
+  }
+  for (const p of players) {
+    if (done.has(p.id)) continue;
+    const li = document.createElement('li');
+    li.className = 'dnf' + (p.id === mp.id ? ' me' : '');
+    li.innerHTML = '<span></span><span>DNF</span>';
+    li.children[0].textContent = p.name;
+    ol.appendChild(li);
+  }
+  const mine = list.find((f) => f.id === mp.id);
+  $id('mpResultTitle').textContent = mine ? (mine.place === 1 ? 'YOU WON!' : `P${mine.place}`) : 'RACE OVER';
+  G.mode = 'mplobby';
+  ui.setHud(false);
+  document.getElementById('touch').classList.add('hidden');
+  ui.show('mpResults');
+  if (was) audio.setMusicLevel(0.3);
+}
+
 // Android back button / app switching (Capacitor native shell)
 function setupNative() {
   if (!NATIVE) return;
@@ -899,7 +1139,7 @@ document.addEventListener('click', (e) => {
   const fn = actions[btn.dataset.action];
   if (fn) {
     if (btn.dataset.action !== 'mute') audio.click();
-    fn();
+    fn(btn);
     btn.blur();
   }
 });
@@ -975,7 +1215,8 @@ function step(dt) {
   G.time += dt;
   switch (G.mode) {
     case 'menu':
-    case 'garage': updateShowcase(dt); break;
+    case 'garage':
+    case 'mplobby': updateShowcase(dt); break;
     case 'countdown': updateCountdown(dt); break;
     case 'playing': updatePlaying(dt); break;
     case 'crashing': updateCrashing(dt); break;

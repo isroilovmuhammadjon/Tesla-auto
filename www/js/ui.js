@@ -10,7 +10,7 @@ const fmt = (n) => Math.floor(n).toLocaleString('en-US');
 
 export class UI {
   constructor() {
-    this.screens = ['loading', 'menu', 'garage', 'pause', 'gameover'].map($);
+    this.screens = ['loading', 'menu', 'garage', 'pause', 'gameover', 'mp', 'mpResults'].map($);
     this.hud = $('hud');
     this.els = {
       score: $('hudScore'), dist: $('hudDist'), best: $('hudBest'),
@@ -134,8 +134,17 @@ export class UI {
   }
 
   // lead > 0: the AI rival is ahead of you by `lead` metres
+  // generic info row in the score panel (AI rival gap, or race position in multiplayer)
+  setInfo(label, text, cls = '') {
+    this.els.rivalRow.classList.remove('hidden');
+    this.setText('infoLabel', this.els.rivalRow.firstElementChild, label);
+    this.setText('rival', this.els.rival, text);
+    if (this.last.rivalCls !== cls) { this.last.rivalCls = cls; this.els.rival.className = cls; }
+  }
+
   setRival(lead, name) {
     this.els.rivalRow.classList.remove('hidden');
+    this.setText('infoLabel', this.els.rivalRow.firstElementChild, 'AI RIVAL');
     const m = Math.round(Math.abs(lead));
     const txt = lead > 0 ? `▼ ${m} M` : `▲ ${m} M`;
     this.setText('rival', this.els.rival, txt);

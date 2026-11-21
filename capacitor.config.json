@@ -5,5 +5,9 @@
   "android": {
     "backgroundColor": "#05070f",
     "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
   }
 }

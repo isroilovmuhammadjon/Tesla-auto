@@ -19,6 +19,12 @@ export function resetInput() {
 
 export function initInput(onKey) {
   window.addEventListener('keydown', (e) => {
+    // typing in a text field (multiplayer name / address) must not drive the car
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') {
+      if (!e.repeat && (e.code === 'Enter' || e.code === 'Escape')) onKey(e);
+      return;
+    }
     const k = KEYMAP[e.code];
     if (k) {
       input[k] = true;

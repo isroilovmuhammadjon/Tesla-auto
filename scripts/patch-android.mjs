@@ -27,6 +27,10 @@ let manifest = readFileSync(manifestPath, 'utf8');
 if (!manifest.includes('android:hardwareAccelerated')) {
   manifest = manifest.replace('<application', '<application\n        android:hardwareAccelerated="true"');
 }
+// Wi-Fi multiplayer talks to a server on the local network over plain ws://
+if (!manifest.includes('android:usesCleartextTraffic')) {
+  manifest = manifest.replace('<application', '<application\n        android:usesCleartextTraffic="true"');
+}
 writeFileSync(manifestPath, manifest);
 
 // 4. Release signing from env vars (KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)

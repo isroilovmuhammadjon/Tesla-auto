@@ -50,6 +50,7 @@
       <nav class="menu-buttons">
         <button class="btn primary" data-action="play"><span>PLAY</span></button>
         <button class="btn" data-action="garage"><span>GARAGE</span></button>
+        <button class="btn" data-action="mpOpen"><span>MULTIPLAYER</span></button>
       </nav>
       <div class="menu-info">
         <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
@@ -94,6 +95,43 @@
       </div>
       <button id="selectBtn" class="btn primary wide" data-action="select"><span>SELECT CAR</span></button>
       <p class="muted hint-drag">Drag to rotate the camera · ← → to switch</p>
+    </div>
+  </section>
+
+  <!-- Multiplayer: connect + lobby -->
+  <section id="mp" class="screen dim">
+    <div class="card mp-card">
+      <h2 class="screen-title">MULTIPLAYER</h2>
+      <div id="mpConnect" class="mp-section">
+        <p class="muted mp-help">All devices on the same Wi-Fi. On a laptop run
+          <code>python3 server/mp_server.py</code> and enter the address it prints.</p>
+        <label class="field"><span class="label">YOUR NAME</span><input id="mpName" maxlength="16" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span class="label">SERVER ADDRESS</span><input id="mpAddr" placeholder="192.168.1.5:8080" autocomplete="off" spellcheck="false" inputmode="url"></label>
+        <p id="mpStatus" class="mp-status"></p>
+        <button class="btn primary wide" data-action="mpConnect"><span>CONNECT</span></button>
+        <button class="btn ghost wide" data-action="mpBack"><span>BACK</span></button>
+      </div>
+      <div id="mpLobby" class="mp-section hidden">
+        <div class="mp-row"><span class="label">ROOM</span><span id="mpRoomAddr" class="mp-addr"></span></div>
+        <ul id="mpPlayers" class="mp-players"></ul>
+        <div class="mp-row"><span class="label">MODE</span>
+          <div class="seg"><button data-action="mpMode" data-mode="free">FREE DRIVE</button><button data-action="mpMode" data-mode="race">RACE</button></div></div>
+        <div id="mpDistRow" class="mp-row"><span class="label">DISTANCE</span>
+          <div class="seg"><button data-action="mpDist" data-dist="2000">2 KM</button><button data-action="mpDist" data-dist="5000">5 KM</button><button data-action="mpDist" data-dist="10000">10 KM</button></div></div>
+        <p id="mpLobbyHint" class="mp-status"></p>
+        <button id="mpStartBtn" class="btn primary wide" data-action="mpStart"><span>START</span></button>
+        <button class="btn ghost wide" data-action="mpLeave"><span>LEAVE ROOM</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Multiplayer results -->
+  <section id="mpResults" class="screen dim">
+    <div class="card">
+      <p class="eyebrow">RACE RESULTS</p>
+      <h2 id="mpResultTitle" class="screen-title big">FINISHED</h2>
+      <ol id="mpResultList" class="mp-results"></ol>
+      <button class="btn primary wide" data-action="mpToLobby"><span>BACK TO ROOM</span></button>
     </div>
   </section>
 

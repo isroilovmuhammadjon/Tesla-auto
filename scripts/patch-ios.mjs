@@ -17,7 +17,7 @@ if (!existsSync(app)) {
 const plistPath = join(app, 'Info.plist');
 let plist = readFileSync(plistPath, 'utf8');
 function setKey(key, valueXml) {
-  const re = new RegExp(`\\s*<key>${key}</key>\\s*(<true\\s*/>|<false\\s*/>|<string>[\\s\\S]*?</string>|<array>[\\s\\S]*?</array>)`);
+  const re = new RegExp(`\\s*<key>${key}</key>\\s*(<true\\s*/>|<false\\s*/>|<string>[\\s\\S]*?</string>|<array>[\\s\\S]*?</array>|<dict>[\\s\\S]*?</dict>)`);
   plist = plist.replace(re, '');
   const end = plist.lastIndexOf('</dict>');
   plist = `${plist.slice(0, end)}\t<key>${key}</key>\n\t${valueXml}\n${plist.slice(end)}`;
@@ -30,6 +30,8 @@ setKey('UISupportedInterfaceOrientations', orientations);
 setKey('UISupportedInterfaceOrientations~ipad', orientations.replace('</array>', '\t<string>UIInterfaceOrientationPortraitUpsideDown</string>\n\t</array>'));
 setKey('NSLocalNetworkUsageDescription', '<string>Street Racing 3D connects to other players on your Wi-Fi for multiplayer races.</string>');
 setKey('NSMotionUsageDescription', '<string>Tilt your phone to steer the car.</string>');
+// allow plain ws:// / http:// to the multiplayer server on the local Wi-Fi
+setKey('NSAppTransportSecurity', '<dict>\n\t\t<key>NSAllowsLocalNetworking</key>\n\t\t<true/>\n\t\t<key>NSAllowsArbitraryLoads</key>\n\t\t<true/>\n\t</dict>');
 writeFileSync(plistPath, plist);
 
 // ---- AppDelegate: keep the screen on
