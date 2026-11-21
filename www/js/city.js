@@ -282,6 +282,7 @@ export class CityMode {
     this.lightTimer = 0;
 
     // ---- minimap (static part drawn once)
+    this.maxAlt = Math.max(120, ...this.blocks.map((r) => r.h)) + 40;   // flying ceiling: above the tallest landmark
     this.buildMinimap();
   }
 
@@ -465,6 +466,14 @@ export class CityMode {
     return best;
   }
 
+  // tallest thing standing at (x, z): 0 on streets
+  heightAt(x, z) {
+    const bi = Math.floor(x / B), bj = Math.floor(z / B);
+    if (bi < -K || bi >= K || bj < -K || bj >= K) return 0;
+    const r = this.blocks[(bi + K) * 2 * K + (bj + K)];
+    return (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) ? r.h : 0;
+  }
+
   collide(dt) {
     const s = this.state, fx = this.d.fx, audio = this.d.audio;
     s.bumpCd = Math.max(0, s.bumpCd - dt);
@@ -484,7 +493,7 @@ export class CityMode {
       for (let a = bi - 1; a <= bi + 1; a++) for (let b = bj - 1; b <= bj + 1; b++) {
         if (a < -K || a >= K || b < -K || b >= K) continue;
         const r = this.blocks[(a + K) * 2 * K + (b + K)];
-        if (s.y > r.h + 0.5) continue;                  // flying above this block
+        if (s.y > r.h + 0.5 || (s.def.flying && (s.altT > 0.05 || s.y > 0.3))) continue;   // flying: never hits buildings
         const cx = Math.max(r.x0, Math.min(px, r.x1)), cz = Math.max(r.z0, Math.min(pz, r.z1));
         const dx = px - cx, dz = pz - cz, d = Math.hypot(dx, dz);
         if (d >= rad) continue;
@@ -549,12 +558,31 @@ export class CityMode {
     // ---- flight (AERO ION): thrust holds a target altitude against gravity, like the race mode
     if (def.flying) {
       const lift = (input.rise ? 1 : 0) - (input.sink ? 1 : 0);
-      s.altT = Math.max(0, Math.min(80, s.altT + lift * 10 * dt));
+      const maxAlt = this.maxAlt || 200;
+      s.altT = Math.max(0, Math.min(maxAlt, s.altT + lift * (s.altT > 60 ? 22 : 12) * dt));
+      // full flight: once airborne the car never hits buildings — it climbs over them on its own
+      let floor = 0;
+      if (s.altT > 0.05 || s.y > 0.3) {
+        const fwX = -Math.sin(s.yaw), fwZ = -Math.cos(s.yaw);
+        const ahead = Math.max(0, s.v) * 3.5 + 8;
+        for (let t = 0; t <= 1.0001; t += 0.125) {
+          for (const side of [-2.5, 0, 2.5]) {
+            const h = this.heightAt(s.x + fwX * ahead * t - fwZ * side, s.z + fwZ * ahead * t + fwX * side);
+            if (h > floor) floor = h;
+          }
+        }
+        if (floor > 0) floor += 3;
+        s.autoAlt = Math.max(s.altT, floor);
+      } else s.autoAlt = s.altT;
+      const target = s.autoAlt;
       const G = 9.81;
-      const thrust = G + Math.max(-G * 0.9, Math.min(14, (s.altT - s.y) * 5 - s.vy * 3.6));
+      const climbMax = target - s.y > 3 ? 60 : 14;     // strong lift when a building is coming up
+      const thrust = G + Math.max(-G * 0.9, Math.min(climbMax, (target - s.y) * 5 - s.vy * 3.6));
       const engaged = s.altT > 0.05 || s.y > 0.05;
       s.vy += ((engaged ? thrust : 0) - G) * dt;
       s.y += s.vy * dt;
+      const under = (s.altT > 0.05 || s.y > 0.3) ? this.heightAt(s.x, s.z) : 0;
+      if (under > 0 && s.y < under + 0.5) { s.y = under + 0.5; s.vy = Math.max(0, s.vy); }
       if (s.y <= 0) { if (s.vy < -4) { d.audio.thud(-s.vy); d.shake(Math.min(1, -s.vy * 0.08)); } s.y = 0; s.vy = 0; }
       s.fly += ((s.y > 0.12 || s.altT > 0.05 ? 1 : 0) - s.fly) * Math.min(1, dt * 3);
     }
