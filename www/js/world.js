@@ -331,7 +331,9 @@ export class World {
 
   makeBuilding() {
     const tex = this.winTex[Math.floor(Math.random() * this.winTex.length)].clone();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1.4, roughness: 0.7, metalness: 0.25 });
+    // Unlit: at night a building is its lit windows. Skipping per-pixel lighting on these huge
+    // surfaces is one of the biggest GPU savings on phones (no 8-light loop per pixel).
+    const mat = new THREE.MeshBasicMaterial({ map: tex, color: 0xffffff });
     const group = new THREE.Group();
     const mesh = new THREE.Mesh(this.boxGeo, mat);
     mesh.receiveShadow = false;
@@ -357,7 +359,7 @@ export class World {
     b.group.position.set(x, 0, z);
     b.mesh.scale.set(d, h, w);
     b.tex.repeat.set(Math.max(1, Math.round(w / 12)), Math.max(1, Math.round(h / 24)));
-    b.mat.emissiveIntensity = 1.0 + Math.random() * 0.8;
+    b.mat.color.setScalar(1.1 + Math.random() * 0.8);   // values > 1 make some windows glow
     const faceX = -s * (d / 2 + 0.2);
     const nm = this.neonMats[Math.floor(Math.random() * this.neonMats.length)];
     // vertical neon strip

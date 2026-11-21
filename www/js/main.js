@@ -920,22 +920,41 @@ const GFX = {
   high:   { res: 1.0,  shadows: 2048, soft: false, msaa: 4, bloom: true,  lights: 8, label: 'Native resolution · shadows 2048 · MSAA 4× · 8 street lights' },
   ultra:  { res: 1.0,  shadows: 4096, soft: true,  msaa: 8, bloom: true,  lights: 8, label: 'Max: soft shadows 4096 · MSAA 8× · native resolution' },
 };
+// Phones: a softer HIGH so the default stays smooth; ULTRA is never capped
+const MOBILE_CAP = { pr: 1.6, shadows: 1024, msaa: 2, lights: 4 };
+const TIERS = ['low', 'medium', 'high'];
 const S = {
-  quality: storageGet('sr3d_quality', 'high'),
+  quality: storageGet('sr3d_quality', MOBILE ? 'auto' : 'high'),
   res: storageGet('sr3d_res', 'preset'),          // 'preset' | '0.5' | '0.75' | '1'
   fps: Number(storageGet('sr3d_fps', '0')) || 0,  // 0 = no limit (follows the display: 60/120/144 Hz)
   showFps: storageGet('sr3d_showfps', '1') === '1',
 };
 if (!GFX[S.quality] && S.quality !== 'auto') S.quality = 'high';
 
+Q.tier = 'high';   // AUTO's current preset
+
+function currentPreset() {
+  const name = S.quality === 'auto' ? Q.tier : S.quality;
+  const base = GFX[name] || GFX.high;
+  if (!MOBILE || name === 'ultra') return base;
+  return {
+    ...base,
+    shadows: Math.min(base.shadows, MOBILE_CAP.shadows),
+    msaa: Math.min(base.msaa, MOBILE_CAP.msaa),
+    lights: Math.min(base.lights, MOBILE_CAP.lights),
+    prCap: MOBILE_CAP.pr,
+  };
+}
+
 function applyGraphics() {
-  const preset = GFX[S.quality] || GFX.high;
+  const preset = currentPreset();
   const dpr = window.devicePixelRatio || 1;
   // resolution
   const frac = S.res === 'preset' ? preset.res : Number(S.res);
-  const pr = Math.min(3, Math.max(0.5, dpr * frac));
-  Q.max = Math.max(pr, Math.min(dpr, 2));
-  Q.min = Math.min(pr, Math.max(0.5, dpr * 0.5));
+  let pr = Math.min(3, Math.max(0.5, dpr * frac));
+  if (preset.prCap && S.res === 'preset') pr = Math.min(pr, preset.prCap);
+  Q.max = pr;
+  Q.min = MOBILE ? Math.min(pr, 0.75) : Math.min(pr, Math.max(0.5, dpr * 0.5));
   setQuality(pr);
   // shadows
   const want = preset.shadows;
@@ -969,8 +988,8 @@ function renderSettings() {
   const preset = GFX[S.quality];
   const el = document.getElementById('gfxInfo');
   if (el) el.textContent = S.quality === 'auto'
-    ? 'Auto: lowers or raises resolution to hold your screen\'s refresh rate'
-    : `${preset.label} · render ${Math.round(Q.pr * 100) / 100}×`;
+    ? `Auto (now ${Q.tier.toUpperCase()}, render ${Math.round(Q.pr * 100) / 100}×): adjusts itself to stay smooth`
+    : `${preset.label}${MOBILE && S.quality !== 'ultra' ? ' (phone-tuned)' : ''} · render ${Math.round(Q.pr * 100) / 100}×`;
 }
 
 function setSetting(btn) {
@@ -978,6 +997,7 @@ function setSetting(btn) {
   if (key === 'fps') S.fps = Number(val);
   else if (key === 'showFps') S.showFps = val === 'true';
   else S[key] = val;
+  if (key === 'quality' && val === 'auto') Q.tier = 'high';
   storageSet({ quality: 'sr3d_quality', res: 'sr3d_res', fps: 'sr3d_fps', showFps: 'sr3d_showfps' }[key],
     key === 'showFps' ? (S.showFps ? 1 : 0) : S[key]);
   applyGraphics();
@@ -1429,9 +1449,16 @@ function adaptQuality(raw) {
   if (S.fps > 0) Q.refresh = Math.min(Q.refresh, S.fps);
   if (fps < 20) { Q.frames = 0; Q.time = 0; Q.best.length = 0; return; } // throttled/background tab, not a GPU limit
   let pr = Q.pr;
-  if (fps < Q.refresh * 0.9 && Q.pr > Q.min) { pr = Math.max(Q.min, Q.pr - 0.1); Q.good = 0; }
-  else if (fps >= Q.refresh * 0.97) { if (++Q.good >= 3 && Q.pr < Q.max) { pr = Math.min(Q.max, Q.pr + 0.05); Q.good = 0; } }
-  else Q.good = 0;
+  const target = Math.min(Q.refresh, 60) ;            // phones: 60 FPS is the goal for AUTO
+  const tierIdx = TIERS.indexOf(Q.tier);
+  if (fps < target * 0.85) {
+    Q.good = 0;
+    if (Q.pr > Q.min + 0.01) pr = Math.max(Q.min, Q.pr - (fps < target * 0.5 ? 0.25 : 0.1));
+    else if (tierIdx > 0) { Q.tier = TIERS[tierIdx - 1]; applyGraphics(); Q.frames = 0; Q.time = 0; Q.best.length = 0; return; }
+  } else if (fps >= target * 0.97) {
+    if (++Q.good >= 3 && Q.pr < Q.max) { pr = Math.min(Q.max, Q.pr + 0.05); Q.good = 0; }
+    else if (Q.good >= 8 && Q.pr >= Q.max - 0.01 && tierIdx < TIERS.length - 1) { Q.tier = TIERS[tierIdx + 1]; Q.good = 0; applyGraphics(); Q.frames = 0; Q.time = 0; Q.best.length = 0; return; }
+  } else Q.good = 0;
   if (pr !== Q.pr) setQuality(pr);
   Q.frames = 0; Q.time = 0; Q.best.length = 0;
 }
