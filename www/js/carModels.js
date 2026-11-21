@@ -553,7 +553,11 @@ export const TRAFFIC_TYPES = {
   hover: { w: 2.0, l: 4.5, h: 1.15, mass: 1.2, weight: 0.75, air: true },
   hoverbus: { w: 2.5, l: 8.2, h: 2.1, mass: 5, weight: 0.25, air: true },
 };
-const TRAFFIC_COLORS = [0xe9e9ee, 0x16181e, 0x8a8f99, 0x7a0f14, 0x123a7a, 0x245a36, 0xc9b38a, 0x4a4f5a, 0xb0b5c0, 0x5b2a86, 0xd25a12, 0x0f6f78];
+let TRAFFIC_COLORS = [0xe9e9ee, 0x16181e, 0x8a8f99, 0x7a0f14, 0x123a7a, 0x245a36, 0xc9b38a, 0x4a4f5a, 0xb0b5c0, 0x5b2a86, 0xd25a12, 0x0f6f78];
+const NEON_TRAFFIC_COLORS = TRAFFIC_COLORS;
+// Tashkent streets: mostly white and silver cars
+const TASHKENT_TRAFFIC_COLORS = [0xf2f2f4, 0xf2f2f4, 0xeeeef0, 0xf5f5f7, 0xe9e9ec, 0xf0f0f2, 0xb8bcc4, 0xa9adb5, 0x16181e, 0x2a2d34, 0x1d3a6b, 0x6b1218];
+export function setTrafficPalette(theme) { TRAFFIC_COLORS = theme === 'tashkent' ? TASHKENT_TRAFFIC_COLORS : NEON_TRAFFIC_COLORS; }
 const TRAILER_COLORS = [0xd9dde4, 0x9fb3c8, 0x8c2a2a, 0x2b3b5a];
 
 const cache = { geo: new Map(), mat: new Map() };

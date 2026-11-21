@@ -1,6 +1,8 @@
 // Endless night-city highway. The player stays at z = 0 and the world scrolls
 // towards +z; objects that fall behind the camera are recycled ahead.
 import * as THREE from 'three';
+import { LANDMARK_BUILDERS, SIGN_TEXTS, createTrees, flagTexture, panelTexture, glassTexture, textTexture } from './tashkent.js';
+import { setTrafficPalette } from './carModels.js';
 
 const ROAD_LEN = 900;
 const ROAD_TILE = 24;          // metres covered by one road texture tile
@@ -87,6 +89,129 @@ export class World {
     this.buildBuildings();
     this.buildGantries();
     this.buildSpeedCues();
+    this.buildTashkent();
+    this.theme = 'neon';
+    this.gantryTop = 8.65;
+  }
+
+  // ---------- TOSHKENT map extras (hidden on the neon map) ----------
+  buildTashkent() {
+    // facades: muted panel blocks + glass towers
+    this.panelTex = ['#4a443b', '#3d4550', '#4a3e3a', '#4d4b45', '#3f4943'].map((c) => {
+      const t = panelTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = this.aniso; return t;
+    });
+    this.glassTex = glassTexture();
+    this.glassTex.wrapS = this.glassTex.wrapT = THREE.RepeatWrapping;
+    // plane trees along both sidewalks (two rows per side), instanced
+    this.treeSpacing = 9;
+    this.treeRows = [-16.8, -10.8, 10.8, 16.8];
+    this.treesPerRow = Math.ceil(this.cueSpan / this.treeSpacing);
+    const t = createTrees(this.treeRows.length * this.treesPerRow);
+    this.trees = t;
+    this.treeScale = Array.from({ length: this.treeRows.length * this.treesPerRow }, () => 0.75 + Math.random() * 0.35);
+    this.treeJitter = Array.from({ length: this.treeRows.length * this.treesPerRow }, () => (Math.random() - 0.5) * 3);
+    this.treePhase = 0;
+    this.scene.add(t.trunks, t.crowns);
+    // landmarks are built lazily and reused
+    this.landmarkCache = new Map();
+    this.activeLandmarks = [];
+    this.lmIndex = 0;
+    this.lmCooldown = 120;
+    this.lmSide = 1;
+    this.setTashkentVisible(false);
+  }
+
+  setTashkentVisible(on) {
+    this.trees.trunks.visible = this.trees.crowns.visible = on;
+    for (const f of this.flags) f.visible = on;
+    for (const g of this.gantries) {
+      for (const m of g.userData.neon) m.visible = !on;
+      g.userData.sign.visible = on;
+    }
+    for (const L of this.activeLandmarks) L.visible = false;
+    this.activeLandmarks.length = 0;
+  }
+
+  // 'neon' or 'tashkent'
+  setTheme(theme) {
+    this.theme = theme === 'tashkent' ? 'tashkent' : 'neon';
+    const tk = this.theme === 'tashkent';
+    const u = this.sky.material.uniforms;
+    u.top.value.setHex(tk ? 0x060b1e : 0x050a1f);
+    u.mid.value.setHex(tk ? 0x172150 : 0x121b48);
+    u.horizon.value.setHex(tk ? 0x4c3150 : 0x3b2c70);
+    u.glow.value.setHex(tk ? 0x7a4030 : 0x5c3070);
+    // sodium-orange street lights in Tashkent, white-warm on the neon map
+    this.lampHeadMat.color.set(tk ? 0xffa850 : 0xffd7a0).multiplyScalar(3.2);
+    this.lampPoolMat.color.set(tk ? 0xff9238 : 0xffb066);
+    for (const L of this.lampLights) L.color.set(tk ? 0xff9e48 : 0xffc68a);
+    this.barrierNeon.color.set(tk ? 0xfff2c0 : 0x00d4ff).multiplyScalar(tk ? 1.4 : 2.6);
+    this.gantryTop = tk ? 10.6 : 8.65;
+    setTrafficPalette(this.theme);
+    this.setTashkentVisible(tk);
+    if (tk) for (const g of this.gantries) this.setGantrySign(g);
+    this.lmCooldown = 120;
+    // rebuild the skyline in the new style
+    for (const s of [-1, 1]) {
+      this.frontier[s] = 70;
+      for (const b of this.buildings[s]) this.placeBuilding(b, s);
+    }
+  }
+
+  // Build every landmark once (hidden) so their shaders compile at load time, not mid-race
+  prebuildLandmarks() {
+    LANDMARK_BUILDERS.forEach((build, idx) => {
+      if (this.landmarkCache.has(idx)) return;
+      const L = build();
+      L.userData.blinkers = [];
+      L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
+      L.position.set(0, -1000, 0);
+      this.landmarkCache.set(idx, L);
+      this.scene.add(L);
+    });
+    const all = [...this.landmarkCache.values()];
+    all.forEach((L) => { L.visible = true; });
+    return () => all.forEach((L) => { if (!this.activeLandmarks.includes(L)) L.visible = false; });
+  }
+
+  spawnLandmark(s) {
+    const idx = this.lmIndex++ % LANDMARK_BUILDERS.length;
+    let L = this.landmarkCache.get(idx);
+    if (!L) {
+      L = LANDMARK_BUILDERS[idx]();
+      L.userData.blinkers = [];
+      L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
+      this.landmarkCache.set(idx, L);
+      this.scene.add(L);
+    }
+    const w = L.userData.width;
+    const z = this.frontier[s] - w / 2;
+    this.frontier[s] -= w + 12;
+    L.position.set(s * (18 + L.userData.setback), 0, z);
+    L.rotation.y = s > 0 ? 0 : Math.PI;           // front faces the road
+    L.visible = true;
+    this.activeLandmarks.push(L);
+    this.lmCooldown = 380 + Math.random() * 220;
+    this.lmSide = -this.lmSide;
+  }
+
+  updateTrees(dz) {
+    this.treePhase = (this.treePhase + dz) % this.treeSpacing;
+    const m = this._m, q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+    let i = 0;
+    for (const x of this.treeRows) {
+      for (let k = 0; k < this.treesPerRow; k++) {
+        const s = this.treeScale[i];
+        p.set(x + this.treeJitter[i] * 0.15, 0.25, this.cueZ0 - k * this.treeSpacing + this.treePhase + this.treeJitter[i]);
+        sc.set(s, s, s);
+        m.compose(p, q, sc);
+        this.trees.trunks.setMatrixAt(i, m);
+        this.trees.crowns.setMatrixAt(i, m);
+        i++;
+      }
+    }
+    this.trees.trunks.instanceMatrix.needsUpdate = true;
+    this.trees.crowns.instanceMatrix.needsUpdate = true;
   }
 
   // Close-range, evenly spaced objects are what the eye uses to judge speed:
@@ -234,6 +359,7 @@ export class World {
   buildBarriers() {
     const concrete = new THREE.MeshStandardMaterial({ color: 0x4d525e, roughness: 0.8 });
     const neon = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00d4ff).multiplyScalar(2.6) });
+    this.barrierNeon = neon;
     for (const s of [-1, 1]) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, ROAD_LEN), concrete);
       b.position.set(s * BARRIER_X, 0.45, ROAD_Z0 - ROAD_LEN / 2);
@@ -256,6 +382,12 @@ export class World {
     const headGeo = new THREE.BoxGeometry(0.9, 0.04, 0.34);
     const housingGeo = new THREE.BoxGeometry(1.1, 0.18, 0.46);
     const poolGeo = new THREE.PlaneGeometry(12, 12).rotateX(-Math.PI / 2);
+    this.lampHeadMat = headMat;
+    this.lampPoolMat = poolMat;
+    // Uzbekistan flags on every second lamp post (Tashkent map)
+    this.flags = [];
+    const flagMat = new THREE.MeshLambertMaterial({ map: flagTexture(), side: THREE.DoubleSide });
+    const flagGeo = new THREE.PlaneGeometry(1.8, 0.9).translate(0.9, 0, 0);
     const perSide = 16, spacing = 40;
     this.lampSpan = perSide * spacing;
     for (const s of [-1, 1]) {
@@ -267,6 +399,14 @@ export class World {
         const head = new THREE.Mesh(headGeo, headMat); head.position.set(-s * 2.6, 8.84, 0);
         const pool = new THREE.Mesh(poolGeo, poolMat); pool.position.set(-s * 2.6, 0.02, 0); pool.renderOrder = 1;
         g.add(pole, arm, housing, head, pool);
+        if (i % 2 === 0) {
+          const flag = new THREE.Mesh(flagGeo, flagMat);
+          flag.position.set(0, 6.2, 0);
+          flag.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2;   // flies away from the road
+          flag.visible = false;
+          g.add(flag);
+          this.flags.push(flag);
+        }
         g.position.set(s * BARRIER_X, 0.9, 40 - i * spacing - (s > 0 ? spacing / 2 : 0));
         pool.position.y = -0.88;
         this.scene.add(g);
@@ -330,7 +470,8 @@ export class World {
   }
 
   makeBuilding() {
-    const tex = this.winTex[Math.floor(Math.random() * this.winTex.length)].clone();
+    const styleIndex = Math.floor(Math.random() * this.winTex.length);
+    const tex = this.winTex[styleIndex].clone();
     // Unlit: at night a building is its lit windows. Skipping per-pixel lighting on these huge
     // surfaces is one of the biggest GPU savings on phones (no 8-light loop per pixel).
     const mat = new THREE.MeshBasicMaterial({ map: tex, color: 0xffffff });
@@ -343,10 +484,58 @@ export class World {
     const beacon = new THREE.Mesh(this.boxGeo, this.redLight);
     group.add(mesh, neonV, neonH, antenna, beacon);
     this.scene.add(group);
-    return { group, mesh, mat, tex, neonV, neonH, antenna, beacon, w: 10, d: 10, h: 20 };
+    return { group, mesh, mat, tex, styleIndex, neonV, neonH, antenna, beacon, w: 10, d: 10, h: 20 };
+  }
+
+  setGantrySign(g) {
+    const [main, sub] = SIGN_TEXTS[g.userData.signIndex % SIGN_TEXTS.length];
+    const key = main + '|' + sub;
+    this.signCache = this.signCache || new Map();
+    if (!this.signCache.has(key)) this.signCache.set(key, textTexture(main, { sub }));
+    g.userData.sign.material.map = this.signCache.get(key);
+    g.userData.sign.material.needsUpdate = true;
+  }
+
+  // Tashkent: long Soviet panel blocks (5 / 9 / 16 floors) and the odd glass tower
+  placeTashkentBuilding(b, s) {
+    const r = Math.random();
+    let w, d, h, src;
+    if (r < 0.08) { w = d = 18 + Math.random() * 8; h = 70 + Math.random() * 60; src = this.glassTex; }
+    else {
+      w = 24 + Math.random() * 34; d = 12 + Math.random() * 4;
+      h = r < 0.5 ? 15 + Math.random() * 2 : r < 0.85 ? 27 + Math.random() * 3 : 46 + Math.random() * 4;
+      src = this.panelTex[Math.floor(Math.random() * this.panelTex.length)];
+    }
+    const gap = 4 + Math.random() * 10;
+    const z = this.frontier[s] - w / 2;
+    this.frontier[s] -= w + gap;
+    const x = s * (20 + d / 2 + Math.random() * 6);
+    b.w = w; b.d = d; b.h = h;
+    b.group.position.set(x, 0, z);
+    b.mesh.scale.set(d, h, w);
+    if (b.tex.source !== src.source) { b.tex.source = src.source; b.tex.needsUpdate = true; }
+    b.tex.repeat.set(Math.max(1, Math.round(w / 18)), Math.max(1, Math.round(h / 36)));
+    b.mat.color.setScalar(src === this.glassTex ? 1.2 : 0.95 + Math.random() * 0.3);
+    // occasional shop sign at street level, no neon skyline
+    b.neonV.visible = Math.random() < 0.18;
+    if (b.neonV.visible) {
+      b.neonV.material = this.neonMats[Math.floor(Math.random() * this.neonMats.length)];
+      b.neonV.scale.set(0.3, 1.2, Math.min(10, w * 0.4));
+      b.neonV.position.set(-s * (d / 2 + 0.2), 4, (Math.random() - 0.5) * w * 0.5);
+    }
+    b.neonH.visible = false;
+    const tallEnough = h > 60;
+    b.antenna.visible = b.beacon.visible = tallEnough;
+    if (tallEnough) {
+      b.antenna.scale.set(0.3, 6, 0.3); b.antenna.position.set(0, h, 0);
+      b.beacon.scale.set(0.8, 0.8, 0.8); b.beacon.position.set(0, h + 6, 0);
+    }
   }
 
   placeBuilding(b, s) {
+    if (this.theme === 'tashkent') { this.placeTashkentBuilding(b, s); return; }
+    const src = this.winTex[b.styleIndex ?? 0];
+    if (b.tex.source !== src.source) { b.tex.source = src.source; b.tex.needsUpdate = true; }
     const w = 10 + Math.random() * 16;         // along z
     const d = 10 + Math.random() * 12;         // along x
     const tall = Math.random();
@@ -411,6 +600,14 @@ export class World {
       const strip2 = new THREE.Mesh(new THREE.BoxGeometry(20.4, 0.06, 0.06), pink);
       strip2.position.set(0, 8.58, 0.3);
       g.add(beam, strip, strip2);
+      g.userData.neon = [strip, strip2, ...g.children.filter((c) => c.material === neon)];
+      // Uzbek road sign (Tashkent map)
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(11, 2.75), new THREE.MeshBasicMaterial({ color: 0xd8d8d8 }));
+      sign.position.set(-2.5, 9.25, 0.42);
+      sign.visible = false;
+      g.add(sign);
+      g.userData.sign = sign;
+      g.userData.signIndex = i;
       g.position.z = -150 - i * 320;
       this.scene.add(g);
       this.gantries.push(g);
@@ -432,13 +629,25 @@ export class World {
     this.updateSpeedCues(dz);
     for (const g of this.gantries) {
       g.position.z += dz;
-      if (g.position.z > 40) g.position.z -= 960;
+      if (g.position.z > 40) { g.position.z -= 960; g.userData.signIndex += 3; this.setGantrySign(g); }
+    }
+    if (this.theme === 'tashkent') {
+      this.lmCooldown -= dz;
+      for (let i = this.activeLandmarks.length - 1; i >= 0; i--) {
+        const L = this.activeLandmarks[i];
+        L.position.z += dz;
+        if (L.position.z - L.userData.width / 2 > 150) { L.visible = false; this.activeLandmarks.splice(i, 1); }
+      }
+      this.updateTrees(dz);
     }
     for (const s of [-1, 1]) {
       this.frontier[s] += dz;
       for (const b of this.buildings[s]) {
         b.group.position.z += dz;
-        if (b.group.position.z - b.w / 2 > 70) this.placeBuilding(b, s);
+        if (b.group.position.z - b.w / 2 > 70) {
+          if (this.theme === 'tashkent' && this.lmCooldown <= 0 && s === this.lmSide) this.spawnLandmark(s);
+          this.placeBuilding(b, s);
+        }
       }
       // never let the frontier get closer than the far range (e.g. after a long frame)
       if (this.frontier[s] > -420) this.frontier[s] = Math.min(this.frontier[s], -420);
@@ -446,6 +655,7 @@ export class World {
     // blinking aviation beacons
     const on = Math.sin(this.time * 3.2) > 0.2;
     this.redLight.color.setRGB(on ? 4 : 0.3, on ? 0.4 : 0.03, on ? 0.4 : 0.03);
+    for (const L of this.activeLandmarks) for (const b of L.userData.blinkers) b.visible = on;
 
     if (camera) this.sky.position.copy(camera.position), this.stars.position.copy(camera.position);
   }

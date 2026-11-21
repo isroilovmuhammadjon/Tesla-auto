@@ -633,7 +633,7 @@ function checkCollisions() {
 
   if (P.y < 5) return; // overhead structures are only reachable in the air
   for (const g of world.gantries) {
-    if (Math.abs(g.position.z) < 0.4 + PLAYER_HALF_L && py1 > GANTRY_Y[0] && py0 < GANTRY_Y[1]) {
+    if (Math.abs(g.position.z) < 0.4 + PLAYER_HALF_L && py1 > GANTRY_Y[0] && py0 < world.gantryTop) {
       triggerCrash(null, P.speed, [P.x, GANTRY_Y[0], g.position.z]);
       return;
     }
@@ -865,6 +865,13 @@ const actions = {
     if (mp.connected) openMp(); else toMenu();
   },
   mpOpen: () => openMp(),
+  map: () => {
+    G.map = G.map === 'tashkent' ? 'neon' : 'tashkent';
+    storageSet('sr3d_map', G.map);
+    world.setTheme(G.map);
+    traffic.clear();
+    renderMapButton();
+  },
   settings: () => openSettings(),
   settingsBack: () => closeSettings(),
   set: (btn) => setSetting(btn),
@@ -893,6 +900,10 @@ const actions = {
     if (on) calibrateTilt();
   },
 };
+
+function renderMapButton() {
+  document.querySelectorAll('.map-toggle span').forEach((s) => { s.textContent = G.map === 'tashkent' ? 'MAP: TOSHKENT' : 'MAP: NEON CITY'; });
+}
 
 function applyTiltUi(on) {
   document.body.classList.toggle('tilt-on', on);
@@ -1487,14 +1498,19 @@ function boot() {
   if (TOUCH && storageGet(STORAGE.tilt, '0') === '1') setTilt(true).then(applyTiltUi);
   setupNative();
   applyGraphics();
+  G.map = storageGet('sr3d_map', 'tashkent') === 'neon' ? 'neon' : 'tashkent';
+  world.setTheme(G.map);
+  renderMapButton();
   document.getElementById('viewBtn').classList.toggle('active', G.view === 'cockpit');
 
   // Compile every shader up front so the first spawn doesn't stutter
   const releaseWarm = traffic.prewarm(4);
+  const releaseLandmarks = world.prebuildLandmarks();
   world.update(0, camera, 0);
   renderer.compile(scene, camera);
   composer.render();
   releaseWarm();
+  releaseLandmarks();
 
   toMenu();
   window.__sr3dReady = true;
@@ -1503,7 +1519,7 @@ function boot() {
 
 // expose a small debug handle for testing in the console
 window.__sr3d = {
-  G, P, traffic, rival, startRun, toMenu,
+  G, P, traffic, rival, world, startRun, toMenu,
   Q, setQuality,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
 };
