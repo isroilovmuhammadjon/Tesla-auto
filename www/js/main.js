@@ -253,7 +253,9 @@ function startRun(opts = {}) {
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
   // mobile browsers: go full screen on the first race (the APK is already full screen)
   if (TOUCH && !NATIVE && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
+      .catch(() => {});
   }
 }
 

@@ -25,9 +25,10 @@ function setKey(key, valueXml) {
 setKey('UIStatusBarHidden', '<true/>');
 setKey('UIViewControllerBasedStatusBarAppearance', '<false/>');
 setKey('UIRequiresFullScreen', '<true/>');
-const orientations = '<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t\t<string>UIInterfaceOrientationLandscapeLeft</string>\n\t\t<string>UIInterfaceOrientationLandscapeRight</string>\n\t</array>';
+// landscape only (both directions) on iPhone and iPad
+const orientations = '<array>\n\t\t<string>UIInterfaceOrientationLandscapeLeft</string>\n\t\t<string>UIInterfaceOrientationLandscapeRight</string>\n\t</array>';
 setKey('UISupportedInterfaceOrientations', orientations);
-setKey('UISupportedInterfaceOrientations~ipad', orientations.replace('</array>', '\t<string>UIInterfaceOrientationPortraitUpsideDown</string>\n\t</array>'));
+setKey('UISupportedInterfaceOrientations~ipad', orientations);
 setKey('NSLocalNetworkUsageDescription', '<string>Street Racing 3D connects to other players on your Wi-Fi for multiplayer races.</string>');
 setKey('NSMotionUsageDescription', '<string>Tilt your phone to steer the car.</string>');
 // allow plain ws:// / http:// to the multiplayer server on the local Wi-Fi

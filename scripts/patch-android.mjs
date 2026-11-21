@@ -27,6 +27,10 @@ let manifest = readFileSync(manifestPath, 'utf8');
 if (!manifest.includes('android:hardwareAccelerated')) {
   manifest = manifest.replace('<application', '<application\n        android:hardwareAccelerated="true"');
 }
+// Racing game: the activity always runs sideways (either landscape direction, follows the sensor)
+if (!manifest.includes('android:screenOrientation')) {
+  manifest = manifest.replace('<activity', '<activity\n            android:screenOrientation="sensorLandscape"');
+}
 // Wi-Fi multiplayer talks to a server on the local network over plain ws://
 if (!manifest.includes('android:usesCleartextTraffic')) {
   manifest = manifest.replace('<application', '<application\n        android:usesCleartextTraffic="true"');
