@@ -25,6 +25,8 @@ function setKey(key, valueXml) {
 setKey('UIStatusBarHidden', '<true/>');
 setKey('UIViewControllerBasedStatusBarAppearance', '<false/>');
 setKey('UIRequiresFullScreen', '<true/>');
+// ProMotion: allow 120 Hz in the web view on iPhone/iPad Pro
+setKey('CADisableMinimumFrameDurationOnPhone', '<true/>');
 // landscape only (both directions) on iPhone and iPad
 const orientations = '<array>\n\t\t<string>UIInterfaceOrientationLandscapeLeft</string>\n\t\t<string>UIInterfaceOrientationLandscapeRight</string>\n\t</array>';
 setKey('UISupportedInterfaceOrientations', orientations);

@@ -1023,6 +1023,8 @@ function applyGraphics() {
   // resolution
   const frac = S.res === 'preset' ? preset.res : Number(S.res);
   let pr = Math.min(3, Math.max(0.5, dpr * frac));
+  // 4K: render 3840 pixels across the long side of the screen, then scale down (supersampling = sharpest picture)
+  if (S.res === '4k') pr = Math.min(5, Math.max(dpr, 3840 / Math.max(window.innerWidth, window.innerHeight)));
   if (preset.prCap && S.res === 'preset') pr = Math.min(pr, preset.prCap);
   Q.max = pr;
   Q.min = MOBILE ? Math.min(pr, 0.75) : Math.min(pr, Math.max(0.5, dpr * 0.5));
