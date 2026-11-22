@@ -1093,11 +1093,31 @@ const mp = new Multiplayer(scene, {
   onLobby: () => { if (G.mode === 'mplobby') renderMp(); },
   onStart: (m) => startMpSession(m),
   onFinished: (m) => {
+    if (!G.mpFinishers.some((f) => f.id === m.id)) G.mpFinishers.push(m);
     if (m.id !== mp.id && G.mp) ui.popup(`${m.name} FINISHED P${m.place}`);
-    if (m.id === mp.id && G.mp) G.mp.place = m.place;
+    if (m.id === mp.id && G.mp) {
+      G.mp.place = m.place;
+      ui.popup(m.place === 1 ? '🏆 YOU WON! 1ST PLACE' : `FINISHED P${m.place}`);
+      if (m.place === 1) audio.nearMiss();
+    }
+    if (G.mode === 'mplobby' && $id('mpResults').classList.contains('active')) showMpResults(G.mpFinishers, true);
   },
   onResults: (m) => { if (m.mode === 'race') showMpResults(m.list); else if (G.mp) openMp(); },
   onDisconnect: () => {
+    // the room closed after we crossed the line: still show our result, not just an error
+    if (G.mp && G.mp.finished) {
+      if (!G.mpFinishers.some((f) => f.id === mp.id)) G.mpFinishers.push({ id: mp.id, name: $id('mpName').value || 'You', time: G.mp.time || 0, place: G.mp.place || G.mp.localPlace || 1 });
+      G.onlineCode = null;
+      stopHosting();
+      showMpResults(G.mpFinishers, false, true);
+      return;
+    }
+    if (G.mode === 'mplobby' && $id('mpResults').classList.contains('active')) {
+      G.onlineCode = null;
+      stopHosting();
+      $id('mpResultNote').textContent = 'The room has closed — the host left.';
+      return;
+    }
     const wasOnline = !!G.onlineCode;
     G.mp = null;
     G.onlineCode = null;
@@ -1108,6 +1128,7 @@ const mp = new Multiplayer(scene, {
   onError: (msg) => (G.onlineCode || !WIFI_OK ? setOnlineStatus : setMpStatus)(msg, true),
 });
 G.mp = null;
+G.mpFinishers = [];
 
 const $id = (id) => document.getElementById(id);
 const mpDefaultAddr = () => {
@@ -1399,6 +1420,7 @@ function renderMp() {
 
 function startMpSession(m) {
   G.mp = { mode: m.mode, distance: m.distance, finished: false, t0: null, place: null, synced: false };
+  G.mpFinishers = [];
   const idx = Math.max(0, (m.order || []).indexOf(mp.id));
   ui.show(null);
   startRun({ lane: LANES[[2, 1, 3, 0][idx % 4]], noRival: true });
@@ -1440,8 +1462,12 @@ function updateMpSession(dt) {
     const time = G.mp.t0 === null ? 0 : G.time - G.mp.t0;
     G.mp.time = time;
     mp.send({ t: 'finish', time });
+    G.mp.localPlace = ahead + 1;                 // fallback if the room's answer never arrives
     ui.popup(`FINISH! ${time.toFixed(2)} S`);
     audio.nearMiss();
+    // after a short victory lap, show the standings (it fills in as the others finish)
+    const session = G.mp;
+    setTimeout(() => { if (G.mp === session) showMpResults(G.mpFinishers, true); }, 3500);
   }
   if (G.mp.finished) ui.setInfo('FINISHED', G.mp.place ? `P${G.mp.place}` : '…', 'win');
   else ui.setInfo('POSITION', `P${ahead + 1}/${others.length + 1} · ${(left / 1000).toFixed(2)} KM`, ahead === 0 ? 'win' : 'lose');
@@ -1465,7 +1491,7 @@ function respawnMp() {
   audio.setMusicLevel(0.26);
 }
 
-function showMpResults(list) {
+function showMpResults(list, waiting = false, closed = false) {
   const was = G.mp;
   G.mp = null;
   const players = (mp.lobby && mp.lobby.players) || [];
@@ -1484,12 +1510,13 @@ function showMpResults(list) {
     if (done.has(p.id)) continue;
     const li = document.createElement('li');
     li.className = 'dnf' + (p.id === mp.id ? ' me' : '');
-    li.innerHTML = '<span></span><span>DNF</span>';
+    li.innerHTML = `<span></span><span>${waiting ? 'RACING…' : 'DNF'}</span>`;
     li.children[0].textContent = p.name;
     ol.appendChild(li);
   }
   const mine = list.find((f) => f.id === mp.id);
-  $id('mpResultTitle').textContent = mine ? (mine.place === 1 ? 'YOU WON!' : `P${mine.place}`) : 'RACE OVER';
+  $id('mpResultTitle').textContent = mine ? (mine.place === 1 ? '🏆 YOU WON!' : `P${mine.place}`) : 'RACE OVER';
+  $id('mpResultNote').textContent = closed ? 'The room has closed — the host left.' : waiting ? 'Waiting for the others to finish…' : '';
   G.mode = 'mplobby';
   ui.setHud(false);
   document.getElementById('touch').classList.add('hidden');
