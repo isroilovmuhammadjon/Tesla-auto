@@ -50,7 +50,7 @@ export class Multiplayer {
     return new Promise((resolve, reject) => {
       let ws;
       try { ws = typeof addr === 'object' && addr ? addr : new WebSocket(wsUrlFrom(addr)); } catch (e) { reject(e); return; }
-      const timer = setTimeout(() => { try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('timeout')); }, 6000);
+      const timer = setTimeout(() => { try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('timeout')); }, typeof addr === 'object' ? 20000 : 6000);
       ws.onopen = () => {
         clearTimeout(timer);
         this.ws = ws;

@@ -146,6 +146,16 @@
       <h2 class="screen-title">MULTIPLAYER</h2>
       <div id="mpConnect" class="mp-section">
         <label class="field"><span class="label">YOUR NAME</span><input id="mpName" maxlength="16" autocomplete="off" spellcheck="false"></label>
+        <div class="mp-online">
+          <span class="label">ONLINE — PLAY OVER THE INTERNET, ANY NETWORK</span>
+          <button class="btn primary wide" data-action="onlineHost"><span>CREATE ONLINE ROOM</span></button>
+          <div class="mp-manual-row">
+            <input id="mpCode" placeholder="ROOM CODE · 12345" maxlength="5" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+            <button class="btn small" data-action="onlineJoin"><span>JOIN</span></button>
+          </div>
+          <p id="mpOnlineStatus" class="mp-status"></p>
+        </div>
+        <div id="mpWifi">
         <div class="mp-row"><span class="label">ROOMS ON YOUR WI-FI</span>
           <button class="btn small ghost" data-action="mpScan"><span>↻ SCAN</span></button></div>
         <ul id="mpRooms" class="mp-rooms"></ul>
@@ -159,10 +169,13 @@
             <button class="btn small" data-action="mpConnect"><span>JOIN</span></button>
           </div>
         </details>
+        </div>
         <button class="btn ghost wide" data-action="mpBack"><span>BACK</span></button>
       </div>
       <div id="mpLobby" class="mp-section hidden">
         <div class="mp-row"><span class="label">ROOM</span><span id="mpRoomAddr" class="mp-addr"></span></div>
+        <div id="mpShareRow" class="mp-row hidden"><span class="muted">Send this link to friends — they tap it and join</span>
+          <button class="btn small" data-action="onlineShare"><span>SHARE LINK</span></button></div>
         <ul id="mpPlayers" class="mp-players"></ul>
         <div class="mp-row"><span class="label">MODE</span>
           <div class="seg"><button data-action="mpMode" data-mode="free">FREE DRIVE</button><button data-action="mpMode" data-mode="race">RACE</button></div></div>

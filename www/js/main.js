@@ -19,6 +19,7 @@ import { Rival } from './rival.js';
 import { Powertrain } from './physics.js';
 import { Multiplayer } from './multiplayer.js';
 import { LocalRoom } from './lanroom.js';
+import { hostOnline, joinOnline, cleanCode } from './online.js';
 import { CityMode } from './city.js';
 import { setTrafficPalette } from './carModels.js';
 import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
@@ -940,7 +941,10 @@ const actions = {
   mpJoinRoom: (btn) => mpConnect(btn.dataset.addr),
   mpScan: () => startScan(),
   mpHost: () => hostRoom(),
-  mpLeave: () => { mp.disconnect(); stopHosting(); G.mp = null; renderMp(); startScan(); },
+  onlineHost: () => onlineHostRoom(),
+  onlineJoin: () => onlineJoinRoom(),
+  onlineShare: () => shareOnlineLink(),
+  mpLeave: () => { mp.disconnect(); stopHosting(); G.mp = null; G.onlineCode = null; renderMp(); if (WIFI_OK) startScan(); },
   mpMode: (btn) => mp.send({ t: 'config', mode: btn.dataset.mode }),
   mpDist: (btn) => mp.send({ t: 'config', distance: Number(btn.dataset.dist) }),
   mpStart: () => {
@@ -1094,12 +1098,14 @@ const mp = new Multiplayer(scene, {
   },
   onResults: (m) => { if (m.mode === 'race') showMpResults(m.list); else if (G.mp) openMp(); },
   onDisconnect: () => {
+    const wasOnline = !!G.onlineCode;
     G.mp = null;
+    G.onlineCode = null;
     stopHosting();
     openMp();
-    setMpStatus('Disconnected from the room.', true);
+    (wasOnline ? setOnlineStatus : setMpStatus)(wasOnline ? 'The room was closed (host left or the connection dropped).' : 'Disconnected from the room.', true);
   },
-  onError: (msg) => setMpStatus(msg, true),
+  onError: (msg) => (G.onlineCode || !WIFI_OK ? setOnlineStatus : setMpStatus)(msg, true),
 });
 G.mp = null;
 
@@ -1110,6 +1116,67 @@ const mpDefaultAddr = () => {
   // if this page was opened from the multiplayer server, that server is the room
   return /^https?:$/.test(location.protocol) && location.host ? location.host : '';
 };
+
+// Wi-Fi rooms only work from the apps or a page served over plain http (a https site may not reach the local network)
+const WIFI_OK = NATIVE || location.protocol === 'http:';
+
+function setOnlineStatus(text, err = false) {
+  const el = $id('mpOnlineStatus');
+  el.textContent = text;
+  el.classList.toggle('err', err);
+}
+
+// ---------- online rooms (internet, room code)
+let online = null;   // { code, stop }
+async function onlineHostRoom() {
+  const name = $id('mpName').value.trim() || 'Racer';
+  storageSet('sr3d_name', name);
+  stopScan();
+  setOnlineStatus('Creating room…');
+  try {
+    online = await hostOnline();
+    await mp.connect(online.socket(), name, G.carIndex);
+    G.onlineCode = online.code;
+    G.mpAddr = 'CODE ' + online.code;
+    setOnlineStatus('');
+    renderMp();
+  } catch (e) {
+    stopHosting();
+    setOnlineStatus('Could not create a room. Check the internet connection and try again.', true);
+  }
+}
+
+async function onlineJoinRoom(codeArg) {
+  const code = cleanCode(codeArg || $id('mpCode').value);
+  if (code.length !== 5) { setOnlineStatus('Enter the 5-digit room code', true); return; }
+  const name = $id('mpName').value.trim() || 'Racer';
+  storageSet('sr3d_name', name);
+  stopScan();
+  setOnlineStatus('Connecting to room ' + code + '…');
+  try {
+    const sock = await joinOnline(code);
+    await mp.connect(sock, name, G.carIndex);
+    G.onlineCode = code;
+    G.mpAddr = 'CODE ' + code;
+    setOnlineStatus('');
+    renderMp();
+  } catch (e) {
+    setOnlineStatus('Room ' + code + ' not found. Check the code — the host must keep the game open.', true);
+  }
+}
+
+function onlineLink() {
+  return location.origin + location.pathname + '?room=' + G.onlineCode;
+}
+
+async function shareOnlineLink() {
+  const url = onlineLink();
+  const text = `STREET RACING 3D — join my room ${G.onlineCode}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Street Racing 3D', text, url }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); ui.popup('LINK COPIED'); } catch (e) { window.prompt('Copy this link:', url); }
+}
 
 function setMpStatus(text, err = false) {
   const el = $id('mpStatus');
@@ -1135,11 +1202,12 @@ function openMp() {
   ui.setSpeedLines(0);
   document.getElementById('touch').classList.add('hidden');
   if (!$id('mpName').value) $id('mpName').value = storageGet('sr3d_name', '') || `Racer${Math.floor(10 + Math.random() * 89)}`;
-  if (!$id('mpAddr').value) $id('mpAddr').value = mpDefaultAddr();
+  if (!$id('mpAddr').value) $id('mpAddr').value = WIFI_OK ? mpDefaultAddr() : '';
+  $id('mpWifi').classList.toggle('hidden', !WIFI_OK);
   ui.show('mp');
   renderHostButton();
   renderMp();
-  if (!mp.connected) startScan();
+  if (!mp.connected && WIFI_OK) startScan();
 }
 
 // ---------- Wi-Fi room list
@@ -1258,6 +1326,7 @@ async function hostRoom() {
 }
 
 function stopHosting() {
+  if (online) { const o = online; online = null; try { o.stop(); } catch (e) { /* ignore */ } }
   if (!host) return;
   const h = host;
   host = null;
@@ -1290,6 +1359,8 @@ function renderMp() {
   if (!on) return;
   const l = mp.lobby || { players: [], phase: 'lobby', mode: 'race', distance: 3000 };
   $id('mpRoomAddr').textContent = G.mpAddr || '';
+  $id('mpRoomAddr').classList.toggle('code', !!G.onlineCode);
+  $id('mpShareRow').classList.toggle('hidden', !G.onlineCode);
   $id('mpPlayers').innerHTML = '';
   for (const p of l.players) {
     const li = document.createElement('li');
@@ -1578,6 +1649,14 @@ function boot() {
   toMenu();
   window.__sr3dReady = true;
   frame();
+  // opened from a friend's invite link (?room=12345): go straight into that room
+  const invite = cleanCode(new URLSearchParams(location.search).get('room'));
+  if (invite.length === 5) {
+    history.replaceState(null, '', location.pathname);
+    openMp();
+    $id('mpCode').value = invite;
+    onlineJoinRoom(invite);
+  }
 }
 
 // expose a small debug handle for testing in the console
