@@ -400,3 +400,39 @@ body.touch-mode .hud-hint { display: none; }
 .mp-online .mp-manual-row { margin-top: 0; }
 #mpCode { letter-spacing: 0.25em; font-size: 18px; text-align: center; }
 .mp-addr.code { font-size: 26px; letter-spacing: 0.2em; color: var(--neon); }
+
+/* full screen button + iPhone guide */
+.fs-only { display: none !important; }
+body.show-fs .fs-only { display: inline-flex !important; align-items: center; justify-content: center; }
+.btn.fs-btn { --c: var(--pink); background: linear-gradient(90deg, rgba(255, 43, 214, 0.9), rgba(150, 60, 255, 0.9)); color: #fff; border-color: transparent; }
+#fsGuide { z-index: 60; }
+.fs-card { width: min(560px, calc(100vw - 32px)); gap: 12px; }
+.fs-lead { font-size: 14px; line-height: 1.4; text-align: center; }
+.fs-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.fs-steps li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px; background: rgba(0, 229, 255, 0.06); border: 1px solid var(--line); font-size: 14px; line-height: 1.35; }
+.fs-steps b { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--neon); color: #00121b; font-family: var(--display); font-size: 13px; }
+.fs-steps em { font-style: normal; color: var(--neon); }
+.fs-share { width: 18px; height: 18px; vertical-align: -3px; fill: none; stroke: var(--neon); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fs-note { font-size: 12px; text-align: center; }
+
+/* short landscape screens (phone browser with its bars): keep the result buttons visible */
+@media (max-height: 520px) {
+  .card { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  .fs-card { padding: 12px 16px; gap: 7px; }
+  .fs-lead, .fs-steps li { font-size: 13px; }
+  .fs-steps { gap: 5px; }
+  .fs-steps li { padding: 5px 10px; }
+}
+@media (max-height: 520px) and (min-width: 600px) {
+  #gameover .card { width: min(700px, calc(100vw - 150px)); display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; row-gap: 6px; align-items: center; }
+  #gameover .eyebrow, #gameover .screen-title, #gameover .new-best, #gameover .result-score { grid-column: 1; }
+  #gameover .screen-title.big { letter-spacing: 0.12em; }
+  #gameover .results { grid-column: 2; grid-row: 1 / span 4; margin: 0; }
+  #gameover .btn { letter-spacing: 0.14em; }
+  #pause .card { display: grid; grid-template-columns: 1fr 1fr; width: min(560px, calc(100vw - 150px)); }
+  #pause .screen-title, #pause .btn.ghost { grid-column: 1 / -1; }
+  #pause .btn { font-size: 13px; letter-spacing: 0.14em; padding: 12px 10px; }
+}
+@media (max-height: 520px) {
+  body:has(#gameover.active) .top-buttons { display: none; }   /* they would cover the results */
+}

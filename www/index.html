@@ -7,6 +7,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Racing 3D">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
   <title>Street Racing 3D</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%2305070f%22/%3E%3Cpath d=%22M16 56 28 10M48 56 36 10%22 stroke=%22%2300d4ff%22 stroke-width=%225%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M22 42l10-8 10 8%22 stroke=%22%23ff2bd6%22 stroke-width=%226%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
   <link rel="stylesheet" href="fonts/fonts.css">
@@ -53,6 +56,7 @@
         <button class="btn" data-action="garage"><span>GARAGE</span></button>
         <button class="btn" data-action="mpOpen"><span>MULTIPLAYER</span></button>
         <button class="btn" data-action="settings"><span>SETTINGS</span></button>
+        <button class="btn fs-btn fs-only" data-action="fullscreen"><span>⛶ FULL SCREEN</span></button>
       </nav>
       <div class="menu-info">
         <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
@@ -243,6 +247,7 @@
   <!-- Top buttons -->
   <div class="top-buttons">
     <span id="fps" class="fps" title="Frames per second">-- FPS</span>
+    <button class="icon-btn fs-only" data-action="fullscreen" aria-label="Full screen" title="Full screen">⛶</button>
     <button id="viewBtn" class="icon-btn race-only hidden" data-action="view" aria-label="Change camera (C)" title="Camera: chase / cockpit (C)">◉</button>
     <button id="lookBtn" class="icon-btn race-only hidden" data-key="look" aria-label="Look back (hold B)" title="Look back (hold B)">↺</button>
     <button id="pauseBtn" class="icon-btn hidden" data-action="pause" aria-label="Pause">❚❚</button>
@@ -277,6 +282,21 @@
       </div>
       <button class="btn primary wide" data-action="restart"><span>RESTART</span></button>
       <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
+    </div>
+  </section>
+
+  <!-- Full screen on iPhone: Safari can't hide its bars, so the game goes on the home screen -->
+  <section id="fsGuide" class="screen dim">
+    <div class="card fs-card">
+      <h2 class="screen-title">TO‘LIQ EKRAN</h2>
+      <p class="fs-lead">Safari o‘z panellarini yashirmaydi. Bir marta bosh ekranga qo‘shing, keyin o‘yin ilova kabi to‘liq ekranda ochiladi.</p>
+      <ol class="fs-steps">
+        <li><b>1</b><span>Safari’da <svg class="fs-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 6.5 12 2.5l4 4M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2"/></svg> <em>Share / Ulashish</em> tugmasini bosing (ko‘rinmasa, avval <em>•••</em>)</span></li>
+        <li><b>2</b><span><em>Add to Home Screen</em> / <em>На экран «Домой»</em> ni tanlab, <em>Add</em> bosing</span></li>
+        <li><b>3</b><span>Safari’ni yoping va bosh ekrandagi <em>Racing 3D</em> belgisini bosing</span></li>
+      </ol>
+      <p class="muted fs-note">Telegram yoki Instagram ichida ochilgan bo‘lsa, avval havolani Safari’da oching.</p>
+      <button class="btn primary wide" data-action="fsClose"><span>OK</span></button>
     </div>
   </section>
 

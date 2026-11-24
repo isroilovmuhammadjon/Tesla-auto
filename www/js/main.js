@@ -276,13 +276,46 @@ function startRun(opts = {}) {
   audio.setMusicLevel(0.26);
   document.body.classList.toggle('touch-mode', TOUCH);
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
-  // mobile browsers: go full screen on the first race (the APK is already full screen)
-  if (TOUCH && !NATIVE && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-      .then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape'))
-      .catch(() => {});
-  }
+  if (TOUCH) enterFullscreen();
 }
+
+// ---------- full screen (website only; the installed apps are already full screen)
+const STANDALONE = navigator.standalone === true
+  || ['standalone', 'fullscreen'].some((m) => window.matchMedia(`(display-mode: ${m})`).matches);
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+// Resolves true when the browser really went full screen. iPhone Safari may not support it at all.
+async function enterFullscreen() {
+  if (NATIVE || STANDALONE || fsElement()) return true;
+  const el = document.documentElement;
+  try {
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    else return false;
+  } catch (e) { return false; }
+  try { await screen.orientation.lock('landscape'); } catch (e) { /* not supported here */ }
+  return true;
+}
+
+function renderFsButtons() {
+  document.body.classList.toggle('show-fs', !NATIVE && !STANDALONE && !fsElement());
+}
+
+function showFsGuide(open) {
+  if (open) pauseGame();
+  document.getElementById('fsGuide').classList.toggle('active', open);
+}
+
+async function goFullscreen() {
+  if (!(await enterFullscreen())) showFsGuide(true);
+}
+
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) {
+  document.addEventListener(ev, () => { renderFsButtons(); setTimeout(onResize, 300); });
+}
+// iOS reports the new size late after a rotation
+window.addEventListener('orientationchange', () => setTimeout(onResize, 400));
+renderFsButtons();
 
 function startCity() {
   if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
@@ -306,6 +339,7 @@ function startCity() {
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
   audio.setMusicLevel(0.22);
   ui.popup('TOSHKENT SHAHAR');
+  if (TOUCH) enterFullscreen();
 }
 
 function leaveCity() {
@@ -921,6 +955,8 @@ const actions = {
     else startRun();
   },
   city: () => startCity(),
+  fullscreen: () => goFullscreen(),
+  fsClose: () => showFsGuide(false),
   menu: () => {
     if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
     if (mp.connected) openMp(); else toMenu();
