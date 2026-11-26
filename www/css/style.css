@@ -443,3 +443,6 @@ body.show-fs .fs-only { display: inline-flex !important; align-items: center; ju
   width: 190px; height: 190px; border-radius: 50%; border: 0; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 body.touch-mode .minimap.round { top: calc(max(16px, env(safe-area-inset-top)) + 120px); bottom: auto; width: 120px; height: 120px; }
+@media (max-height: 560px), (max-width: 700px) {
+  .minimap.round { width: 120px; height: 120px; }
+}
