@@ -88,6 +88,7 @@ const city = new CityMode(scene, {
   input, tilt, camera, moon, hemi, renderer,
   get bloom() { return bloom; },
   setHeadlight: (on) => { if (headlight) headlight.visible = on; },
+  trafficDensity: () => S.traffic,
   get audio() { return audio; },
   get fx() { return fx; },
   get ui() { return ui; },
@@ -259,6 +260,10 @@ function leaveGarage() {
 // opts.lane: start lane x (multiplayer grid); opts.noRival: no AI rival (multiplayer)
 function startRun(opts = {}) {
   if (player.def !== CARS[G.carIndex]) setPlayerCar(G.carIndex);
+  if (!G.mp && traffic.sync) {   // back to single player: own traffic and own map again
+    traffic.sync = null;
+    world.setTheme(G.map); setTrafficPalette(G.map);
+  }
   resetInput();
   traffic.clear();
   fx.clear();
@@ -997,7 +1002,14 @@ const actions = {
     const l = mp.lobby;
     if (l && l.phase === 'driving' && !mp.isHost) mp.send({ t: 'join' });
     else if (l && l.phase !== 'lobby') mp.send({ t: 'end' });
-    else mp.send({ t: 'start' });
+    else { mp.send({ t: 'config', map: G.map }); mp.send({ t: 'start' }); }   // everyone drives the host's map
+  },
+  mpTraffic: (btn) => mp.send({ t: 'config', traffic: btn.dataset.val }),
+  trafficCycle: () => {
+    S.traffic = { low: 'normal', normal: 'high', high: 'low' }[S.traffic];
+    storageSet('sr3d_traffic', S.traffic);
+    applyTraffic();
+    renderSettings();
   },
   mpToLobby: () => openMp(),
   pause: () => (G.mode === 'paused' ? resumeGame() : pauseGame()),
@@ -1010,6 +1022,11 @@ const actions = {
     if (on) calibrateTilt();
   },
 };
+
+function applyTraffic() {
+  traffic.density = S.traffic;
+  document.querySelectorAll('.traffic-toggle span').forEach((s) => { s.textContent = `TRAFFIC: ${S.traffic.toUpperCase()}`; });
+}
 
 function renderMapButton() {
   document.querySelectorAll('.map-toggle span').forEach((s) => { s.textContent = G.map === 'tashkent' ? 'MAP: TOSHKENT' : 'MAP: NEON CITY'; });
@@ -1049,7 +1066,16 @@ const S = {
   res: storageGet('sr3d_res', 'preset'),          // 'preset' | '0.5' | '0.75' | '1'
   fps: Number(storageGet('sr3d_fps', '0')) || 0,  // 0 = no limit (follows the display: 60/120/144 Hz)
   showFps: storageGet('sr3d_showfps', '1') === '1',
+  traffic: storageGet('sr3d_traffic', 'normal'),   // low | normal | high
 };
+if (!['low', 'normal', 'high'].includes(S.traffic)) S.traffic = 'normal';
+// smoother by default: everyone moves to AUTO graphics once (it lowers resolution and effects by
+// itself whenever the frame rate drops); the player can still pick a fixed preset afterwards
+if (storageGet('sr3d_auto_v2', '') !== '1') {
+  storageSet('sr3d_auto_v2', '1');
+  if (S.quality !== 'auto') { S.quality = 'auto'; storageSet('sr3d_quality', 'auto'); }
+  if (S.res === '4k') { S.res = 'preset'; storageSet('sr3d_res', 'preset'); }
+}
 if (!GFX[S.quality] && S.quality !== 'auto') S.quality = 'high';
 
 Q.tier = 'high';   // AUTO's current preset
@@ -1120,6 +1146,7 @@ function setSetting(btn) {
   if (key === 'fps') S.fps = Number(val);
   else if (key === 'showFps') S.showFps = val === 'true';
   else S[key] = val;
+  if (key === 'traffic') { applyTraffic(); storageSet('sr3d_traffic', val); renderSettings(); return; }
   if (key === 'quality' && val === 'auto') Q.tier = 'high';
   storageSet({ quality: 'sr3d_quality', res: 'sr3d_res', fps: 'sr3d_fps', showFps: 'sr3d_showfps' }[key],
     key === 'showFps' ? (S.showFps ? 1 : 0) : S[key]);
@@ -1444,6 +1471,7 @@ function renderMp() {
   const host = mp.isHost && l.phase === 'lobby';
   document.querySelectorAll('[data-action=mpMode]').forEach((b) => { b.classList.toggle('on', b.dataset.mode === l.mode); b.disabled = !host; });
   document.querySelectorAll('[data-action=mpDist]').forEach((b) => { b.classList.toggle('on', Number(b.dataset.dist) === l.distance); b.disabled = !host; });
+  document.querySelectorAll('[data-action=mpTraffic]').forEach((b) => { b.classList.toggle('on', b.dataset.val === (l.traffic || 'normal')); b.disabled = !host; });
   $id('mpDistRow').classList.toggle('hidden', l.mode !== 'race');
   const start = $id('mpStartBtn');
   let hint = '';
@@ -1466,6 +1494,10 @@ function renderMp() {
 
 function startMpSession(m) {
   G.mp = { mode: m.mode, distance: m.distance, finished: false, t0: null, place: null, synced: false };
+  // the same traffic for every player: seeded by the room, placed by the shared clock
+  traffic.sync = { seed: m.seed || 1, startedAt: m.startedAt || Date.now(), density: m.traffic || S.traffic };
+  const map = m.map === 'neon' || m.map === 'tashkent' ? m.map : G.map;
+  world.setTheme(map); setTrafficPalette(map);
   G.mpFinishers = [];
   const idx = Math.max(0, (m.order || []).indexOf(mp.id));
   ui.show(null);
@@ -1632,7 +1664,10 @@ function frame(now = performance.now()) {
   if (S.fps > 0 && now - lastFrameAt < 1000 / S.fps - 1) return;
   lastFrameAt = now;
   const raw = clock.getDelta();
-  step(Math.min(raw, 1 / 20));
+  // even out frame-to-frame jitter in the timestep (uneven steps read as stutter)
+  G.dtSmooth = G.dtSmooth ? G.dtSmooth + (Math.min(raw, 0.1) - G.dtSmooth) * 0.25 : Math.min(raw, 1 / 60);
+  const dt = Math.abs(raw - G.dtSmooth) < G.dtSmooth * 0.5 ? G.dtSmooth : raw;
+  step(Math.min(dt, 1 / 20));
   composer.render();
   adaptQuality(raw);
 }
@@ -1664,8 +1699,15 @@ function adaptQuality(raw) {
   Q.refresh = Math.max(Q.refresh, snapped);
   const fps = Q.frames / Q.time;
   if (S.fps > 0) Q.refresh = Math.min(Q.refresh, S.fps);
-  if (fps < 20) { Q.frames = 0; Q.time = 0; Q.best.length = 0; return; } // throttled/background tab, not a GPU limit
   let pr = Q.pr;
+  if (fps < 24) {
+    // a really slow device (hidden tabs never get here): drop straight to the lightest settings
+    Q.good = 0;
+    if (Q.tier !== 'low') { Q.tier = 'low'; applyGraphics(); }
+    else if (Q.pr > Q.min + 0.01) setQuality(Q.min);
+    Q.frames = 0; Q.time = 0; Q.best.length = 0;
+    return;
+  }
   const target = Math.min(Q.refresh, 60) ;            // phones: 60 FPS is the goal for AUTO
   const tierIdx = TIERS.indexOf(Q.tier);
   if (fps < target * 0.85) {
@@ -1707,6 +1749,7 @@ function boot() {
   applyGraphics();
   G.map = storageGet('sr3d_map', 'tashkent') === 'neon' ? 'neon' : 'tashkent';
   world.setTheme(G.map);
+  applyTraffic();
   renderMapButton();
   document.getElementById('viewBtn').classList.toggle('active', G.view === 'cockpit');
 

@@ -62,6 +62,7 @@
         <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
         <div class="info-chip"><span class="label">CAR</span><span id="menuCar">VOLT GT</span></div>
         <button class="btn small ghost map-toggle" data-action="map"><span>MAP: TOSHKENT</span></button>
+        <button class="btn small ghost traffic-toggle" data-action="trafficCycle"><span>TRAFFIC: NORMAL</span></button>
         <button class="btn small ghost touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
       </div>
       <div class="controls-help">
@@ -134,6 +135,12 @@
           <button data-action="set" data-key="fps" data-val="120">120</button>
           <button data-action="set" data-key="fps" data-val="0">MAX</button>
         </div></div>
+      <div class="set-row"><span class="label">TRAFFIC</span>
+        <div class="seg">
+          <button data-action="set" data-key="traffic" data-val="low">LOW</button>
+          <button data-action="set" data-key="traffic" data-val="normal">NORMAL</button>
+          <button data-action="set" data-key="traffic" data-val="high">HIGH</button>
+        </div></div>
       <div class="set-row"><span class="label">SHOW FPS</span>
         <div class="seg">
           <button data-action="set" data-key="showFps" data-val="true">ON</button>
@@ -185,6 +192,8 @@
           <div class="seg"><button data-action="mpMode" data-mode="free">FREE DRIVE</button><button data-action="mpMode" data-mode="race">RACE</button></div></div>
         <div id="mpDistRow" class="mp-row"><span class="label">DISTANCE</span>
           <div class="seg"><button data-action="mpDist" data-dist="2000">2 KM</button><button data-action="mpDist" data-dist="5000">5 KM</button><button data-action="mpDist" data-dist="10000">10 KM</button></div></div>
+        <div class="mp-row"><span class="label">TRAFFIC</span>
+          <div class="seg"><button data-action="mpTraffic" data-val="low">LOW</button><button data-action="mpTraffic" data-val="normal">NORMAL</button><button data-action="mpTraffic" data-val="high">HIGH</button></div></div>
         <p id="mpLobbyHint" class="mp-status"></p>
         <button id="mpStartBtn" class="btn primary wide" data-action="mpStart"><span>START</span></button>
         <button class="btn ghost wide" data-action="mpLeave"><span>LEAVE ROOM</span></button>

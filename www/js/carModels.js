@@ -592,8 +592,10 @@ const tTire = () => cm('tire', () => new THREE.MeshStandardMaterial({ color: 0x0
 const tHub = () => cm('hub', () => new THREE.MeshStandardMaterial({ color: 0x8f949e, metalness: 0.9, roughness: 0.3 }));
 const tHead = () => cm('head', () => new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff1d6).multiplyScalar(2.5) }));
 
-export function pickTrafficType(air = false) {
-  let r = Math.random();
+export function pickTrafficType(air = false, r = Math.random()) {
+  let total = 0;
+  for (const v of Object.values(TRAFFIC_TYPES)) if (!!v.air === air) total += v.weight;
+  r *= total;
   for (const [k, v] of Object.entries(TRAFFIC_TYPES)) {
     if (!!v.air !== air) continue;
     r -= v.weight;
@@ -698,10 +700,11 @@ export function createTrafficCar(type) {
     type, mesh: g, halfW: spec.w / 2, halfL: spec.l / 2, height: spec.h, mass: spec.mass, air: !!spec.air, tailMat, blinkMat,
     setBrake(on) { tailMat.color.setRGB(on ? 5 : 2.0, on ? 0.05 : 0.02, on ? 0.08 : 0.04); },
     setBlink(on) { blinkMat.color.setRGB(on ? 4 : 0.12, on ? 1.5 : 0.05, 0); },
-    setColor() {
-      const c = TRAFFIC_COLORS[Math.floor(Math.random() * TRAFFIC_COLORS.length)];
+    setColor(pick) {
+      const r = pick === undefined ? Math.random() : pick;
+      const c = TRAFFIC_COLORS[Math.floor(r * TRAFFIC_COLORS.length)];
       for (const m of bodyMeshes) m.material = paint(c);
-      for (const m of extraMeshes) m.material = paint(TRAILER_COLORS[Math.floor(Math.random() * TRAILER_COLORS.length)]);
+      for (const m of extraMeshes) m.material = paint(TRAILER_COLORS[Math.floor(((r * 7.31) % 1) * TRAILER_COLORS.length)]);
       return c;
     },
   };

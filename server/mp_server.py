@@ -100,11 +100,14 @@ class Room:
         self.distance = 3000
         self.finishers = []
         self.started_at = 0.0
+        self.seed = 1
+        self.traffic = 'normal'     # low | normal | high (host's choice, same for everyone)
+        self.map = 'tashkent'
 
     def lobby(self):
         return {
             't': 'lobby', 'hostId': self.host_id, 'phase': self.phase, 'mode': self.mode,
-            'distance': self.distance,
+            'distance': self.distance, 'traffic': self.traffic, 'map': self.map,
             'players': [{'id': p.id, 'name': p.name, 'car': p.car} for p in self.players.values() if p.joined],
         }
 
@@ -140,7 +143,9 @@ class Room:
                 'players': len(joined), 'max': MAX_PLAYERS}
 
     def start_msg(self):
-        return {'t': 'start', 'mode': self.mode, 'distance': self.distance, 'seed': random.randint(1, 2**31 - 1),
+        # the same seed and start time for every player (late joiners too): identical traffic everywhere
+        return {'t': 'start', 'mode': self.mode, 'distance': self.distance, 'seed': self.seed,
+                'startedAt': int(self.started_at * 1000), 'traffic': self.traffic, 'map': self.map,
                 'order': [q.id for q in self.players.values() if q.joined]}
 
     async def check_race_done(self):
@@ -182,10 +187,15 @@ class Room:
                 self.mode = m['mode']
             if isinstance(m.get('distance'), (int, float)):
                 self.distance = int(max(1000, min(20000, m['distance'])))
+            if m.get('traffic') in ('low', 'normal', 'high'):
+                self.traffic = m['traffic']
+            if m.get('map') in ('tashkent', 'neon'):
+                self.map = m['map']
             await self.broadcast(self.lobby())
         elif t == 'start' and p.id == self.host_id and self.phase == 'lobby':
             self.finishers = []
             self.started_at = time.time()
+            self.seed = random.randint(1, 2**31 - 1)
             self.phase = 'racing' if self.mode == 'race' else 'driving'
             print(f'  > {"race of " + str(self.distance) + " m" if self.mode == "race" else "free drive"} started')
             await self.broadcast(self.start_msg())

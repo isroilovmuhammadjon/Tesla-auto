@@ -17,6 +17,10 @@ export class LocalRoom {
     this.phase = 'lobby';
     this.mode = 'race';
     this.distance = 3000;
+    this.traffic = 'normal';      // host's choice, the same for everyone
+    this.map = 'tashkent';
+    this.seed = 1;
+    this.startedAt = 0;
     this.finishers = [];
   }
 
@@ -75,7 +79,7 @@ export class LocalRoom {
 
   lobby() {
     return {
-      t: 'lobby', hostId: this.hostId, phase: this.phase, mode: this.mode, distance: this.distance,
+      t: 'lobby', hostId: this.hostId, phase: this.phase, mode: this.mode, distance: this.distance, traffic: this.traffic, map: this.map,
       players: this.joined().map((p) => ({ id: p.id, name: p.name, car: p.car })),
     };
   }
@@ -93,7 +97,8 @@ export class LocalRoom {
   publishInfo() { this.onInfo(this.info()); }
 
   startMsg() {
-    return { t: 'start', mode: this.mode, distance: this.distance, seed: Math.floor(Math.random() * 2 ** 31), order: this.joined().map((p) => p.id) };
+    // one seed and start time per session (late joiners get the same): identical traffic for all players
+    return { t: 'start', mode: this.mode, distance: this.distance, seed: this.seed, startedAt: this.startedAt, traffic: this.traffic, map: this.map, order: this.joined().map((p) => p.id) };
   }
 
   checkRaceDone() {
@@ -132,10 +137,14 @@ export class LocalRoom {
     else if (t === 'config' && id === this.hostId && this.phase === 'lobby') {
       if (m.mode === 'race' || m.mode === 'free') this.mode = m.mode;
       if (typeof m.distance === 'number') this.distance = Math.max(1000, Math.min(20000, Math.round(m.distance)));
+      if (['low', 'normal', 'high'].includes(m.traffic)) this.traffic = m.traffic;
+      if (m.map === 'tashkent' || m.map === 'neon') this.map = m.map;
       this.broadcast(this.lobby());
       this.publishInfo();
     } else if (t === 'start' && id === this.hostId && this.phase === 'lobby') {
       this.finishers = [];
+      this.seed = 1 + Math.floor(Math.random() * (2 ** 31 - 2));
+      this.startedAt = Date.now();
       this.phase = this.mode === 'race' ? 'racing' : 'driving';
       this.broadcast(this.startMsg());
       this.broadcast(this.lobby());

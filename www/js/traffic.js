@@ -14,6 +14,29 @@ export function restHeight(height, rx, rz) {
 // Snap an angle to the nearest flat resting orientation (upright or on its roof)
 const settleAngle = (a) => Math.round(a / Math.PI) * Math.PI;
 
+// cars per stretch of road: LOW / NORMAL / HIGH
+export const DENSITY = { low: 0.5, normal: 1, high: 1.7 };
+
+// small deterministic hash -> [0, 1) numbers, the same on every device
+function hash4(seed, a, b) {
+  let h = (seed ^ Math.imul(a, 374761393) ^ Math.imul(b + 7, 668265263)) >>> 0;
+  const next = () => {
+    h = (h + 0x6d2b79f5) >>> 0;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return [next(), next(), next(), next()];
+}
+
+// Multiplayer traffic: every car lives at an absolute road position that depends only on the room's
+// seed and the shared clock, so all players see the same cars in the same places.
+// Each lane has one speed, so cars in a lane never catch each other up.
+const SYNC_SEG = 70;
+const SYNC_LANE_KMH = [62, 78, 94, 110];
+const SYNC_CHANCE = { low: 0.17, normal: 0.3, high: 0.48 };
+
 export class Traffic {
   constructor(scene) {
     this.scene = scene;
@@ -23,6 +46,9 @@ export class Traffic {
     this.airTimer = 0;
     this.onImpact = null; // (x, y, z, strength) — set by the game for sparks/sound
     this.extra = [];      // other vehicles traffic must respect (the AI rival)
+    this.density = 'normal';
+    this.sync = null;     // { seed, startedAt, density } in multiplayer
+    this.syncCars = new Map();
   }
 
   // Create a few cars of every type up front so shaders compile before play.
@@ -53,6 +79,46 @@ export class Traffic {
     for (const c of this.active) this.release(c);
     this.active.length = 0;
     this.spawnTimer = 0;
+    this.syncCars.clear();
+  }
+
+  // place the shared multiplayer traffic around our own distance
+  updateSync(distance) {
+    const { seed, startedAt, density } = this.sync;
+    const t = Math.max(0, (Date.now() - startedAt) / 1000);
+    const chance = SYNC_CHANCE[density] || SYNC_CHANCE.normal;
+    const want = new Map();
+    for (let lane = 0; lane < 4; lane++) {
+      const v = SYNC_LANE_KMH[lane] / 3.6;
+      const k0 = Math.floor((distance - 60 - v * t) / SYNC_SEG), k1 = Math.floor((distance + 640 - v * t) / SYNC_SEG);
+      for (let k = Math.max(2, k0); k <= k1; k++) {
+        const [a, b, c, d] = hash4(seed, k, lane);
+        if (a >= chance) continue;
+        const D = k * SYNC_SEG + b * SYNC_SEG * 0.55 + v * t;
+        want.set(lane * 1e7 + k, { lane, v, z: distance - D, typeR: c, colorR: d });
+      }
+    }
+    for (const [key, car] of this.syncCars) {
+      if (want.has(key) && !car.hit) continue;
+      if (car.hit && car.z < 40 && car.z > -700) continue;      // wrecks stay where they crashed
+      this.syncCars.delete(key);
+      const i = this.active.indexOf(car);
+      if (i >= 0) { this.active.splice(i, 1); this.release(car); }
+    }
+    for (const [key, w] of want) {
+      let car = this.syncCars.get(key);
+      if (!car) {
+        if (this.syncCars.has(key)) continue;
+        const type = pickTrafficType(false, w.typeR);
+        car = this.acquire(type);
+        this.setup(car, w.lane, 0, w.z, w.v * 3.6, w.colorR);
+        car.nextLaneChange = Infinity;
+        this.syncCars.set(key, car);
+      }
+      if (car.hit) continue;
+      car.z = w.z; car.speed = car.baseSpeed = w.v;
+      car.mesh.position.set(car.x, 0, car.z);
+    }
   }
 
   laneBusy(lane, layer, z, range, except) {
@@ -79,8 +145,8 @@ export class Traffic {
     return true;
   }
 
-  setup(c, lane, layer, z, kmh) {
-    c.setColor();
+  setup(c, lane, layer, z, kmh, colorR) {
+    c.setColor(colorR);
     c.baseSpeed = c.speed = kmh / 3.6;
     c.lane = c.targetLane = lane;
     c.layer = layer;
@@ -105,7 +171,8 @@ export class Traffic {
 
   trySpawnGround(distance) {
     const ground = this.active.filter((o) => o.layer === 0);
-    const maxCars = Math.min(24, 8 + Math.floor(distance / 600));
+    const k = DENSITY[this.density] || 1;
+    const maxCars = Math.round(Math.min(24, 8 + Math.floor(distance / 600)) * k);
     if (ground.length >= maxCars) return;
     const lane = Math.floor(Math.random() * 4);
     const z = -330 - Math.random() * 150;
@@ -121,7 +188,7 @@ export class Traffic {
 
   trySpawnAir(distance) {
     const air = this.active.filter((o) => o.layer > 0);
-    const maxAir = Math.min(14, 6 + Math.floor(distance / 900));
+    const maxAir = Math.round(Math.min(14, 6 + Math.floor(distance / 900)) * (DENSITY[this.density] || 1));
     if (air.length >= maxAir) return;
     const lane = Math.floor(Math.random() * 4);
     const layer = 1 + Math.floor(Math.random() * AIR_LEVELS.length);
@@ -192,10 +259,19 @@ export class Traffic {
 
   // spawn: true = ground + air, false = none, 'air' = only flying traffic
   update(dt, playerSpeed, distance, time, spawn = true) {
+    if (this.sync) {
+      if (spawn) this.updateSync(distance);
+      const blinkOn = Math.sin(time * 9) > 0;
+      for (const c of this.active) {
+        if (c.hit) this.updateWreck(c, dt, playerSpeed, blinkOn);
+        else c.mesh.position.set(c.x, 0, c.z);
+      }
+      return;
+    }
     if (spawn) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
-        this.spawnTimer = 0.2;
+        this.spawnTimer = (DENSITY[this.density] || 1) > 1.2 ? 0.12 : 0.2;
         if (spawn !== 'air') this.trySpawnGround(distance);
         this.trySpawnAir(distance);
       }

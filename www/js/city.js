@@ -732,12 +732,14 @@ export class CityMode {
 
   // ------------------------------------------------------------ traffic
   spawnTraffic() {
-    const n = this.d.mobile ? 18 : 28;
+    const k = { low: 0.45, normal: 1, high: 1.6 }[this.d.trafficDensity ? this.d.trafficDensity() : 'normal'] || 1;
+    const n = Math.round((this.d.mobile ? 18 : 28) * k);
     while (this.cars.length < n) {
       const c = createUzCar(pickUzType());
       this.root.add(c.mesh);
       this.cars.push(c);
     }
+    while (this.cars.length > n) { const c = this.cars.pop(); this.root.remove(c.mesh); }
     for (const c of this.cars) this.placeCar(c, true);
   }
 
