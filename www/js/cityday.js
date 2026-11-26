@@ -65,6 +65,8 @@ export const SHOP_SIGNS = [
   ['CHOYXONA', '#8a3b1d'], ['MEVA-SABZAVOT', '#3f8f2c'], ['SARTAROSHXONA', '#5a2d82'], ['KIYIM-KECHAK', '#c2185b'],
   ['UYALI ALOQA', '#e05a00'], ['MAISHIY TEXNIKA', '#2a4a9a'], ['OSHXONA • PALOV', '#a32020'], ['SHIRINLIKLAR', '#d8467d'],
   ["QURILISH MOLLARI", '#6b5a2a'], ["GO'SHT", '#9c1c1c'], ['KITOBLAR', '#2d6a5a'], ['BANK', '#0d4a8a'],
+  ['SAMSA • KABOB', '#b5461b'], ['OSH MARKAZI', '#7a1f1f'], ["KO'ZOYNAKLAR", '#3a4f8a'], ['GULLAR', '#c23a77'],
+  ['MAHSULOTLAR 24/7', '#2e7d32'], ['XOZMAG', '#5d4037'], ['TOSHKENT NON', '#a0522d'], ['STOMATOLOGIYA', '#00838f'],
 ];
 const SIGN_ROWS = SHOP_SIGNS.length;
 let signTex = null;
@@ -171,4 +173,126 @@ export function daySky(sunDir) {
   sky.renderOrder = -10;
   sky.frustumCulled = false;
   return sky;
+}
+
+// ---------------------------------------------------------------- more facade styles
+// 'brick' 4-5 storey brick house, 'band' modern ribbon windows, 'arch' plastered with arched windows
+export function facadeTexture(style, wall, seed = 1) {
+  if (style === 'panel') return dayPanelTexture(wall, seed);
+  let r = seed * 7919 + 13;
+  const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
+  return canvasTex(128, 256, (g, w, h) => {
+    g.fillStyle = wall; g.fillRect(0, 0, w, h);
+    const rows = 12, rh = h / rows;
+    if (style === 'brick') {
+      // brick courses
+      for (let y = 0; y < h; y += 3) { g.fillStyle = `rgba(0,0,0,${0.04 + rnd() * 0.05})`; g.fillRect(0, y, w, 1); }
+      const cols = 4, cw = w / cols;
+      for (let row = 0; row < rows; row++) for (let c = 0; c < cols; c++) {
+        const x = c * cw, y = row * rh;
+        g.fillStyle = '#efe8dc'; g.fillRect(x + cw * 0.22, y + rh * 0.14, cw * 0.56, rh * 0.6);
+        const t = 55 + rnd() * 35; g.fillStyle = `rgb(${t | 0},${(t + 15) | 0},${(t + 28) | 0})`;
+        g.fillRect(x + cw * 0.26, y + rh * 0.18, cw * 0.48, rh * 0.52);
+        g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x + cw * 0.26, y + rh * 0.18, cw * 0.48, 2);
+        g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x + cw * 0.18, y + rh * 0.76, cw * 0.64, 2);   // sill
+      }
+    } else if (style === 'band') {
+      for (let row = 0; row < rows; row++) {
+        const y = row * rh;
+        g.fillStyle = '#3f5a72'; g.fillRect(0, y + rh * 0.2, w, rh * 0.5);
+        g.fillStyle = 'rgba(200,225,240,0.35)'; g.fillRect(0, y + rh * 0.2, w, rh * 0.12);
+        g.fillStyle = 'rgba(230,236,240,0.9)';
+        for (let x = 0; x < w; x += w / 8) g.fillRect(x, y + rh * 0.2, 1.5, rh * 0.5);
+      }
+    } else { // arch
+      const cols = 5, cw = w / cols;
+      for (let row = 0; row < rows; row++) for (let c = 0; c < cols; c++) {
+        const x = c * cw + cw * 0.25, y = row * rh + rh * 0.2, ww = cw * 0.5, hh = rh * 0.55;
+        g.fillStyle = '#f4efe4';
+        g.beginPath(); g.moveTo(x - 2, y + hh + 1); g.lineTo(x - 2, y + ww / 2); g.arc(x + ww / 2, y + ww / 2, ww / 2 + 2, Math.PI, 0); g.lineTo(x + ww + 2, y + hh + 1); g.fill();
+        const t = 60 + rnd() * 30; g.fillStyle = `rgb(${t | 0},${(t + 20) | 0},${(t + 30) | 0})`;
+        g.beginPath(); g.moveTo(x, y + hh); g.lineTo(x, y + ww / 2); g.arc(x + ww / 2, y + ww / 2, ww / 2, Math.PI, 0); g.lineTo(x + ww, y + hh); g.fill();
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------- ground floors: shopfronts and entrances
+// atlas rows, each a 6 m x 3.2 m bay: [kind, label]
+export const STOREFRONTS = [
+  ['shop', '#1d6fb8'], ['shop', '#1f8a4c'], ['cafe', '#8a3b1d'], ['pharmacy', '#1aa38f'],
+  ['shop', '#c2185b'], ['entrance', '#9aa0a6'], ['bank', '#0d4a8a'], ['shop', '#e05a00'],
+];
+let storeTex = null;
+export function storefrontAtlas() {
+  if (storeTex) return storeTex;
+  const W = 256, H = 136, n = STOREFRONTS.length;
+  storeTex = canvasTex(W, H * n, (g) => {
+    STOREFRONTS.forEach(([kind, col], i) => {
+      const y0 = i * H;
+      g.fillStyle = '#cfc9bd'; g.fillRect(0, y0, W, H);                       // plaster
+      g.fillStyle = '#8f8a80'; g.fillRect(0, y0 + H - 12, W, 12);              // plinth
+      if (kind === 'entrance') {
+        // residential entrance: steel door, concrete canopy, small windows either side
+        g.fillStyle = '#6b4b32'; g.fillRect(W * 0.4, y0 + H * 0.3, W * 0.2, H * 0.62);
+        g.fillStyle = '#2b2f36'; g.fillRect(W * 0.44, y0 + H * 0.36, W * 0.12, H * 0.2);
+        g.fillStyle = '#7d7a74'; g.fillRect(W * 0.34, y0 + H * 0.22, W * 0.32, H * 0.08);
+        for (const x of [0.1, 0.72]) { g.fillStyle = '#eee'; g.fillRect(W * x, y0 + H * 0.3, W * 0.18, H * 0.3); g.fillStyle = '#4d5d6c'; g.fillRect(W * x + 3, y0 + H * 0.3 + 3, W * 0.18 - 6, H * 0.3 - 6); }
+        g.fillStyle = '#1b5e9e'; g.fillRect(W * 0.46, y0 + H * 0.12, W * 0.08, H * 0.07);   // house number
+        return;
+      }
+      // big shop windows with mullions and a glass door
+      g.fillStyle = '#2a3036'; g.fillRect(W * 0.04, y0 + H * 0.2, W * 0.92, H * 0.68);
+      const glass = g.createLinearGradient(0, y0 + H * 0.2, 0, y0 + H * 0.88);
+      glass.addColorStop(0, '#9fb8c8'); glass.addColorStop(0.35, '#4f6676'); glass.addColorStop(1, '#2c3a44');
+      g.fillStyle = glass; g.fillRect(W * 0.06, y0 + H * 0.23, W * 0.88, H * 0.63);
+      // goods / interior colours
+      for (let k = 0; k < 14; k++) {
+        g.fillStyle = `hsla(${(k * 47 + i * 30) % 360},55%,55%,0.55)`;
+        g.fillRect(W * (0.08 + (k % 7) * 0.12), y0 + H * (0.6 + Math.floor(k / 7) * 0.12), W * 0.08, H * 0.09);
+      }
+      if (kind === 'cafe') { g.fillStyle = 'rgba(255,214,150,0.45)'; g.fillRect(W * 0.06, y0 + H * 0.23, W * 0.88, H * 0.3); }
+      if (kind === 'pharmacy') { g.fillStyle = '#19a35b'; g.fillRect(W * 0.8, y0 + H * 0.26, 18, 6); g.fillRect(W * 0.8 + 6, y0 + H * 0.26 - 6, 6, 18); }
+      g.fillStyle = '#d9dde2';
+      for (const x of [0.06, 0.36, 0.64, 0.94]) g.fillRect(W * x - 2, y0 + H * 0.2, 4, H * 0.68);
+      // door
+      g.fillStyle = '#1c2228'; g.fillRect(W * 0.42, y0 + H * 0.3, W * 0.16, H * 0.58);
+      g.fillStyle = 'rgba(160,190,205,0.6)'; g.fillRect(W * 0.44, y0 + H * 0.33, W * 0.12, H * 0.5);
+      // fascia band in the shop colour above the windows
+      g.fillStyle = col; g.fillRect(0, y0 + H * 0.04, W, H * 0.13);
+    });
+  });
+  storeTex.wrapS = THREE.RepeatWrapping;
+  return storeTex;
+}
+export function storefrontGeometry(row, length) {
+  const geo = new THREE.PlaneGeometry(length, 3.2);
+  const uv = geo.attributes.uv, n = STOREFRONTS.length;
+  const v0 = 1 - (row + 1) / n, v1 = 1 - row / n;
+  const reps = Math.max(1, Math.round(length / 6));
+  for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * reps, uv.getY(k) > 0.5 ? v1 - 0.003 : v0 + 0.003);
+  return geo;
+}
+
+// zebra crossing (stripes along the road) and the blue pedestrian-crossing sign
+export function zebraTexture() {
+  return canvasTex(256, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = 'rgba(238,240,242,0.95)';
+    for (let x = 4; x < w; x += 24) g.fillRect(x, 0, 12, h);
+  });
+}
+export function crossingSignTexture() {
+  return canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1557b0'; g.fillRect(6, 6, w - 12, h - 12);
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.moveTo(w / 2, 14); g.lineTo(w - 16, h - 18); g.lineTo(16, h - 18); g.closePath(); g.fill();
+    g.fillStyle = '#111';
+    g.beginPath(); g.arc(w / 2 + 4, 46, 6, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 6; g.strokeStyle = '#111'; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(w / 2 + 2, 54); g.lineTo(w / 2 - 4, 78); g.lineTo(w / 2 - 14, 96); g.moveTo(w / 2 - 4, 78); g.lineTo(w / 2 + 10, 96); g.moveTo(w / 2, 60); g.lineTo(w / 2 + 14, 70); g.stroke();
+    g.fillStyle = '#111';
+    for (let x = 30; x < w - 30; x += 12) g.fillRect(x, h - 30, 7, 6);
+  });
 }

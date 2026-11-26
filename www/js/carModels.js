@@ -120,7 +120,7 @@ export function createSportsCar(def) {
       ? new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.35, roughness: 0.62, envMapIntensity: 0.8 })
       : st.custom
         // deep gloss black: dark base, mirror-like clear coat that reflects the street
-        ? new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.12, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.7 })
+        ? new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.15, roughness: 0.42, clearcoat: 1, clearcoatRoughness: 0.035, envMapIntensity: 0.7 })
         : new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.6, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 }),
     disc: new THREE.MeshStandardMaterial({ color: 0x6d7077, metalness: 0.9, roughness: 0.45 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0x04060b, metalness: 0.9, roughness: 0.04, clearcoat: 1, envMapIntensity: 1.8 }),

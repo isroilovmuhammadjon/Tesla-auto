@@ -49,7 +49,7 @@ const MAT = new Map();
 const cg = (k, f) => { if (!GEO.has(k)) GEO.set(k, f()); return GEO.get(k); };
 const cm = (k, f) => { if (!MAT.has(k)) MAT.set(k, f()); return MAT.get(k); };
 const paint = (c) => cm(`p${c}`, () => new THREE.MeshStandardMaterial({ color: c, metalness: 0.45, roughness: 0.32, envMapIntensity: 1.2 }));
-const glass = () => cm('glass', () => new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: 0.7, roughness: 0.06, envMapIntensity: 1.4 }));
+const glass = () => cm('glass', () => new THREE.MeshStandardMaterial({ color: 0x22303b, metalness: 0.35, roughness: 0.06, envMapIntensity: 1.1 }));
 const black = () => cm('black', () => new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.7 }));
 const chrome = () => cm('chrome', () => new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 1, roughness: 0.18 }));
 const tire = () => cm('tire', () => new THREE.MeshStandardMaterial({ color: 0x121214, roughness: 0.92 }));
@@ -153,7 +153,20 @@ export function createUzCar(type) {
     const t = new THREE.Mesh(tg, tire()); t.position.set(s * (m.W / 2 - 0.12), m.R, -wx); t.castShadow = true; g.add(t);
     const hb = new THREE.Mesh(hg, hub()); hb.position.copy(t.position); detail.add(hb);
   }
-  const bodyMeshes = [body, roof];
+  // body-colour door pillars break the glass into windows (B-pillar; the Damas gets two)
+  const gl = m.glass, belt = gl[0][1], top = Math.max(...gl.map((p) => p[1]));
+  const front = gl[1][0], rear = gl[gl.length - 2][0];
+  const pillarsAt = type === 'damas' ? [0.62, 0.3] : [0.5];
+  const pillars = [];
+  for (const f of pillarsAt) {
+    const x = front + (rear - front) * f;
+    for (const sd of [-1, 1]) {
+      const p = new THREE.Mesh(cg(`pil${type}`, () => new THREE.BoxGeometry(0.03, top - belt - 0.04, 0.1)), body.material);
+      p.position.set(sd * (m.W * 0.42 + 0.006), (top + belt) / 2, -x);
+      g.add(p); pillars.push(p);
+    }
+  }
+  const bodyMeshes = [body, roof, ...pillars];
   const palette = type === 'spark' ? SPARK_COLORS : COLORS;
   return {
     type, mesh: g, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,

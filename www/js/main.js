@@ -326,9 +326,9 @@ for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) {
 window.addEventListener('orientationchange', () => setTimeout(onResize, 400));
 renderFsButtons();
 
+// TOSHKENT SHAHAR is driven in the black sedan, whatever is picked for racing
 function startCity() {
-  if (G.garageIndex !== G.carIndex) setPlayerCar(G.carIndex);
-  if (player.def !== CARS[G.carIndex]) setPlayerCar(G.carIndex);
+  if (player.def !== CARS[SEDAN_INDEX]) setPlayerCar(SEDAN_INDEX);
   G.mp = null;
   resetInput();
   traffic.clear();
@@ -343,7 +343,7 @@ function startCity() {
   G.inCity = true;
   G.mode = 'city';
   G.shake = 0;
-  city.enter(CARS[G.carIndex]);
+  city.enter(CARS[SEDAN_INDEX]);
   document.body.classList.toggle('touch-mode', TOUCH);
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
   audio.setMusicLevel(0.22);
@@ -357,6 +357,7 @@ function leaveCity() {
   moon.position.set(-30, 60, 25);
   moon.target.position.set(0, 0, -15);
   setTrafficPalette(G.map);
+  if (player.def !== CARS[G.carIndex]) setPlayerCar(G.carIndex);   // back to the racing car
   player.group.position.set(P.x, 0, 0);
 }
 
@@ -960,7 +961,7 @@ const actions = {
   resume: resumeGame,
   restart: () => {
     if (G.mp) { resumeGame(); respawnMp(); }
-    else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[G.carIndex]); }
+    else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[SEDAN_INDEX]); }
     else startRun();
   },
   city: () => startCity(),
@@ -1097,7 +1098,7 @@ function applyGraphics() {
       if (rt.samples !== samples) { rt.samples = samples; rt.dispose(); }
     }
   }
-  bloom.enabled = preset.bloom;
+  bloom.enabled = preset.bloom && !G.inCity;   // the sunny city has no glow
   world.setLampLightCount(preset.lights);
   document.getElementById('fps').classList.toggle('hidden', !S.showFps);
   renderSettings();

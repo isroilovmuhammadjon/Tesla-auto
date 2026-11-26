@@ -4,6 +4,7 @@
 // follow the curved surface. Brand logos are left out: the badge is a plain gold emblem.
 import * as THREE from 'three';
 import { mergeGeometries, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 export const MALIBU = {
   L: 4.93, halfW: 0.93, wheelR: 0.34, track: 0.8,
@@ -34,7 +35,7 @@ function curve(table) {
 
 // side view: top of the body below the glass (nose, hood, beltline, trunk lid)
 const TOP = curve([[0, 0.6], [0.012, 0.69], [0.035, 0.775], [0.08, 0.83], [0.15, 0.87], [0.25, 0.91], [0.335, 0.955],
-  [0.45, 0.982], [0.6, 1.0], [0.75, 1.022], [0.85, 1.04], [0.92, 1.048], [0.965, 1.042], [0.985, 1.02], [1, 0.97]]);
+  [0.45, 0.982], [0.6, 1.0], [0.75, 1.022], [0.85, 1.04], [0.92, 1.048], [0.955, 1.052], [0.975, 1.058], [0.988, 1.04], [1, 0.985]]);
 // roof line over the glasshouse (windshield, roof, long fastback rear window)
 const ROOF = curve([[0.335, 0.958], [0.38, 1.12], [0.43, 1.29], [0.47, 1.385], [0.52, 1.44], [0.58, 1.46], [0.64, 1.447],
   [0.69, 1.405], [0.74, 1.32], [0.8, 1.2], [0.85, 1.09], [0.875, 1.044]]);
@@ -65,12 +66,13 @@ function section(u) {
   const ya = Math.max(yb, archY(u));
   const yS = Math.max(yt - 0.15, ya + 0.02);      // shoulder (widest point)
   const side = (f, inset) => [hw - inset, ya + (yS - ya) * f];   // lower body tucks in towards the sill
+  const fc = 0.3 + 0.16 * u;                                         // lower character line rises to the rear
+  const hood = u < GH0 ? 1 : u < GH0 + 0.03 ? 1 - (u - GH0) / 0.03 : 0;   // two raised hood lines
   return [
     [0, yb], [0.56, yb], [0.585, ya], [hw - 0.06, ya],
-    side(0.06, 0.03), side(0.25, 0.018), side(0.5, 0.006),
-    side(0.78, 0.001), [hw, yS],
-    [hw - 0.018, yt - 0.075], [hw - 0.06, yt - 0.03], [hw - 0.16, yt - 0.006],
-    [hw * 0.55, yt + 0.012], [0, yt + 0.018],
+    side(0.05, 0.036), side(fc - 0.05, 0.028), side(fc, 0.008), side(0.62, 0.003), side(0.86, 0), [hw + 0.002, yS],
+    [hw - 0.02, yt - 0.07], [hw - 0.066, yt - 0.026], [hw - 0.17, yt - 0.006],
+    [0.5, yt + 0.004], [0.45, yt + 0.008 + 0.014 * hood], [0.38, yt + 0.012], [0, yt + 0.018],
   ];
 }
 function ghSection(u) {
@@ -79,7 +81,7 @@ function ghSection(u) {
   return [[hb, belt], [hb - (hb - hr) * 0.5, belt + (yr - belt) * 0.58], [hr, yr - 0.03], [hr * 0.62, yr - 0.004], [0, yr + 0.004]];
 }
 
-function loftGeometry(us, secFn, capFront, capRear) {
+function loftGeometry(us, secFn, capFront, capRear, creaseAngle = Math.PI / 7.5) {
   const n = secFn(us[0]).length;
   const pos = [], idx = [];
   for (const u of us) for (const [x, y] of secFn(u)) pos.push(x, y, zAt(u));
@@ -118,7 +120,7 @@ function loftGeometry(us, secFn, capFront, capRear) {
     parts.push(m);
   }
   const merged = mergeGeometries(parts.map((g) => { g.deleteAttribute('normal'); g.deleteAttribute('uv'); return g; }));
-  return toCreasedNormals(merged, Math.PI / 3.6);
+  return toCreasedNormals(merged, creaseAngle);
 }
 
 const range = (a, b, step) => { const r = []; for (let u = a; u < b - 1e-9; u += step) r.push(u); r.push(b); return r; };
@@ -167,7 +169,7 @@ function hitSide(z, y) {
 }
 
 // grid over a rectangle in the projection plane, snapped onto the body
-function decalGeometry(kind, a0, a1, y0, y1, na, ny) {
+function decalGeometry(kind, a0, a1, y0, y1, na, ny, off = 0.004) {
   const pos = [], uv = [], ok = [];
   for (let j = 0; j <= ny; j++) {
     for (let i = 0; i <= na; i++) {
@@ -175,7 +177,7 @@ function decalGeometry(kind, a0, a1, y0, y1, na, ny) {
       const p = kind === 'side' ? hitSide(a, y) : hitFront(a, y, kind === 'rear');
       ok.push(!!p);
       if (p) {
-        if (kind === 'front') p[2] -= 0.004; else if (kind === 'rear') p[2] += 0.004; else p[0] += 0.004;
+        if (kind === 'front') p[2] -= off; else if (kind === 'rear') p[2] += off; else p[0] += off;
         pos.push(...p);
       } else pos.push(0, 0, 0);
       // texture x runs the way a viewer facing that side reads it
@@ -213,14 +215,14 @@ function mirrorX(geo) {
 // canvas painters. Each decal gets three canvases: colour (with alpha), metal/rough, lights.
 function painter(w, h, a0, a1, y0, y1, flip) {
   const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  const col = mk(), mr = mk(), lit = mk();
+  const col = mk(), mr = mk(), lit = mk(), lens = mk();
   const P = {
-    col: col.getContext('2d'), mr: mr.getContext('2d'), lit: lit.getContext('2d'),
+    col: col.getContext('2d'), mr: mr.getContext('2d'), lit: lit.getContext('2d'), lens: lens.getContext('2d'),
     // metres -> pixels (flip: the projection's 'a' axis is mirrored for the viewer)
     X: (a) => (flip ? (a1 - a) / (a1 - a0) : (a - a0) / (a1 - a0)) * w,
     Y: (y) => (1 - (y - y0) / (y1 - y0)) * h,
     S: w / (a1 - a0),
-    canvases: { col, mr, lit },
+    canvases: { col, mr, lit, lens },
   };
   P.mr.fillStyle = 'rgb(0,200,0)'; P.mr.fillRect(0, 0, w, h);   // default: dielectric, fairly rough
   return P;
@@ -272,6 +274,12 @@ function plate(P, cx, cy, wm, hm) {
   P.mr.save(); P.mr.fillStyle = 'rgb(0,120,0)'; P.mr.fillRect(x, y, w, h); P.mr.restore();
 }
 
+function plateTexture() {
+  const P = painter(512, 108, -0.26, 0.26, 0, 0.11, false);
+  plate(P, 0, 0.055, 0.52, 0.11);
+  return texFrom(P.canvases.col, true);
+}
+
 function goldBadge(P, cx, cy, w, h) {
   // a plain gold emblem with a chrome outline (no brand logo)
   fill(P, rrect(P, cx, cy, w + 0.02, h + 0.02, h * 0.45), 'chrome');
@@ -285,12 +293,13 @@ function frontPaint() {
   for (const s of [1, -1]) {
     const m = (pts) => (s > 0 ? pts : mirrorPts(pts));
     // headlight: slim, swept up and back from the grille bar to the fender
-    const lamp = m([[0.43, 0.705], [0.6, 0.74], [0.8, 0.775], [0.93, 0.795], [0.92, 0.765], [0.78, 0.735], [0.6, 0.69], [0.45, 0.665]]);
+    const lamp = m([[0.42, 0.716], [0.6, 0.752], [0.8, 0.79], [0.945, 0.812], [0.935, 0.758], [0.78, 0.722], [0.6, 0.678], [0.44, 0.652]]);
     fill(P, poly(P, lamp), 'lens');
     stroke(P, poly(P, lamp), 'chrome', 2);
     // chrome reflector inside + projector
-    fill(P, poly(P, m([[0.5, 0.69], [0.66, 0.72], [0.66, 0.705], [0.5, 0.677]])), 'chrome');
-    fill(P, (g) => { g.beginPath(); g.arc(P.X(s * 0.72), P.Y(0.738), 0.022 * P.S, 0, Math.PI * 2); }, 'chrome');
+    fill(P, poly(P, m([[0.47, 0.7], [0.66, 0.735], [0.66, 0.712], [0.48, 0.676]])), 'chrome');
+    fill(P, poly(P, m([[0.78, 0.76], [0.92, 0.785], [0.92, 0.768], [0.78, 0.742]])), 'chrome');
+    fill(P, (g) => { g.beginPath(); g.arc(P.X(s * 0.72), P.Y(0.745), 0.03 * P.S, 0, Math.PI * 2); }, 'chrome');
     // lower corner: vertical LED light in a chrome C
     const fog = m([[0.66, 0.36], [0.76, 0.37], [0.8, 0.52], [0.73, 0.54], [0.7, 0.5], [0.72, 0.4]]);
     fill(P, poly(P, fog), 'black');
@@ -300,7 +309,7 @@ function frontPaint() {
   fill(P, poly(P, [[-0.42, 0.665], [0.42, 0.665], [0.44, 0.75], [-0.44, 0.75]]), 'black');
   for (let y = 0.677; y < 0.745; y += 0.016) stroke(P, (g) => { g.beginPath(); g.moveTo(P.X(-0.4), P.Y(y)); g.lineTo(P.X(0.4), P.Y(y)); }, 'gloss', 2);
   // chrome bar across the grille, into the headlights
-  fill(P, poly(P, [[-0.5, 0.692], [0.5, 0.692], [0.5, 0.714], [-0.5, 0.714]]), 'chrome');
+  fill(P, poly(P, [[-0.52, 0.688], [0.52, 0.688], [0.5, 0.72], [-0.5, 0.72]]), 'chrome');
   goldBadge(P, 0, 0.703, 0.2, 0.06);
   // big lower grille with chrome trim lines
   const lower = [[-0.6, 0.33], [0.6, 0.33], [0.53, 0.575], [-0.53, 0.575]];
@@ -323,47 +332,54 @@ function frontPaint() {
   g.strokeStyle = '#ffffff'; g.lineCap = 'round';
   for (const s of [1, -1]) {
     g.lineWidth = 0.012 * P.S;
-    g.beginPath(); g.moveTo(P.X(s * 0.47), P.Y(0.7)); g.lineTo(P.X(s * 0.62), P.Y(0.731)); g.lineTo(P.X(s * 0.8), P.Y(0.766)); g.lineTo(P.X(s * 0.9), P.Y(0.783)); g.stroke();
-    g.fillStyle = '#e8f2ff'; g.beginPath(); g.arc(P.X(s * 0.72), P.Y(0.738), 0.016 * P.S, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(P.X(s * 0.45), P.Y(0.712)); g.lineTo(P.X(s * 0.62), P.Y(0.745)); g.lineTo(P.X(s * 0.8), P.Y(0.782)); g.lineTo(P.X(s * 0.93), P.Y(0.803)); g.stroke();
+    g.fillStyle = '#e8f2ff'; g.beginPath(); g.arc(P.X(s * 0.72), P.Y(0.745), 0.02 * P.S, 0, Math.PI * 2); g.fill();
     g.lineWidth = 0.014 * P.S;
     g.beginPath(); g.moveTo(P.X(s * 0.715), P.Y(0.51)); g.lineTo(P.X(s * 0.745), P.Y(0.4)); g.stroke();
   }
   return { P, a0, a1, y0, y1 };
 }
 
+// Rear as in the photo: angular split tail lamps (outer on the quarter panel, inner on the trunk lid),
+// chrome bar across the trunk lid with the emblem, trunk-lid shut lines. The bumper, plate recess
+// and exhaust surrounds are real geometry (buildMalibu).
+const REAR_LAMPS = {
+  outer: [[0.565, 0.84], [0.72, 0.856], [0.87, 0.882], [0.955, 0.905], [0.955, 0.99], [0.82, 0.997], [0.66, 0.99], [0.565, 0.978]],
+  inner: [[0.29, 0.902], [0.4, 0.884], [0.535, 0.862], [0.535, 0.978], [0.4, 0.976], [0.29, 0.966]],
+};
 function rearPaint() {
-  const a0 = -0.96, a1 = 0.96, y0 = 0.3, y1 = 1.06;
+  const a0 = -0.97, a1 = 0.97, y0 = 0.3, y1 = 1.07;
   const P = painter(1024, 406, a0, a1, y0, y1, false);
+  const gapLine = (pts) => stroke(P, (g) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(P.X(x), P.Y(y)) : g.moveTo(P.X(x), P.Y(y)))); }, 'line', 2.4);
   for (const s of [1, -1]) {
     const m = (pts) => (s > 0 ? pts : mirrorPts(pts));
-    // wide slim tail lamp from the trunk lid round onto the quarter panel
-    const lamp = m([[0.3, 0.915], [0.55, 0.92], [0.8, 0.935], [0.95, 0.955], [0.95, 1.01], [0.8, 0.995], [0.55, 0.975], [0.3, 0.96]]);
-    fill(P, poly(P, lamp), 'redlens');
-    stroke(P, poly(P, lamp), 'chrome', 2);
-    // reflector + exhaust surround
-    fill(P, rrect(P, s * 0.82, 0.47, 0.12, 0.025, 0.01), 'redlens');
-    const ex = m([[0.5, 0.345], [0.78, 0.345], [0.75, 0.42], [0.53, 0.42]]);
-    fill(P, poly(P, ex), 'chrome');
-    fill(P, poly(P, m([[0.53, 0.355], [0.75, 0.355], [0.73, 0.41], [0.55, 0.41]])), 'black');
+    for (const lamp of [REAR_LAMPS.outer, REAR_LAMPS.inner]) {
+      fill(P, poly(P, m(lamp)), 'redlens');                 // housing seen through the lens
+      stroke(P, poly(P, m(lamp)), 'gloss', 3);
+      P.lens.fillStyle = '#fff'; poly(P, m(lamp))(P.lens); P.lens.fill();
+    }
+    // chrome reflector strips inside the outer lamp
+    stroke(P, poly(P, m([[0.6, 0.93], [0.88, 0.944], [0.88, 0.95], [0.6, 0.936]])), 'chrome', 2);
+    // trunk lid shut line between the inner and outer lamps, down to the lid's lower edge
+    gapLine([[s * 0.55, 1.03], [s * 0.55, 0.8]]);
+    // red side reflector low on the bumper corner
+    fill(P, rrect(P, s * 0.84, 0.47, 0.1, 0.022, 0.01), 'redlens');
   }
-  // chrome bar across the trunk lid between the lamps + emblem
-  fill(P, poly(P, [[-0.31, 0.928], [0.31, 0.928], [0.31, 0.947], [-0.31, 0.947]]), 'chrome');
-  goldBadge(P, 0, 0.975, 0.17, 0.05);
-  // plate recess + plate
-  fill(P, rrect(P, 0, 0.69, 0.62, 0.17, 0.03), 'gloss');
-  plate(P, 0, 0.69, 0.52, 0.11);
-  // lower black bumper band
-  fill(P, poly(P, [[-0.86, 0.33], [0.86, 0.33], [0.88, 0.44], [0.5, 0.43], [0.5, 0.345], [-0.5, 0.345], [-0.5, 0.43], [-0.88, 0.44]]), 'black');
-  // lights layer: LED graphics (tinted red by the tail material; brighter when braking)
+  gapLine([[-0.55, 0.8], [0.55, 0.8]]);
+  // chrome bar across the trunk lid between the lamps, emblem in the middle
+  fill(P, poly(P, [[-0.3, 0.912], [0.3, 0.912], [0.3, 0.93], [-0.3, 0.93]]), 'chrome');
+  goldBadge(P, 0, 0.962, 0.16, 0.048);
+  // LED graphics (tinted red by the tail material; brighter when braking)
   const g = P.lit;
-  g.strokeStyle = '#ffffff'; g.fillStyle = '#ffffff'; g.lineCap = 'round';
+  g.strokeStyle = '#ffffff'; g.lineCap = 'round'; g.lineJoin = 'round';
   for (const s of [1, -1]) {
-    g.lineWidth = 0.011 * P.S;
-    g.beginPath(); g.moveTo(P.X(s * 0.34), P.Y(0.945)); g.lineTo(P.X(s * 0.6), P.Y(0.952)); g.lineTo(P.X(s * 0.9), P.Y(0.975)); g.stroke();
-    g.beginPath(); g.moveTo(P.X(s * 0.62), P.Y(0.93)); g.lineTo(P.X(s * 0.92), P.Y(0.96)); g.lineTo(P.X(s * 0.92), P.Y(0.995)); g.stroke();
+    g.lineWidth = 0.013 * P.S;
+    g.beginPath(); g.moveTo(P.X(s * 0.59), P.Y(0.965)); g.lineTo(P.X(s * 0.8), P.Y(0.972)); g.lineTo(P.X(s * 0.94), P.Y(0.968)); g.stroke();
+    g.beginPath(); g.moveTo(P.X(s * 0.6), P.Y(0.875)); g.lineTo(P.X(s * 0.87), P.Y(0.9)); g.lineTo(P.X(s * 0.94), P.Y(0.92)); g.stroke();
+    g.beginPath(); g.moveTo(P.X(s * 0.31), P.Y(0.948)); g.lineTo(P.X(s * 0.52), P.Y(0.952)); g.stroke();
+    g.lineWidth = 0.007 * P.S;
+    g.beginPath(); g.moveTo(P.X(s * 0.32), P.Y(0.915)); g.lineTo(P.X(s * 0.52), P.Y(0.885)); g.stroke();
   }
-  // plate light
-  g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(P.X(-0.26), P.Y(0.75), (0.52) * P.S, 0.01 * P.S);
   return { P, a0, a1, y0, y1 };
 }
 
@@ -400,18 +416,30 @@ function buildShared() {
   if (cache) return cache;
   const us = [...range(0, 0.04, 0.004), ...range(0.044, 0.96, 0.008), ...range(0.964, 1, 0.004)];
   const body = loftGeometry(us, section, true, true);
-  const glass = loftGeometry(range(GH0, GH1, 0.008), ghSection, false, false);
+  const glass = loftGeometry(range(GH0, GH1, 0.008), ghSection, false, false, Math.PI / 3);
   // roof skin (body colour) over the middle of the glasshouse
   const roofSec = (u) => { const g = ghSection(u); return [[g[2][0] * 0.93, g[2][1] + 0.004], [g[3][0], g[3][1] + 0.006], [0, g[4][1] + 0.006]]; };
-  const roof = loftGeometry(range(0.47, 0.7, 0.01), roofSec, false, false);
+  const roof = loftGeometry(range(0.47, 0.72, 0.01), roofSec, false, false);
+  // body-colour skin over the glasshouse where the real car is painted: roof rails above the side
+  // windows (A-pillar to C-pillar) and the wide C-pillars beside the rear window
+  const along = (u, t) => {
+    const g = ghSection(u), a = g[0], b = g[1], c = g[2];
+    const p = t < 0.58 ? [a[0] + (b[0] - a[0]) * (t / 0.58), a[1] + (b[1] - a[1]) * (t / 0.58)]
+      : [b[0] + (c[0] - b[0]) * ((t - 0.58) / 0.42), b[1] + (c[1] - b[1]) * ((t - 0.58) / 0.42)];
+    return [p[0] + 0.004, p[1] + 0.003];
+  };
+  const skinSec = (t0) => (u) => { const k = 6, out = []; for (let i = 0; i <= k; i++) out.push(along(u, t0 + ((1 - t0) * i) / k)); const g = ghSection(u); out.push([g[2][0] * 0.93, g[2][1] + 0.006]); return out; };
+  const rail = loftGeometry(range(0.36, 0.756, 0.008), skinSec(0.86), false, false, Math.PI / 3);
+  const cpillar = loftGeometry(range(0.754, GH1, 0.006), skinSec(0.0), false, false, Math.PI / 3);
 
   const F = frontPaint(), R = rearPaint(), S = sidePaint();
   const front = decalGeometry('front', F.a0, F.a1, F.y0, F.y1, 120, 40);
-  const rear = decalGeometry('rear', R.a0, R.a1, R.y0, R.y1, 120, 48);
+  const rear = decalGeometry('rear', R.a0, R.a1, R.y0, R.y1, 140, 56);
+  const rearLens = decalGeometry('rear', R.a0, R.a1, R.y0, R.y1, 140, 56, 0.011);   // lenses stand proud of the body
   const sideR = decalGeometry('side', S.a0, S.a1, S.y0, S.y1, 220, 40);
   const sideL = mirrorX(sideR);
-  const tex = (D) => ({ col: texFrom(D.P.canvases.col, true), mr: texFrom(D.P.canvases.mr, false), lit: texFrom(D.P.canvases.lit, true) });
-  cache = { body, glass, roof, front, rear, sideR, sideL, tF: tex(F), tR: tex(R), tS: tex(S) };
+  const tex = (D) => ({ col: texFrom(D.P.canvases.col, true), mr: texFrom(D.P.canvases.mr, false), lit: texFrom(D.P.canvases.lit, true), lens: texFrom(D.P.canvases.lens, false) });
+  cache = { body, glass, roof, rail, cpillar, front, rear, rearLens, sideR, sideL, tF: tex(F), tR: tex(R), tS: tex(S), plate: plateTexture() };
   return cache;
 }
 
@@ -441,8 +469,16 @@ export function buildMalibu(body, mats) {
   const sh = buildShared();
   const add = (geo, mat, cast = true) => { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = false; body.add(m); return m; };
   add(sh.body, mats.body);
-  add(sh.glass, mats.glass);
+  // tinted glass you can see into (not a mirror), with seats and headrests behind it
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x121820, metalness: 0, roughness: 0.03, clearcoat: 1, clearcoatRoughness: 0.02,
+    transparent: true, opacity: 0.8, envMapIntensity: 0.75, depthWrite: false,
+  });
+  const glassMesh = add(sh.glass, glassMat, false);
+  glassMesh.renderOrder = 1;
   add(sh.roof, mats.body);
+  add(sh.rail, mats.body);
+  add(sh.cpillar, mats.body);
 
   const chrome = mats.chrome;
   const decalMat = (t) => new THREE.MeshPhysicalMaterial({
@@ -457,19 +493,82 @@ export function buildMalibu(body, mats) {
   const sideMat = decalMat(sh.tS);
   mk(sh.sideR, sideMat); add(sh.sideL, sideMat, false);
   mk(sh.front, litMat(sh.tF, new THREE.Color(2.6, 2.7, 3.0)));
-  const tailLit = new THREE.Mesh(sh.rear, litMat(sh.tR, new THREE.Color(1, 1, 1)));
-  tailLit.material.dispose();
-  tailLit.material = new THREE.MeshBasicMaterial({ map: sh.tR.lit, color: mats.tail.color, ...DECAL, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  // tail lamp lenses: glossy red, glowing softly, the LED graphics on top
+  const lensMat = new THREE.MeshPhysicalMaterial({
+    color: 0xb3121d, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
+    emissive: 0xff1020, emissiveIntensity: 0.25, alphaMap: sh.tR.lens, transparent: true, opacity: 0.92, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, envMapIntensity: 1.2,
+  });
+  own.push(lensMat);
+  body.add(new THREE.Mesh(sh.rearLens, lensMat));
+  const tailLit = new THREE.Mesh(sh.rearLens, new THREE.MeshBasicMaterial({ map: sh.tR.lit, color: mats.tail.color, ...DECAL, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }));
   tailLit.material.color = mats.tail.color;   // same Color object: brake lights brighten with the tail material
   own.push(tailLit.material);
   body.add(tailLit);
+
+  own.push(glassMat);
+  const cabinMat = new THREE.MeshStandardMaterial({ color: 0x1d1f24, roughness: 0.85 });
+  own.push(cabinMat);
+  const cabinPart = (w, h, d, x, y, z, rr = 0.04) => { const o = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, rr), cabinMat); o.position.set(x, y, z); body.add(o); return o; };
+  for (const z of [-0.05, 0.86]) for (const x of [-0.38, 0.38]) {
+    cabinPart(0.26, 0.2, 0.12, x, 1.24, z + 0.08, 0.05);            // headrest
+    cabinPart(0.5, 0.5, 0.14, x, 0.96, z + 0.12, 0.05);             // seat back
+  }
+  cabinPart(1.34, 0.03, 0.42, 0, 1.02, 1.3, 0.01);                   // parcel shelf
+  cabinPart(1.6, 0.2, 0.5, 0, 0.92, -0.62, 0.05);                    // dashboard
+  // third brake light at the top of the rear window
+  const cbl = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.03), new THREE.MeshBasicMaterial({ color: mats.tail.color }));
+  cbl.material.color = mats.tail.color;
+  own.push(cbl.material);
+  cbl.position.set(0, ROOF(0.79) - 0.05, zAt(0.79));
+  body.add(cbl);
+
+  // ---- rear bumper: body-colour fascia standing proud of the trunk, with a crease along its top
+  const zR = zAt(1);
+  const bumper = new THREE.Mesh(new RoundedBoxGeometry(1.68, 0.36, 0.26, 4, 0.08), mats.body);
+  bumper.position.set(0, 0.58, zR - 0.1);
+  bumper.castShadow = true;
+  body.add(bumper);
+  // plate recess in the bumper: a body-colour frame around a dark pocket, plate inside
+  const recess = new THREE.Shape();
+  recess.moveTo(-0.34, -0.1); recess.lineTo(0.34, -0.1); recess.lineTo(0.34, 0.1); recess.lineTo(-0.34, 0.1); recess.lineTo(-0.34, -0.1);
+  const hole = new THREE.Path();
+  hole.moveTo(-0.285, -0.072); hole.lineTo(-0.285, 0.072); hole.lineTo(0.285, 0.072); hole.lineTo(0.285, -0.072); hole.lineTo(-0.285, -0.072);
+  recess.holes.push(hole);
+  const frame = new THREE.Mesh(new THREE.ExtrudeGeometry(recess, { depth: 0.035, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2 }), mats.body);
+  frame.position.set(0, 0.6, zR + 0.03);
+  body.add(frame);
+  const pocket = new THREE.Mesh(new THREE.PlaneGeometry(0.57, 0.144), cabinMat);
+  pocket.position.set(0, 0.6, zR + 0.031);
+  body.add(pocket);
+  const plateMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.11), new THREE.MeshStandardMaterial({ map: sh.plate, roughness: 0.45 }));
+  own.push(plateMesh.material);
+  plateMesh.position.set(0, 0.6, zR + 0.04);
+  body.add(plateMesh);
+  // lower valance: black, with two chrome trapezoid exhaust surrounds
+  const valance = new THREE.Mesh(new RoundedBoxGeometry(1.62, 0.16, 0.2, 2, 0.05), mats.carbon);
+  valance.position.set(0, 0.34, zR - 0.06);
+  body.add(valance);
+  for (const sx of [-1, 1]) {
+    const tr = new THREE.Shape();
+    tr.moveTo(-0.13, -0.04); tr.lineTo(0.13, -0.04); tr.lineTo(0.115, 0.04); tr.lineTo(-0.115, 0.04); tr.lineTo(-0.13, -0.04);
+    const th = new THREE.Path();
+    th.moveTo(-0.11, -0.028); th.lineTo(-0.098, 0.028); th.lineTo(0.098, 0.028); th.lineTo(0.11, -0.028); th.lineTo(-0.11, -0.028);
+    tr.holes.push(th);
+    const surround = new THREE.Mesh(new THREE.ExtrudeGeometry(tr, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.006, bevelSegments: 2 }), chrome);
+    surround.position.set(sx * 0.6, 0.34, zR + 0.0);
+    const inside = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.056), new THREE.MeshBasicMaterial({ color: 0x050505 }));
+    inside.position.set(sx * 0.6, 0.34, zR + 0.01);
+    own.push(inside.material);
+    body.add(surround, inside);
+  }
 
   // chrome window trim
   for (const pts of dloCurves()) {
     const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 60, 0.011, 6, false), chrome);
     body.add(tube);
   }
-  // gloss-black B-pillar between the doors (reads as a four-door saloon, not a coupe)
+  // gloss-black B-pillar between the doors and the divider ahead of the small quarter window
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 0.35, metalness: 0.3 });
   own.push(pillarMat);
   for (const side of [1, -1]) {
@@ -480,12 +579,14 @@ export function buildMalibu(body, mats) {
         : [b[0] + (c[0] - b[0]) * ((t - 0.58) / 0.42), b[1] + (c[1] - b[1]) * ((t - 0.58) / 0.42)];
       return [side * (p[0] + 0.007), p[1], zAt(u)];
     };
-    const n = 6, u0 = 0.548, u1 = 0.566;
-    for (let i = 0; i < n; i++) {
-      const t0 = (i / n) * 0.86, t1 = ((i + 1) / n) * 0.86;
-      const q = [P(u0, t0), P(u1, t0), P(u1, t1), P(u0, t1)];
-      const tri = side > 0 ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3];
-      for (const k of tri) pos.push(...q[k]);
+    const n = 6;
+    for (const [u0, u1, top] of [[0.548, 0.566, 0.86], [0.752, 0.761, 0.8]]) {
+      for (let i = 0; i < n; i++) {
+        const t0 = (i / n) * top, t1 = ((i + 1) / n) * top;
+        const q = [P(u0, t0), P(u1, t0), P(u1, t1), P(u0, t1)];
+        const tri = side > 0 ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3];
+        for (const k of tri) pos.push(...q[k]);
+      }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -517,7 +618,14 @@ export function buildMalibu(body, mats) {
 }
 
 // 18" machined alloy with five twin spokes, low-profile tyre, brake disc + caliper
+let wheelMats = null;
 export function makeMalibuWheel(mats, side) {
+  if (!wheelMats) wheelMats = {
+    silver: new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.75, roughness: 0.24, envMapIntensity: 1.3 }),
+    inner: new THREE.MeshStandardMaterial({ color: 0x3a3d42, metalness: 0.6, roughness: 0.5 }),
+    tyre: new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.88, metalness: 0 }),
+  };
+  mats = { ...mats, rim: wheelMats.silver, spoke: wheelMats.inner, tire: wheelMats.tyre };
   const pivot = new THREE.Group();
   const spin = new THREE.Group();
   pivot.add(spin);
@@ -539,7 +647,7 @@ export function makeMalibuWheel(mats, side) {
   const back = new THREE.Mesh(new THREE.CircleGeometry(rimR - 0.01, 28).rotateY(side * Math.PI / 2), mats.spoke);
   back.position.x = side * 0.02;
   spin.add(tyre, barrel, lip, back);
-  const spokeGeo = new THREE.BoxGeometry(0.026, rimR - 0.06, 0.034).translate(0, (rimR - 0.06) / 2 + 0.05, 0);
+  const spokeGeo = new THREE.BoxGeometry(0.03, rimR - 0.055, 0.042).translate(0, (rimR - 0.055) / 2 + 0.045, 0);
   for (let i = 0; i < 5; i++) {
     for (const d of [-0.13, 0.13]) {
       const sp = new THREE.Mesh(spokeGeo, mats.rim);
