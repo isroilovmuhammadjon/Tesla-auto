@@ -842,9 +842,12 @@ export class OsmCity extends CityMode {
   // a sidewalk for a pedestrian: beside a collector or main road 30-130 m away, mid-sidewalk
   sidewalkSpot(x, z) {
     const near = [];
-    for (const cell of this.cells.values()) for (const r of cell.roads) {
-      const mx = (r.ax + r.bx) / 2 - x, mz = (r.az + r.bz) / 2 - z, d2 = mx * mx + mz * mz;
-      if (d2 > 900 && d2 < 130 * 130 && r.len > 12) near.push(r);
+    for (const cell of this.cells.values()) {
+      if (!cell) continue;                       // off the map edge: an empty cell
+      for (const r of cell.roads) {
+        const mx = (r.ax + r.bx) / 2 - x, mz = (r.az + r.bz) / 2 - z, d2 = mx * mx + mz * mz;
+        if (d2 > 900 && d2 < 130 * 130 && r.len > 12) near.push(r);
+      }
     }
     if (!near.length) return null;
     const r = near[Math.floor(Math.random() * near.length)];

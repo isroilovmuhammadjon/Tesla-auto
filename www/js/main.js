@@ -1698,7 +1698,8 @@ function frame(now = performance.now()) {
   // even out frame-to-frame jitter in the timestep (uneven steps read as stutter)
   G.dtSmooth = G.dtSmooth ? G.dtSmooth + (Math.min(raw, 0.1) - G.dtSmooth) * 0.25 : Math.min(raw, 1 / 60);
   const dt = Math.abs(raw - G.dtSmooth) < G.dtSmooth * 0.5 ? G.dtSmooth : raw;
-  step(Math.min(dt, 1 / 20));
+  // one bad frame must never freeze the game: log it and keep drawing
+  try { step(Math.min(dt, 1 / 20)); } catch (e) { if (!frame.errs || frame.errs++ < 5) { frame.errs = frame.errs || 1; console.error(e); } }
   composer.render();
   adaptQuality(raw);
 }
