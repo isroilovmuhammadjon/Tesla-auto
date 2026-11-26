@@ -8,13 +8,14 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CityMode, SUN_DIR } from './city.js';
 import { createUzCar, pickUzType } from './uzcars.js';
-import { daySky } from './cityday.js';
+import { daySky, facadeTexture } from './cityday.js';
 import { LANDMARK_BUILDERS } from './tashkent.js';
 
 const CELL = 500;
 const BASE = 'map/';
-const ROAD_W = [4.5, 8, 13];            // small streets, collector roads, main roads (m)
-const ROAD_Y = [0.02, 0.03, 0.04];
+const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
+const ROAD_Y = [0.03, 0.04, 0.05];
+const WALK = 3.2;                        // sidewalk on each side of collector and main roads
 const BUCKET = 25;                       // collision grid inside a cell
 const WALLS = ['#e8e1d3', '#d9cfbd', '#efe9dc', '#cfc6b8', '#e3d6c0', '#d6d9dc', '#c9b9a2', '#e9dfcf', '#bfb3a3', '#f1ece2', '#c98f6c', '#dfe5e8'];
 const ROOFS = ['#8f8a84', '#9a7b63', '#7d8288', '#a39b90', '#6f747a'];
@@ -29,14 +30,31 @@ function roadTexture(kind) {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 128;
   const g = c.getContext('2d');
-  g.fillStyle = kind === 0 ? '#5f605c' : '#4b4d50'; g.fillRect(0, 0, 64, 128);
+  g.fillStyle = kind === 0 ? '#5a5b58' : '#45474b'; g.fillRect(0, 0, 64, 128);
   for (let i = 0; i < 260; i++) { const v = 60 + Math.random() * 50; g.fillStyle = `rgba(${v},${v},${v + 3},0.45)`; g.fillRect(Math.random() * 64, Math.random() * 128, 1.2, 1.2); }
-  g.fillStyle = '#e6e8ea';
-  if (kind >= 1) g.fillRect(30.5, 0, 3, 64);                            // dashed centre line
-  if (kind === 2) { g.fillRect(3, 0, 2, 128); g.fillRect(59, 0, 2, 128); }   // edge lines
+  g.fillStyle = '#d9dcdf';
+  if (kind === 2) { g.fillRect(4, 0, 2, 128); g.fillRect(58, 0, 2, 128); }   // edge lines
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+// yards and open ground: light concrete with a little grass, tiled every 20 m
+function groundTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#a9a594'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 900; i++) {
+    const v = Math.random();
+    g.fillStyle = v < 0.25 ? 'rgba(96,128,64,0.35)' : `rgba(${150 + v * 60},${146 + v * 56},${132 + v * 50},0.35)`;
+    g.fillRect(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 4, 2 + Math.random() * 4);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 8;
   return t;
 }
@@ -68,15 +86,24 @@ export class OsmCity extends CityMode {
     this.nodes = new Map();     // road graph for traffic: "x,z" -> [{ seg, end }]
     this.signalList = [];
     this.ready = null;
-    this.radius = deps.mobile ? 1 : 2;
+    this.radius = 1;   // 3 x 3 cells (1.5 km) around the car
   }
 
   // ------------------------------------------------------------ one-time setup
+  // map index + street models; retried, because a busy server can refuse a request now and then
   load() {
-    if (!this.ready) {
-      this.ready = Promise.all([fetch(BASE + 'index.json').then((r) => r.json()), fetch(BASE + 'street-models.json').then((r) => r.json())])
-        .then(([index, models]) => { this.index = index; this.have = new Set(index.cells); this.models = models; });
-    }
+    if (this.index) return Promise.resolve(true);
+    if (this.ready) return this.ready;
+    const get = async (url) => {
+      for (let i = 0; i < 6; i++) {
+        try { const r = await fetch(url, { cache: i ? 'reload' : 'default' }); if (r.ok) return await r.json(); } catch (e) { /* retry */ }
+        await new Promise((res) => setTimeout(res, 600 * (i + 1)));
+      }
+      throw new Error('map unavailable');
+    };
+    this.ready = Promise.all([get(BASE + 'index.json'), get(BASE + 'street-models.json')])
+      .then(([index, models]) => { this.index = index; this.have = new Set(index.cells); this.models = models; return true; })
+      .catch(() => { this.ready = null; return false; });
     return this.ready;
   }
 
@@ -87,13 +114,17 @@ export class OsmCity extends CityMode {
     facade.colorSpace = THREE.SRGBColorSpace;
     facade.wrapS = facade.wrapT = THREE.RepeatWrapping;
     facade.anisotropy = 8;
+    const styleTex = [['panel', '#e6e0d2'], ['panel', '#d5dadf'], ['brick', '#c98a5f'], ['brick', '#e0c08c'], ['band', '#eceae4'], ['arch', '#eee3cc']]
+      .map(([st, c], i) => { const t = facadeTexture(st, c, i + 3); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; });
     this.mats = {
       wall: new THREE.MeshLambertMaterial({ map: facade, vertexColors: true }),
+      walls: styleTex.map((t) => new THREE.MeshLambertMaterial({ map: t, vertexColors: true })),
       roof: new THREE.MeshLambertMaterial({ vertexColors: true }),
       road: [0, 1, 2].map((k) => new THREE.MeshStandardMaterial({ map: roadTexture(k), roughness: 0.75, envMapIntensity: 0.3, polygonOffset: true, polygonOffsetFactor: -1 - k, polygonOffsetUnits: -1 - k })),
       props: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.2 }),
       lamp: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
-      ground: new THREE.MeshLambertMaterial({ color: 0x9a927f }),
+      ground: new THREE.MeshLambertMaterial({ map: groundTexture(), color: 0xffffff }),
+      walk: new THREE.MeshStandardMaterial({ color: 0xbab6ac, roughness: 0.9, envMapIntensity: 0.25, polygonOffset: true, polygonOffsetFactor: -0.5, polygonOffsetUnits: -0.5 }),
       trunk: new THREE.MeshLambertMaterial({ color: 0xb8ab92 }),
       crown: new THREE.MeshLambertMaterial({ color: 0xffffff }),
     };
@@ -105,6 +136,7 @@ export class OsmCity extends CityMode {
     };
     this.treeGeo.crown.computeVertexNormals();
     // plain ground everywhere, satellite tiles near the car
+    this.mats.ground.map.repeat.set(4000, 4000);
     const base = new THREE.Mesh(new THREE.PlaneGeometry(80000, 80000).rotateX(-Math.PI / 2), this.mats.ground);
     base.position.y = -0.06;
     base.receiveShadow = true;
@@ -159,6 +191,8 @@ export class OsmCity extends CityMode {
     this.focus = null;
     this.loadingShown = false;
     this.signalTime = 0;
+    this.scene.fog.density = 0.0021;            // the map ends ~700 m out: fade it
+    this.startedAt = performance.now();
   }
 
   exit() {
@@ -171,6 +205,7 @@ export class OsmCity extends CityMode {
 
   updateCells() {
     const s = this.state;
+    if (!this.have) { this.load(); return; }
     const cx = Math.floor(s.x / CELL), cz = Math.floor(s.z / CELL);
     const f = `${cx}_${cz}`;
     if (f !== this.focus) {
@@ -188,8 +223,14 @@ export class OsmCity extends CityMode {
         if (this.cells.has(k) || this.pending.has(k)) continue;
         if (!this.have || !this.have.has(k)) { this.cells.set(k, null); continue; }
         this.pending.set(k, 'loading');
-        fetch(`${BASE}cells/${k}.json`).then((r) => r.json()).then((data) => { if (this.pending.get(k) === 'loading') this.pending.set(k, data); })
-          .catch(() => this.pending.delete(k));
+        const tryLoad = (attempt) => fetch(`${BASE}cells/${k}.json`, { cache: attempt ? 'reload' : 'default' })
+          .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then((data) => { if (this.pending.get(k) === 'loading') this.pending.set(k, data); })
+          .catch(() => {
+            if (attempt < 5 && this.pending.get(k) === 'loading') setTimeout(() => tryLoad(attempt + 1), 700 * (attempt + 1));
+            else { this.pending.delete(k); this.focus = null; }        // try again on the next pass
+          });
+        tryLoad(0);
       }
       this.updateGround(cx, cz);
     }
@@ -255,8 +296,10 @@ export class OsmCity extends CityMode {
     const [buildings, small, collector, main, objects = []] = data;
     const group = new THREE.Group();
     const cell = { group, buildings: [], buckets: new Map(), roads: [], objects: [], lampMesh: null };
-    // ---- buildings: walls with the facade texture tinted by colour, flat roofs
-    const wp = [], wu = [], wc = [], rp = [], rc = [];
+    // ---- buildings: walls in one of several facade looks, flat roofs
+    const W = [{ p: [], u: [], c: [] }];
+    for (let i = 0; i < this.mats.walls.length; i++) W.push({ p: [], u: [], c: [] });
+    const rp = [], rc = [];
     const col = new THREE.Color(), rcol = new THREE.Color();
     for (const b of buildings) {
       const h = Math.max(3, b[0]), c = b[1];
@@ -268,7 +311,13 @@ export class OsmCity extends CityMode {
       for (let i = 0; i < n; i++) { cxm += xs[i]; czm += zs[i]; }
       cxm /= n; czm /= n;
       const hv = hashStr(Math.round(xs[0]), Math.round(zs[0]));
-      col.set(b[2] || WALLS[Math.floor(hv * WALLS.length)]);
+      // houses get brick / arched looks, blocks and towers panel or ribbon windows
+      const look = h <= 10 ? [3, 4, 6, 0][Math.floor(hv * 4)] : h <= 30 ? [1, 2, 0, 5][Math.floor(hv * 4)] : [2, 5, 1][Math.floor(hv * 3)];
+      const sink = W[look];
+      const textured = look > 0;
+      if (textured) col.setRGB(0.92 + hv * 0.1, 0.92 + hv * 0.1, 0.92 + hv * 0.1);
+      else col.set(b[2] || WALLS[Math.floor(hv * WALLS.length)]);
+      if (b[2] && textured) col.set(b[2]).lerp(new THREE.Color(1, 1, 1), 0.55);
       rcol.set(b[3] || ROOFS[Math.floor(((hv * 7.3) % 1) * ROOFS.length)]);
       // wall orientation: outward normal must point away from the centre
       let side = 0;
@@ -283,12 +332,12 @@ export class OsmCity extends CityMode {
         const j = (i + 1) % n;
         const ax = xs[i], az = zs[i], bx = xs[j], bz = zs[j];
         const len = Math.hypot(bx - ax, bz - az);
-        const u0 = run / 12, u1 = (run + len) / 12, v = h / 6;
+        const u0 = textured ? run / 18 : run / 12, u1 = textured ? (run + len) / 18 : (run + len) / 12, v = textured ? h / 36 : h / 6;
         run += len;
         const A = [ax, 0, az], Bv = [bx, 0, bz], B1 = [bx, h, bz], A1 = [ax, h, az];
         const quad = flip ? [[A, u0, v], [B1, u1, 0], [Bv, u1, v], [A, u0, v], [A1, u0, 0], [B1, u1, 0]]
           : [[A, u0, v], [Bv, u1, v], [B1, u1, 0], [A, u0, v], [B1, u1, 0], [A1, u0, 0]];
-        for (const [p, uu, vv] of quad) { wp.push(...p); wu.push(uu, vv); wc.push(col.r, col.g, col.b); }
+        for (const [p, uu, vv] of quad) { sink.p.push(...p); sink.u.push(uu, vv); sink.c.push(col.r, col.g, col.b); }
         minX = Math.min(minX, ax); maxX = Math.max(maxX, ax); minZ = Math.min(minZ, az); maxZ = Math.max(maxZ, az);
       }
       const contour = xs.map((x, i) => new THREE.Vector2(x, zs[i]));
@@ -323,16 +372,17 @@ export class OsmCity extends CityMode {
         list.blds.add(rec);
       }
     }
-    if (wp.length) {
+    W.forEach((w, i) => {
+      if (!w.p.length) return;
       const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(wp, 3));
-      g.setAttribute('uv', new THREE.Float32BufferAttribute(wu, 2));
-      g.setAttribute('color', new THREE.Float32BufferAttribute(wc, 3));
+      g.setAttribute('position', new THREE.Float32BufferAttribute(w.p, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(w.u, 2));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(w.c, 3));
       g.computeVertexNormals();
-      const m = new THREE.Mesh(g, this.mats.wall);
-      m.castShadow = m.receiveShadow = true;
+      const m = new THREE.Mesh(g, i === 0 ? this.mats.wall : this.mats.walls[i - 1]);
+      m.receiveShadow = true;           // (buildings don't cast: far cheaper, trees still do)
       group.add(m);
-    }
+    });
     if (rp.length) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3));
@@ -343,6 +393,33 @@ export class OsmCity extends CityMode {
       group.add(m);
     }
     // ---- roads: one strip per segment + round joints so corners have no gaps
+    const walkP = [];
+    for (const [kind, segs] of [[1, collector], [2, main]]) {
+      const w = ROAD_W[kind] / 2 + WALK;
+      for (const [ax, az, bx, bz] of segs) {
+        const len = Math.hypot(bx - ax, bz - az);
+        if (len < 0.01) continue;
+        const nx = -(bz - az) / len * w, nz = (bx - ax) / len * w;
+        walkP.push(ax + nx, 0.015, az + nz, bx + nx, 0.015, bz + nz, bx - nx, 0.015, bz - nz, ax + nx, 0.015, az + nz, bx - nx, 0.015, bz - nz, ax - nx, 0.015, az - nz);
+        for (const [x, z] of [[ax, az], [bx, bz]]) for (let i = 0; i < 8; i++) {
+          const a0 = (i / 8) * Math.PI * 2, a1 = ((i + 1) / 8) * Math.PI * 2;
+          walkP.push(x, 0.015, z, x + Math.cos(a0) * w, 0.015, z + Math.sin(a0) * w, x + Math.cos(a1) * w, 0.015, z + Math.sin(a1) * w);
+        }
+      }
+    }
+    if (walkP.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(walkP, 3));
+      const a = g.attributes.position.array;
+      for (let i = 0; i < a.length; i += 9) {
+        const ny = (a[i + 5] - a[i + 2]) * (a[i + 6] - a[i]) - (a[i + 3] - a[i]) * (a[i + 8] - a[i + 2]);
+        if (ny < 0) for (let k2 = 0; k2 < 3; k2++) { const t = a[i + 3 + k2]; a[i + 3 + k2] = a[i + 6 + k2]; a[i + 6 + k2] = t; }
+      }
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, this.mats.walk);
+      m.receiveShadow = true;
+      group.add(m);
+    }
     [small, collector, main].forEach((segs, kind) => {
       if (!segs.length) return;
       const w = ROAD_W[kind] / 2, y = ROAD_Y[kind];
@@ -404,7 +481,7 @@ export class OsmCity extends CityMode {
       return false;
     };
     for (const [kind, segs] of [[1, collector], [2, main]]) {
-      const off = ROAD_W[kind] / 2 + 2.6;
+      const off = ROAD_W[kind] / 2 + WALK - 0.9;
       for (const [ax, az, bx, bz] of segs) {
         const len = Math.hypot(bx - ax, bz - az);
         if (len < 14) continue;
@@ -418,7 +495,7 @@ export class OsmCity extends CityMode {
       }
     }
     if (treePts.length) {
-      const pts = treePts.slice(0, this.d.mobile ? 120 : 260);
+      const pts = treePts.filter((_, i) => i % 2 === 0 || !this.d.mobile).slice(0, this.d.mobile ? 70 : 150);
       const trunk = new THREE.InstancedMesh(this.treeGeo.trunk, this.mats.trunk, pts.length);
       const crown = new THREE.InstancedMesh(this.treeGeo.crown, this.mats.crown, pts.length);
       const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tc = new THREE.Color(), yAxis = new THREE.Vector3(0, 1, 0);
@@ -439,11 +516,11 @@ export class OsmCity extends CityMode {
     const box = new THREE.BoxGeometry(1, 1, 1), sph = new THREE.SphereGeometry(0.5, 10, 6);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c3 = new THREE.Color();
     for (const o of objects) {
-      const [type, name, x, z] = o;
+      const [type, name] = o;
       const parts = this.models[type];
       if (!parts) continue;
-      // face the nearest road so signs read from the street
-      const rot = this.faceRoad(x, z, [small, collector, main]);
+      // stand on the kerb, facing the nearest road so signs read from the street
+      const { x, z, rot } = this.faceRoad(o[2], o[3], [small, collector, main]);
       for (const part of parts) {
         const [shape, px, py, pz, sx, sy, sz, color] = part;
         if (type === 'signal' && shape === 'sphere') { lampPos.push([x, z, rot, px, py, pz, color]); continue; }
@@ -491,15 +568,24 @@ export class OsmCity extends CityMode {
   }
 
   // direction (yaw) that makes a street object face the closest road
+  // where a street object stands (moved off the carriageway onto the kerb) and which way it faces
   faceRoad(x, z, kinds) {
-    let best = Infinity, rot = 0;
-    for (const segs of kinds) for (const [ax, az, bx, bz] of segs) {
-      const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
-      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
-      const px = ax + dx * t, pz = az + dz * t, d = (px - x) ** 2 + (pz - z) ** 2;
-      if (d < best) { best = d; rot = Math.atan2(px - x, pz - z) + Math.PI; }
-    }
-    return rot;
+    let best = Infinity, near = null;
+    kinds.forEach((segs, kind) => {
+      for (const [ax, az, bx, bz] of segs) {
+        const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+        const px = ax + dx * t, pz = az + dz * t, d = (px - x) ** 2 + (pz - z) ** 2;
+        if (d < best) { best = d; near = { px, pz, kind, dx, dz, l: Math.sqrt(l2) }; }
+      }
+    });
+    if (!near) return { x, z, rot: 0 };
+    const edge = ROAD_W[near.kind] / 2 + (near.kind ? WALK * 0.55 : 1.2);
+    let ox = x - near.px, oz = z - near.pz, d = Math.hypot(ox, oz);
+    if (d < 0.5) { ox = -near.dz / near.l; oz = near.dx / near.l; d = 1; }      // on the centre line: pick the right side
+    const nx = ox / d, nz = oz / d;
+    const fx = d < edge ? near.px + nx * edge : x, fz = d < edge ? near.pz + nz * edge : z;
+    return { x: fx, z: fz, rot: Math.atan2(-nx, -nz) + Math.PI };
   }
 
   // ------------------------------------------------------------ world queries
@@ -571,7 +657,7 @@ export class OsmCity extends CityMode {
           s.x += pushX * worst; s.z += pushZ * worst;
           const into = -(fwdX * pushX + fwdZ * pushZ) * Math.sign(s.v || 1);
           const impact = Math.abs(s.v) * Math.max(0.2, into);
-          s.v *= into > 0.6 ? 0.25 : 0.82;
+          s.v *= into > 0.7 ? 0.35 : 0.9;
           hit(hx, hz, impact);
         }
       }
@@ -741,6 +827,7 @@ export class OsmCity extends CityMode {
     if (!this.cells.has(ck)) {
       // the first cells are still downloading: hold the car, keep the picture alive
       if (!this.loadingShown) { this.loadingShown = true; this.d.ui.popup('TOSHKENT XARITASI YUKLANMOQDA…'); }
+      if (performance.now() - this.startedAt > 15000 && this.d.fallbackCity) { this.d.fallbackCity(); return; }
       this.updateCamera(dt, -Math.sin(this.state.yaw), -Math.cos(this.state.yaw));
       this.sky.position.copy(this.d.camera.position);
       return;

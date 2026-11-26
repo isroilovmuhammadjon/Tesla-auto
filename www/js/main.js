@@ -90,6 +90,8 @@ const cityDeps = {
   get bloom() { return bloom; },
   setHeadlight: (on) => { if (headlight) headlight.visible = on; },
   trafficDensity: () => S.traffic,
+  // the real map could not be downloaded: drive the built-in city instead
+  fallbackCity: () => { ui.popup('XARITA YUKLANMADI — KLASSIK SHAHAR'); city.exit(); startCity('classic'); },
   get audio() { return audio; },
   get fx() { return fx; },
   get ui() { return ui; },
