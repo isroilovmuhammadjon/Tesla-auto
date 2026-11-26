@@ -7,7 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import {
   CARS, PLAYER_LIMIT, PLAYER_HALF_W, PLAYER_HALF_L, STORAGE, storageGet, storageSet,
-  PLAYER_MASS, GRAVITY, MAX_ALTITUDE, GANTRY_Y, LAMP_ARM_Y, LAMP_ARM_X,
+  PLAYER_MASS, GRAVITY, MAX_ALTITUDE, GANTRY_Y, LAMP_ARM_Y, LAMP_ARM_X, SEDAN_INDEX,
 } from './config.js';
 import { createSportsCar } from './carModels.js';
 import { World } from './world.js';
@@ -58,7 +58,8 @@ camera.position.set(6, 2.5, 8);
 scene.environment = buildEnvMap(renderer);
 
 // ---------------------------------------------------------------- lights
-scene.add(new THREE.HemisphereLight(0x8ea4e0, 0x2c2436, 1.5));
+const hemi = new THREE.HemisphereLight(0x8ea4e0, 0x2c2436, 1.5);
+scene.add(hemi);
 const moon = new THREE.DirectionalLight(0xb8c8ff, 2.4);
 moon.position.set(-30, 60, 25);
 moon.target.position.set(0, 0, -15);
@@ -84,7 +85,9 @@ const rival = new Rival(scene);
 const city = new CityMode(scene, {
   getPlayer: () => player,
   get pt() { return pt; },
-  input, tilt, camera, moon,
+  input, tilt, camera, moon, hemi, renderer,
+  get bloom() { return bloom; },
+  setHeadlight: (on) => { if (headlight) headlight.visible = on; },
   get audio() { return audio; },
   get fx() { return fx; },
   get ui() { return ui; },
@@ -124,7 +127,7 @@ composer.addPass(new OutputPass());
 // ---------------------------------------------------------------- state
 const G = {
   mode: 'loading',
-  carIndex: clampIndex(parseInt(storageGet(STORAGE.car, '0'), 10)),
+  carIndex: firstCar(),
   garageIndex: 0,
   best: parseInt(storageGet(STORAGE.best, '0'), 10) || 0,
   time: 0,
@@ -155,6 +158,11 @@ const tmpV = new THREE.Vector3();
 const tmpL = new THREE.Vector3();
 const FLIP_Y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
+// the black sedan is new: pick it once for everyone, after that keep the player's own choice
+function firstCar() {
+  if (storageGet('sr3d_sedan_intro', '') !== '1') { storageSet('sr3d_sedan_intro', '1'); storageSet(STORAGE.car, SEDAN_INDEX); return SEDAN_INDEX; }
+  return clampIndex(parseInt(storageGet(STORAGE.car, '0'), 10));
+}
 function clampIndex(i) { return Number.isFinite(i) && i >= 0 && i < CARS.length ? i : 0; }
 
 // ---------------------------------------------------------------- environment map
@@ -1726,7 +1734,7 @@ function boot() {
 // expose a small debug handle for testing in the console
 window.__sr3d = {
   G, P, traffic, rival, world, city, startRun, startCity, toMenu,
-  Q, setQuality,
+  Q, setQuality, camera, scene, composer, getPlayer: () => player,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
 };
 

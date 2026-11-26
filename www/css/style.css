@@ -436,3 +436,10 @@ body.show-fs .fs-only { display: inline-flex !important; align-items: center; ju
 @media (max-height: 520px) {
   body:has(#gameover.active) .top-buttons { display: none; }   /* they would cover the results */
 }
+
+/* open city: round heading-up map bottom-left (top-left on touch screens, where the pedals are) */
+.minimap.round {
+  top: auto; bottom: max(18px, env(safe-area-inset-bottom)); left: max(18px, env(safe-area-inset-left));
+  width: 190px; height: 190px; border-radius: 50%; border: 0; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+body.touch-mode .minimap.round { top: calc(max(16px, env(safe-area-inset-top)) + 120px); bottom: auto; width: 120px; height: 120px; }

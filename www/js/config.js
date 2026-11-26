@@ -47,7 +47,13 @@ export const CARS = [
     style: 'stealth', color: 0x14161b, accent: 0xff2033, caliper: 0xff2033, matte: true,
     maxSpeed: 318, accel: 1.06, handling: 1.12, nitro: 1.1,
   },
+  {
+    id: 'sedan', name: 'QORA SEDAN', tagline: 'Black mid-size sedan for the streets of Tashkent',
+    style: 'malibu', color: 0x060709, accent: 0xdfe8ff, caliper: 0x3a3d44,
+    maxSpeed: 240, accel: 0.86, handling: 0.96, nitro: 0.8,
+  },
 ];
+export const SEDAN_INDEX = CARS.length - 1;
 
 export const PLAYER_MASS = 1.6;   // tonnes
 export const GRAVITY = 9.81;

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildMalibu, makeMalibuWheel, MALIBU } from './malibu.js';
 
 const BASE_Y = 0.22;
 const WHEEL_R = 0.36;
@@ -15,6 +16,8 @@ const STYLES = {
   concept: { sx: 1.08, sy: 0.97, width: 2.1,  cabinShift: -0.05, cabinSy: 0.86, spoiler: 'wing',   stripes: false, skirt: true },
   rally:   { sx: 0.94, sy: 1.12, width: 1.96, cabinShift: 0.1,   cabinSy: 1.1,  spoiler: 'gtwing', stripes: true, roofLights: true, lift: 0.1 },
   stealth: { sx: 1.04, sy: 0.97, width: 2.04, cabinShift: -0.15, cabinSy: 0.88, spoiler: 'wing',   stripes: false, skirt: true },
+  // real-world sedan with its own lofted body (malibu.js); these values only place the interior
+  malibu:  { sx: 1.0, sy: 1.0, width: 1.86, cabinShift: 0.0, cabinSy: 1.4, spoiler: 'none', stripes: false, custom: 'malibu' },
 };
 
 // ---------- helpers ----------
@@ -115,7 +118,11 @@ export function createSportsCar(def) {
   const mats = {
     body: def.matte
       ? new THREE.MeshStandardMaterial({ color: def.color, metalness: 0.35, roughness: 0.62, envMapIntensity: 0.8 })
-      : new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.6, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 }),
+      : st.custom
+        // deep gloss black: dark base, mirror-like clear coat that reflects the street
+        ? new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.12, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.7 })
+        : new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.6, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.5 }),
+    disc: new THREE.MeshStandardMaterial({ color: 0x6d7077, metalness: 0.9, roughness: 0.45 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0x04060b, metalness: 0.9, roughness: 0.04, clearcoat: 1, envMapIntensity: 1.8 }),
     carbon: new THREE.MeshStandardMaterial({ color: 0x0b0c10, metalness: 0.4, roughness: 0.45 }),
     tire: new THREE.MeshStandardMaterial({ color: 0x0e0e10, roughness: 0.92, metalness: 0 }),
@@ -131,6 +138,12 @@ export function createSportsCar(def) {
     caliper: new THREE.MeshStandardMaterial({ color: def.caliper, metalness: 0.3, roughness: 0.4 }),
   };
 
+  const stripes = [];
+  const ys = (y) => BASE_Y + (y - BASE_Y) * st.sy;
+  const L = 2.34 * st.sx;
+  let custom = null;
+  if (st.custom) custom = buildMalibu(body, mats);
+  else {
   // Body shell
   const bodyMesh = new THREE.Mesh(extrudeSide(bodyShape(st), W, 0.07), mats.body);
   bodyMesh.castShadow = true;
@@ -142,7 +155,6 @@ export function createSportsCar(def) {
   body.add(cabin);
 
   // Racing stripes (track style)
-  const stripes = [];
   if (st.stripes) {
     const g = extrudeSide(bodyShape(st), 0.26, 0.02);
     for (const sx of [-0.2, 0.2]) {
@@ -153,9 +165,6 @@ export function createSportsCar(def) {
       body.add(stripe);
     }
   }
-
-  const ys = (y) => BASE_Y + (y - BASE_Y) * st.sy;
-  const L = 2.34 * st.sx;
 
   // Front details
   const splitter = new THREE.Mesh(new THREE.BoxGeometry(W * 0.92, 0.05, 0.36), mats.carbon);
@@ -258,6 +267,7 @@ export function createSportsCar(def) {
     barF.rotation.x = -0.45;
     body.add(barF);
   }
+  }   // end of the generic sports-car exterior
 
   // ---------- Interior (only visible in cockpit view) ----------
   const interior = new THREE.Group();
@@ -404,10 +414,11 @@ export function createSportsCar(def) {
 
   // Wheels
   const wheels = [];
-  const wx = W / 2 - 0.12;
-  for (const [x, z, front] of [[-wx, -1.42 * st.sx, true], [wx, -1.42 * st.sx, true], [-wx, 1.38 * st.sx, false], [wx, 1.38 * st.sx, false]]) {
-    const w = makeWheel(mats, Math.sign(x), mats.caliper);
-    w.pivot.position.set(x, WHEEL_R, z);
+  const wx = st.custom ? MALIBU.track : W / 2 - 0.12;
+  const wzF = st.custom ? MALIBU.frontZ : -1.42 * st.sx, wzR = st.custom ? MALIBU.rearZ : 1.38 * st.sx;
+  for (const [x, z, front] of [[-wx, wzF, true], [wx, wzF, true], [-wx, wzR, false], [wx, wzR, false]]) {
+    const w = st.custom ? makeMalibuWheel(mats, Math.sign(x)) : makeWheel(mats, Math.sign(x), mats.caliper);
+    w.pivot.position.set(x, st.custom ? MALIBU.wheelR : WHEEL_R, z);
     w.front = front;
     w.side = Math.sign(x);
     w.baseX = x;
@@ -438,6 +449,7 @@ export function createSportsCar(def) {
   const underglow = new THREE.Mesh(new THREE.PlaneGeometry(W + 1.6, 4.6 * st.sx + 2.2).rotateX(-Math.PI / 2), glowMat);
   underglow.position.y = 0.03;
   underglow.renderOrder = 2;
+  underglow.visible = !st.custom;   // a street sedan has no neon
   group.add(underglow);
 
   // Nitro flames
@@ -449,7 +461,8 @@ export function createSportsCar(def) {
   for (const sx of [-1, 1]) {
     const f = new THREE.Group();
     f.add(new THREE.Mesh(coneO, outer), new THREE.Mesh(coneI, inner));
-    f.position.set(sx * 0.45, 0.3, 2.42 * st.sx);
+    if (st.custom) f.position.set(sx * 0.64, 0.38, 2.47);
+    else f.position.set(sx * 0.45, 0.3, 2.42 * st.sx);
     flames.add(f);
   }
   flames.visible = false;
@@ -482,9 +495,15 @@ export function createSportsCar(def) {
 
   return {
     group, body, wheels, flames, underglow, mats, def,
-    halfLength: 2.3 * st.sx, width: W,
+    halfLength: st.custom ? MALIBU.L / 2 : 2.3 * st.sx, width: W,
     canFly: !!st.hover,
     eye, interior,
+    // daytime city: no headlight pools, brake glow or neon on the road
+    setDaylight(on) {
+      for (const b of beams) b.visible = !on;
+      brakeGlow.visible = !on;
+      underglow.visible = !on && !st.custom;
+    },
     setInterior(on) {
       interior.visible = on;
       // the shell is one solid shape: hide it from inside so the dashboard is visible
@@ -537,6 +556,7 @@ export function createSportsCar(def) {
       Object.values(mats).forEach((m) => m.dispose());
       glowMat.dispose(); outer.dispose(); inner.dispose(); beamMat.dispose(); brakeGlowMat.dispose();
       if (hoverMat) hoverMat.dispose();
+      if (custom) custom.ownMats.forEach((m) => m.dispose());
       Object.values(imat).forEach((m) => m.dispose()); seatMat.dispose();
       cluster.tex.dispose(); centre.tex.dispose();
     },

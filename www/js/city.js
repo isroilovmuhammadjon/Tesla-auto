@@ -3,9 +3,17 @@
 // traffic that turns at intersections, a minimap and street names. The player drives freely
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js';
-import { createTrafficCar, pickTrafficType, setTrafficPalette } from './carModels.js';
+import { createUzCar, pickUzType } from './uzcars.js';
+import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky } from './cityday.js';
+
+// warm afternoon sun from the south-west, high enough that the street itself is in the sun
+// (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes
+const SUN_DIR = new THREE.Vector3(-0.5, 0.78, 0.38).normalize();
+const LIGHT_COLORS = {
+  r: new THREE.Color(5, 0.25, 0.15), y: new THREE.Color(5, 3.2, 0.3), g: new THREE.Color(0.3, 4.2, 1.4), off: new THREE.Color(0.06, 0.06, 0.07),
+};
 
 // ---------------------------------------------------------------- layout
 const B = 140;              // street spacing (block + street)
@@ -26,7 +34,7 @@ const SPECIAL = {
   '-2,-1': { landmark: 6 },                 // Amir Temur muzeyi
   '0,-1': { landmark: 7 },                  // "O'zbekiston" mehmonxonasi
   '-1,0': { park: true, landmark: 2 },      // Mustaqillik maydoni (Ezgulik ravog'i)
-  '1,-4': { landmark: 0 },                  // teleminora
+  '0,-5': { landmark: 0, dx: -38 },         // teleminora: right at the end of Amir Temur avenue
   '-3,-3': { landmark: 1 },                 // Minor masjidi
   '-4,0': { landmark: 5 },                  // Chorsu
   '-4,1': { landmark: 3 },                  // Ko'kaldosh madrasasi
@@ -93,7 +101,7 @@ export class CityMode {
 
     // ground
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2 + 600, HALF * 2 + 600).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0x15171c, roughness: 0.95 }));
+      new THREE.MeshStandardMaterial({ color: 0x8a8273, roughness: 0.95, envMapIntensity: 0.25 }));
     ground.position.y = -0.02;
     ground.receiveShadow = true;
     root.add(ground);
@@ -113,7 +121,7 @@ export class CityMode {
     const len = HALF * 2 + W;
     roadTex.repeat.set(1, len / 12);
     roadTex.anisotropy = 8;
-    const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.5, metalness: 0.15 });
+    const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.62, metalness: 0.05, envMapIntensity: 0.3 });
     const roadGeo = new THREE.PlaneGeometry(W, len).rotateX(-Math.PI / 2);
     for (let k = -K; k <= K; k++) {
       const ns = new THREE.Mesh(roadGeo, roadMat); ns.position.set(k * B, 0.01, 0); ns.receiveShadow = true; root.add(ns);
@@ -131,7 +139,7 @@ export class CityMode {
       }
     });
     const xCount = (2 * K + 1) ** 2;
-    const inter = new THREE.InstancedMesh(new THREE.PlaneGeometry(W, W).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: xTex, roughness: 0.5 }), xCount);
+    const inter = new THREE.InstancedMesh(new THREE.PlaneGeometry(W, W).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: xTex, roughness: 0.62, envMapIntensity: 0.3 }), xCount);
     const m4 = new THREE.Matrix4();
     let n = 0;
     for (let a = -K; a <= K; a++) for (let b = -K; b <= K; b++) { m4.makeTranslation(a * B, 0.02, b * B); inter.setMatrixAt(n++, m4); }
@@ -140,14 +148,24 @@ export class CityMode {
 
     // ---- blocks: sidewalks, parks, buildings, landmarks
     this.blocks = [];
-    const facadeTex = ['#4a443b', '#3d4550', '#4a3e3a', '#4d4b45', '#3f4943'].map((c) => { const t = panelTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; });
-    const glassTex = glassTexture(); glassTex.wrapS = glassTex.wrapT = THREE.RepeatWrapping;
+    void panelTexture; void glassTexture;
+    const facadeTex = ['#d8ccb2', '#cfc8bb', '#d9c4a8', '#c3cbcd', '#e2d8c4', '#cbb69b'].map((c, i) => { const t = dayPanelTexture(c, i + 1); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; });
+    const glassTex = dayGlassTexture(); glassTex.wrapS = glassTex.wrapT = THREE.RepeatWrapping;
+    const signGeos = [];
+    // Uzbek shop sign over the ground floor, centred at (x, z) on a facade facing rotation `rot`
+    const addSign = (x, z, rot, width) => {
+      if (width < 4) return;
+      const g = signGeometry(Math.floor(Math.random() * SHOP_SIGNS.length), width, 1.05);
+      g.rotateY(rot);
+      g.translate(x + Math.sin(rot) * 0.08, 3.7, z + Math.cos(rot) * 0.08);
+      signGeos.push(g);
+    };
     const facadeGeos = facadeTex.map(() => []);
     const glassGeos = [];
     const walkGeo = new THREE.BoxGeometry(1, 0.2, 1).translate(0, 0.1, 0);
     const nBlocks = (2 * K) ** 2;
-    const walks = new THREE.InstancedMesh(walkGeo, new THREE.MeshStandardMaterial({ color: 0x3a3d45, roughness: 0.9 }), nBlocks);
-    const grass = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x1f3a1c }), nBlocks);
+    const walks = new THREE.InstancedMesh(walkGeo, new THREE.MeshStandardMaterial({ color: 0xaaa69c, roughness: 0.9, envMapIntensity: 0.3 }), nBlocks);
+    const grass = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5b8a3a }), nBlocks);
     let nw = 0, ng = 0;
     const treeSpots = [];
     this.landmarks = [];
@@ -165,7 +183,7 @@ export class CityMode {
         }
       }
       // per-building brightness via vertex colours
-      const k = glass ? 1.2 : rand(0.9, 1.25);
+      const k = glass ? 1.0 : rand(0.86, 1.04);
       const col = new Float32Array(geo.attributes.position.count * 3).fill(k);
       geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
       if (glass) glassGeos.push(geo); else facadeGeos[Math.floor(Math.random() * facadeGeos.length)].push(geo);
@@ -197,13 +215,13 @@ export class CityMode {
         }
         if (sp.landmark !== undefined) {
           const L = LANDMARK_BUILDERS[sp.landmark]();
-          L.position.set(cx, 0.2, cz);
+          L.position.set(cx + (sp.dx || 0), 0.2, cz);
           L.userData.blinkers = [];
           L.traverse((o) => { if (o.userData && o.userData.blink) L.userData.blinkers.push(o); });
           root.add(L);
           L.updateMatrixWorld(true);
           r.h = Math.max(r.h, new THREE.Box3().setFromObject(L).max.y);
-          this.landmarks.push({ idx: sp.landmark, x: cx, z: cz, obj: L });
+          this.landmarks.push({ idx: sp.landmark, x: cx + (sp.dx || 0), z: cz, obj: L });
           continue;
         }
         if (sp.park) continue;
@@ -217,6 +235,7 @@ export class CityMode {
             const dep = rand(12, 15);
             const z = edge === 'n' ? inZ0 + dep / 2 : inZ1 - dep / 2;
             addBuilding(x + lenB / 2, z, lenB, dep, height(), false);
+            if (Math.random() < 0.8) addSign(x + lenB / 2, edge === 'n' ? z - dep / 2 : z + dep / 2, edge === 'n' ? Math.PI : 0, Math.min(lenB * 0.55, 10));
             x += lenB + rand(5, 12);
           }
         }
@@ -228,6 +247,7 @@ export class CityMode {
             const dep = rand(12, 14);
             const x = edge === 'w' ? inX0 + dep / 2 : inX1 - dep / 2;
             addBuilding(x, z + lenB / 2, dep, lenB, height(), false);
+            if (Math.random() < 0.7) addSign(edge === 'w' ? x - dep / 2 : x + dep / 2, z + lenB / 2, edge === 'w' ? -Math.PI / 2 : Math.PI / 2, Math.min(lenB * 0.55, 10));
             z += lenB + rand(6, 12);
           }
         }
@@ -239,22 +259,55 @@ export class CityMode {
     root.add(walks, grass);
     facadeGeos.forEach((list, i) => {
       if (!list.length) return;
-      const mesh = new THREE.Mesh(mergeGeometries(list), new THREE.MeshBasicMaterial({ map: facadeTex[i], vertexColors: true }));
+      const mesh = new THREE.Mesh(mergeGeometries(list), new THREE.MeshLambertMaterial({ map: facadeTex[i], vertexColors: true }));
+      mesh.castShadow = mesh.receiveShadow = true;
       root.add(mesh);
     });
-    if (glassGeos.length) root.add(new THREE.Mesh(mergeGeometries(glassGeos), new THREE.MeshBasicMaterial({ map: glassTex, vertexColors: true })));
+    if (glassGeos.length) {
+      const gm = new THREE.Mesh(mergeGeometries(glassGeos), new THREE.MeshStandardMaterial({ map: glassTex, vertexColors: true, metalness: 0.6, roughness: 0.15 }));
+      gm.castShadow = gm.receiveShadow = true;
+      root.add(gm);
+    }
+    if (signGeos.length) root.add(new THREE.Mesh(mergeGeometries(signGeos), new THREE.MeshLambertMaterial({ map: signAtlas() })));
+
+    // ---- the avenue (Amir Temur, x = 0): two rows of big plane trees on each side
+    const bigTreeSpots = [];
+    for (let z = -HALF + 14; z < HALF - 10; z += 9) {
+      const m = ((z % B) + B) % B;
+      if (m < W / 2 + 6 || m > B - W / 2 - 6) continue;                     // keep crossings clear
+      for (const side of [-1, 1]) {
+        bigTreeSpots.push([side * (W / 2 + 2.3), z]);
+        bigTreeSpots.push([side * (W / 2 + 6.5), z + 4.5]);
+      }
+    }
 
     // ---- trees (instanced, low poly)
-    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.26, 3, 5).translate(0, 1.7, 0), new THREE.MeshLambertMaterial({ color: 0x5a4636 }), treeSpots.length);
-    const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.9, 0).scale(1, 1.2, 1).translate(0, 4.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), treeSpots.length);
+    // plane trees (chinar): pale trunks, broad lumpy crowns that throw shade on the road
+    const lumps = [[0, 0, 0, 2.0], [1.3, 0.5, 0.3, 1.45], [-1.2, 0.4, -0.5, 1.5], [0.2, 1.1, -1.2, 1.35], [-0.4, 0.9, 1.3, 1.3]].map(([x, y, z, rr]) => {
+      const g = mergeVertices(new THREE.IcosahedronGeometry(rr, 1).deleteAttribute('normal').deleteAttribute('uv'));
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {   // smooth bumps (same offset for shared vertices: no cracks)
+        const X = p.getX(i), Y = p.getY(i), Z = p.getZ(i);
+        const k = 0.9 + 0.1 * Math.sin(X * 2.3 + Y * 1.3) * Math.cos(Z * 2.1 - X) + 0.05 * Math.sin(Y * 5.1 + Z * 3.7);
+        p.setXYZ(i, X * k, Y * k, Z * k);
+      }
+      return g.translate(x, y, z);
+    });
+    const crownGeo = mergeGeometries(lumps);
+    crownGeo.scale(1.05, 0.9, 1.05).translate(0, 5.3, 0);
+    crownGeo.computeVertexNormals();
+    const allTrees = [...treeSpots.map((p) => [...p, rand(0.8, 1.15)]), ...bigTreeSpots.map((p) => [...p, rand(1.45, 1.85)])];
+    const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.3, 4.2, 6).translate(0, 2.1, 0), new THREE.MeshLambertMaterial({ color: 0xb3a68c }), allTrees.length);
+    const crown = new THREE.InstancedMesh(crownGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), allTrees.length);
     const tint = new THREE.Color();
-    treeSpots.forEach(([x, z], idx) => {
-      const s = rand(0.75, 1.15);
+    allTrees.forEach(([x, z, s], idx) => {
       m4.compose(new THREE.Vector3(x, 0.2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * 6), new THREE.Vector3(s, s, s));
       trunk.setMatrixAt(idx, m4); crown.setMatrixAt(idx, m4);
-      tint.setHSL(0.26 + Math.random() * 0.07, 0.5, 0.28 + Math.random() * 0.12);
+      tint.setHSL(0.24 + Math.random() * 0.07, 0.45, 0.3 + Math.random() * 0.1);
       crown.setColorAt(idx, tint);
     });
+    trunk.castShadow = crown.castShadow = true;
+    crown.receiveShadow = true;
     root.add(trunk, crown);
 
     // ---- street lamps (instanced) + positions for the real-light pool
@@ -269,7 +322,7 @@ export class CityMode {
       }
     }
     const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.15, 9, 6).translate(0, 4.5, 0), new THREE.MeshStandardMaterial({ color: 0x2a2e38, metalness: 0.6, roughness: 0.4 }), this.lampPos.length);
-    const heads = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.16, 0.4), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffa850).multiplyScalar(3) }), this.lampPos.length);
+    const heads = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.16, 0.4), new THREE.MeshStandardMaterial({ color: 0x8d939c, metalness: 0.5, roughness: 0.4 }), this.lampPos.length);
     this.lampPos.forEach(([x, z, side, ax], idx) => {
       m4.makeTranslation(x, 0.2, z); poles.setMatrixAt(idx, m4);
       const hx = ax === 'ns' ? x - side * 1.6 : x, hz = ax === 'ew' ? z - side * 1.6 : z;
@@ -281,39 +334,133 @@ export class CityMode {
     root.add(poles, heads);
     this.lightTimer = 0;
 
+    this.buildBusStops();
+    this.buildSignals();
+    this.sky = daySky(SUN_DIR);
+    root.add(this.sky);
+
     // ---- minimap (static part drawn once)
     this.maxAlt = Math.max(120, ...this.blocks.map((r) => r.h)) + 40;   // flying ceiling: above the tallest landmark
     this.buildMinimap();
   }
 
+  // bus stops on the sidewalks, open side towards the street, roughly every other block
+  buildBusStops() {
+    const parts = busStopParts();
+    const spots = [];
+    for (let k = -K; k <= K; k++) {
+      for (let j = -K; j < K; j++) {
+        const mid = j * B + B / 2;
+        if (Math.random() < 0.4) spots.push([k * B + W / 2 + 2.7, mid + 18, -Math.PI / 2]);   // N-S street, east side
+        if (Math.random() < 0.4) spots.push([k * B - W / 2 - 2.7, mid - 18, Math.PI / 2]);    // west side
+        if (Math.random() < 0.3) spots.push([mid - 18, k * B + W / 2 + 2.7, Math.PI]);        // E-W street, south side
+        if (Math.random() < 0.3) spots.push([mid + 18, k * B - W / 2 - 2.7, 0]);              // north side
+      }
+    }
+    const frame = new THREE.InstancedMesh(mergeGeometries(parts.frame), new THREE.MeshLambertMaterial({ vertexColors: true }), spots.length);
+    const glass = new THREE.InstancedMesh(mergeGeometries(parts.glass), new THREE.MeshStandardMaterial({ color: 0xbfd9e6, transparent: true, opacity: 0.28, metalness: 0.2, roughness: 0.05, depthWrite: false }), spots.length);
+    const sign = new THREE.InstancedMesh(parts.sign, new THREE.MeshBasicMaterial({ map: parts.signTexture }), spots.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+    spots.forEach(([x, z, rot], i) => {
+      m4.compose(new THREE.Vector3(x, 0.2, z), q.setFromAxisAngle(up, rot), one);
+      frame.setMatrixAt(i, m4); glass.setMatrixAt(i, m4); sign.setMatrixAt(i, m4);
+    });
+    frame.castShadow = true;
+    this.root.add(frame, glass, sign);
+    this.busStops = spots;
+  }
+
+  // traffic lights on mast arms at every intersection, one per approach, over the right-hand lanes
+  buildSignals() {
+    const parts = trafficLightParts();
+    const off = W / 2 + 1.2;
+    const approaches = [   // [corner dx, dz, rotation, axis]
+      [off, off, 0, 'ns'], [-off, -off, Math.PI, 'ns'], [-off, off, -Math.PI / 2, 'ew'], [off, -off, Math.PI / 2, 'ew'],
+    ];
+    const list = [];
+    for (let a = -K; a <= K; a++) for (let b = -K; b <= K; b++) for (const [dx, dz, rot, axis] of approaches) list.push({ a, b, x: a * B + dx, z: b * B + dz, rot, axis });
+    const metal = new THREE.InstancedMesh(mergeGeometries(parts.metal), new THREE.MeshStandardMaterial({ color: 0x6f757d, metalness: 0.6, roughness: 0.45 }), list.length);
+    const dark = new THREE.InstancedMesh(mergeGeometries(parts.dark), new THREE.MeshStandardMaterial({ color: 0x1b1d21, roughness: 0.6 }), list.length);
+    const lamps = new THREE.InstancedMesh(parts.lamp, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), list.length * 3);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+    const lampLocal = new THREE.Matrix4();
+    list.forEach((L, i) => {
+      m4.compose(new THREE.Vector3(L.x, 0.2, L.z), q.setFromAxisAngle(up, L.rot), one);
+      metal.setMatrixAt(i, m4); dark.setMatrixAt(i, m4);
+      SIGNAL.lampDY.forEach((dy, k) => {
+        lampLocal.makeTranslation(-SIGNAL.arm + 0.05, SIGNAL.headY + dy, 0.156);
+        lamps.setMatrixAt(i * 3 + k, m4.clone().multiply(lampLocal));
+        lamps.setColorAt(i * 3 + k, LIGHT_COLORS.off);
+      });
+      L.state = '';
+    });
+    metal.castShadow = dark.castShadow = true;
+    this.root.add(metal, dark, lamps);
+    this.signals = { list, lamps };
+    this.signalTime = 0;
+  }
+
+  // phase of the lights at intersection (a, b) for traffic along `axis`: 'g', 'y' or 'r'
+  lightState(a, b, axis, t = this.signalTime) {
+    const off = ((((a * 7 + b * 13) % 8) + 8) % 8) * 4;
+    const p = (t + off) % 32;
+    if (axis === 'ns') return p < 13 ? 'g' : p < 16 ? 'y' : 'r';
+    return p >= 16.5 && p < 29.5 ? 'g' : p >= 29.5 ? 'y' : 'r';
+  }
+
+  updateSignals(dt) {
+    this.signalTime += dt;
+    this.signalTick = (this.signalTick || 0) - dt;
+    if (this.signalTick > 0) return;
+    this.signalTick = 0.2;
+    const { list, lamps } = this.signals;
+    let dirty = false;
+    list.forEach((L, i) => {
+      const st = this.lightState(L.a, L.b, L.axis);
+      if (st === L.state) return;
+      L.state = st;
+      lamps.setColorAt(i * 3, st === 'r' ? LIGHT_COLORS.r : LIGHT_COLORS.off);
+      lamps.setColorAt(i * 3 + 1, st === 'y' ? LIGHT_COLORS.y : LIGHT_COLORS.off);
+      lamps.setColorAt(i * 3 + 2, st === 'g' ? LIGHT_COLORS.g : LIGHT_COLORS.off);
+      dirty = true;
+    });
+    if (dirty) lamps.instanceColor.needsUpdate = true;
+  }
+
+  // the minimap: a detailed picture of the street grid, drawn once; the live view turns with the car
   buildMinimap() {
-    const S = 160, scale = S / (HALF * 2 + 60);
-    this.mm = { S, scale };
+    const scale = 0.75, S = Math.ceil((HALF * 2 + 80) * scale);
+    this.mm = { S, scale, view: 230 };
     const c = document.createElement('canvas');
     c.width = c.height = S;
     const g = c.getContext('2d');
-    g.fillStyle = 'rgba(6,10,22,0.92)'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#2a2f38'; g.fillRect(0, 0, S, S);
     const px = (x) => S / 2 + x * scale, pz = (z) => S / 2 + z * scale;
     for (const r of this.blocks) {
       const sp = SPECIAL[`${Math.floor(r.x0 / B)},${Math.floor(r.z0 / B)}`];
-      g.fillStyle = sp && sp.park ? '#1f4a26' : '#232a3a';
+      g.fillStyle = sp && sp.park ? '#3e6b3a' : '#4a4f59';
       g.fillRect(px(r.x0), pz(r.z0), (r.x1 - r.x0) * scale, (r.z1 - r.z0) * scale);
+      if (!(sp && (sp.park || sp.landmark !== undefined))) {   // building footprints hint
+        g.fillStyle = '#5b616c';
+        g.fillRect(px(r.x0 + 6), pz(r.z0 + 6), (r.x1 - r.x0 - 12) * scale, 14 * scale);
+        g.fillRect(px(r.x0 + 6), pz(r.z1 - 20), (r.x1 - r.x0 - 12) * scale, 14 * scale);
+      }
     }
-    g.fillStyle = '#7b8494';
+    g.fillStyle = '#c4c9d1';
     for (let k = -K; k <= K; k++) {
-      g.fillRect(px(k * B) - 1, pz(-HALF), 2, HALF * 2 * scale);
-      g.fillRect(px(-HALF), pz(k * B) - 1, HALF * 2 * scale, 2);
+      g.fillRect(px(k * B - W / 2), pz(-HALF - W / 2), W * scale, (HALF * 2 + W) * scale);
+      g.fillRect(px(-HALF - W / 2), pz(k * B - W / 2), (HALF * 2 + W) * scale, W * scale);
     }
-    g.fillStyle = '#c9d4e6'; g.fillRect(px(0) - 1.5, pz(-HALF), 3, HALF * 2 * scale);   // Amir Temur avenue
+    g.fillStyle = '#f3e3a6'; g.fillRect(px(-W / 2), pz(-HALF - W / 2), W * scale, (HALF * 2 + W) * scale);   // Amir Temur avenue
     for (const L of this.landmarks) {
       g.fillStyle = LANDMARK_COLORS[L.idx];
-      g.beginPath(); g.arc(px(L.x), pz(L.z), 3.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(px(L.x), pz(L.z), 7, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(px(-B / 2), pz(-B / 2), 3.5, 0, Math.PI * 2); g.fill(); // Temur monument
+    g.fillStyle = '#f2c94c'; g.beginPath(); g.arc(px(-B / 2), pz(-B / 2), 7, 0, Math.PI * 2); g.fill(); // Temur monument
     this.mmStatic = c;
     const el = document.getElementById('minimap');
     this.mmCtx = el ? el.getContext('2d') : null;
-    if (el) { el.width = S; el.height = S; }
+    if (el) { el.width = 256; el.height = 256; }
   }
 
   // ------------------------------------------------------------ enter / exit
@@ -321,38 +468,110 @@ export class CityMode {
     this.build();
     this.root.visible = true;
     this.d.world.setVisible(false);
-    setTrafficPalette('tashkent');
+    this.setDay(true);
     const player = this.d.getPlayer();
     player.setInterior(false);
+    if (player.setDaylight) player.setDaylight(true);
     document.body.classList.remove('cockpit');
+    // start on the avenue in the right-hand lane heading north: the TV tower ahead on the right
     this.state = {
-      x: LANE[0], z: 250, yaw: 0, v: 0, steer: 0, nitro: 1, nitroOn: false, dist: 0, latV: 0,
+      x: LANE[1], z: 250, yaw: 0, v: 0, steer: 0, nitro: 1, nitroOn: false, dist: 0, latV: 0,
       pitch: 0, pitchV: 0, roll: 0, rollV: 0, bumpCd: 0, spin: 0, def,
       y: 0, vy: 0, altT: 0, fly: 0,                 // flying car (AERO ION)
     };
-    this.camPos = new THREE.Vector3(LANE[0], 3, 258);
+    this.camPos = new THREE.Vector3(LANE[1], 3, 258);
     this.camOff = null;
-    this.camLook = new THREE.Vector3(LANE[0], 1, 240);
+    this.camLook = new THREE.Vector3(LANE[1], 1, 240);
     this.d.pt.reset();
     player.group.position.set(this.state.x, 0, this.state.z);
     player.group.rotation.set(0, 0, 0);
     this.spawnTraffic();
-    document.getElementById('minimap').classList.remove('hidden');
+    const mm = document.getElementById('minimap');
+    mm.classList.remove('hidden');
+    mm.classList.add('round');
+    this.envTick = 0;
   }
 
   exit() {
     this.root.visible = false;
     this.d.world.setVisible(true);
     for (const c of this.cars) c.mesh.visible = false;
-    document.getElementById('minimap').classList.add('hidden');
+    const mm = document.getElementById('minimap');
+    mm.classList.add('hidden');
+    mm.classList.remove('round');
+    const player = this.d.getPlayer();
+    if (player && player.setDaylight) player.setDaylight(false);
+    this.setDay(false);
+  }
+
+  // switch the shared scene between the night highway look and a sunny Tashkent afternoon
+  setDay(on) {
+    const d = this.d, scene = this.scene, sun = d.moon, hemi = d.hemi, r = d.renderer;
+    if (on === !!this.day) return;
+    this.day = on;
+    const sh = sun.shadow;
+    if (on) {
+      this.saved = {
+        fog: scene.fog, env: scene.environment, exp: r.toneMappingExposure,
+        hemi: [hemi.color.clone(), hemi.groundColor.clone(), hemi.intensity], sun: [sun.color.clone(), sun.intensity],
+        cam: { left: sh.camera.left, right: sh.camera.right, top: sh.camera.top, bottom: sh.camera.bottom, far: sh.camera.far },
+        map: sh.mapSize.x, bloom: [d.bloom.strength, d.bloom.threshold],
+        sky: d.world.sky.visible, stars: d.world.stars.visible,
+      };
+      scene.fog = new THREE.FogExp2(0xc9d6e2, 0.00105);
+      hemi.color.set(0xd6e6ff); hemi.groundColor.set(0x7c6a52); hemi.intensity = 1.05;
+      sun.color.set(0xffdcaa); sun.intensity = 4.2;
+      Object.assign(sh.camera, { left: -70, right: 70, top: 70, bottom: -70, far: 420 });
+      sh.camera.updateProjectionMatrix();
+      sh.mapSize.set(d.mobile ? 1024 : 2048, d.mobile ? 1024 : 2048);
+      if (sh.map) { sh.map.dispose(); sh.map = null; }
+      r.toneMappingExposure = 0.92;
+      d.bloom.strength = 0.12; d.bloom.threshold = 0.98;
+      d.world.sky.visible = false; d.world.stars.visible = false;
+      d.setHeadlight(false);
+      for (const L of d.lampLights) L.intensity = 0;
+      // live reflections of the street for the car paint (and everything else that is shiny)
+      if (!this.cubeRT) {
+        this.cubeRT = new THREE.WebGLCubeRenderTarget(d.mobile ? 64 : 128, { type: THREE.HalfFloatType });
+        this.cubeCam = new THREE.CubeCamera(0.5, 2000, this.cubeRT);
+      }
+      scene.environment = this.cubeRT.texture;
+    } else {
+      const v = this.saved;
+      if (!v) return;
+      scene.fog = v.fog; scene.environment = v.env; r.toneMappingExposure = v.exp;
+      hemi.color.copy(v.hemi[0]); hemi.groundColor.copy(v.hemi[1]); hemi.intensity = v.hemi[2];
+      sun.color.copy(v.sun[0]); sun.intensity = v.sun[1];
+      Object.assign(sh.camera, v.cam); sh.camera.updateProjectionMatrix();
+      sh.mapSize.set(v.map, v.map);
+      if (sh.map) { sh.map.dispose(); sh.map = null; }
+      d.bloom.strength = v.bloom[0]; d.bloom.threshold = v.bloom[1];
+      d.world.sky.visible = v.sky; d.world.stars.visible = v.stars;
+      d.setHeadlight(true);
+    }
+  }
+
+  // re-render the reflection cube around the car every few frames
+  updateReflections() {
+    if (!this.cubeCam) return;
+    this.envTick = (this.envTick || 0) - 1;
+    if (this.envTick > 0) return;
+    this.envTick = this.d.mobile ? 12 : 4;
+    const d = this.d, r = d.renderer, s = this.state, player = d.getPlayer();
+    player.group.visible = false;
+    const auto = r.shadowMap.autoUpdate;
+    r.shadowMap.autoUpdate = false;
+    this.cubeCam.position.set(s.x, s.y + 1.1, s.z);
+    this.cubeCam.update(r, this.scene);
+    r.shadowMap.autoUpdate = auto;
+    player.group.visible = true;
   }
 
   // ------------------------------------------------------------ traffic
   spawnTraffic() {
-    const n = this.d.mobile ? 18 : 26;
+    const n = this.d.mobile ? 18 : 28;
     while (this.cars.length < n) {
-      const type = pickTrafficType(false);
-      const c = createTrafficCar(type === 'truck' ? 'van' : type);
+      const c = createUzCar(pickUzType());
       this.root.add(c.mesh);
       this.cars.push(c);
     }
@@ -404,6 +623,17 @@ export class CityMode {
       const ahead = c.axis === 'ns' ? (s.z - c.z) * c.dir : (s.x - c.x) * c.dir;
       const lateral = c.axis === 'ns' ? Math.abs(s.x - c.x) : Math.abs(s.z - c.z);
       if (ahead > 0 && ahead < 18 && lateral < 2.4) limit = Math.min(limit, Math.max(0, (ahead - 7) * 0.8));
+      // traffic lights: stop at the line on red, and on yellow unless too close to stop
+      const next = c.dir > 0 ? Math.ceil((c.pos + 0.5) / B) * B : Math.floor((c.pos - 0.5) / B) * B;
+      if (Math.abs(next) <= HALF) {
+        const stopAt = next - c.dir * (W / 2 + 2.6 + c.halfL);
+        const dist = (stopAt - c.pos) * c.dir;
+        if (dist > -0.5 && dist < 50) {
+          const kk = Math.round(next / B);
+          const st = c.axis === 'ns' ? this.lightState(c.line, kk, 'ns') : this.lightState(kk, c.line, 'ew');
+          if (st === 'r' || (st === 'y' && dist > c.speed * 1.3)) limit = Math.min(limit, Math.max(0, dist * 0.6 - 0.2));
+        }
+      }
       c.speed += (limit - c.speed) * Math.min(1, dt * (limit < c.speed ? 4 : 1));
       c.setBrake(limit < c.speed - 0.5);
       const prev = c.pos;
@@ -438,6 +668,7 @@ export class CityMode {
       c.rx += (c.x - c.rx) * glide; c.rz += (c.z - c.rz) * glide;
       c.mesh.position.set(c.rx, 0.02, c.rz);
       c.mesh.rotation.set(0, c.yaw, 0);
+      if (c.setDetail) c.setDetail(Math.abs(c.x - s.x) + Math.abs(c.z - s.z) < 110);   // fewer parts far away
       // recycle cars that are far away or left the map
       if (Math.hypot(c.x - s.x, c.z - s.z) > 330 || Math.abs(c.pos) > HALF - 5) this.placeCar(c);
     }
@@ -596,6 +827,7 @@ export class CityMode {
     s.z += fz * s.v * dt;
     s.dist += Math.abs(s.v) * dt;
     this.collide(dt);
+    this.updateSignals(dt);
     this.updateTraffic(dt);
     d.fx.update(dt, 0);
 
@@ -612,19 +844,19 @@ export class CityMode {
     player.body.rotation.set(s.pitch, 0, s.roll * (1 - s.fly));
     player.update(dt, Math.abs(s.v), steerIn * 0.8, input.down, s.nitroOn, d.time(), s.fly, s.y);
 
-    // ---- light pool near the player + shadows follow the player
-    this.lightTimer -= dt;
-    if (this.lightTimer <= 0) {
-      this.lightTimer = 0.25;
-      const near = this.lampPos.map((p) => [p, (p[0] - s.x - fx * 25) ** 2 + (p[1] - s.z - fz * 25) ** 2]).sort((p, q) => p[1] - q[1]);
-      d.lampLights.filter((L) => L.visible).forEach((L, i) => { const p = near[i][0]; L.position.set(p[0], 8.6, p[1]); L.intensity = 260; });
-    }
-    d.moon.position.set(s.x - 30, 60, s.z + 25);
-    d.moon.target.position.set(s.x, 0, s.z - 10);
+    // ---- the sun's shadow box follows the player (snapped to texels so shadows don't shimmer)
+    const cx = s.x + fx * 25, cz = s.z + fz * 25;
+    const snap = 140 / (this.d.mobile ? 1024 : 2048);
+    const sx = Math.round(cx / snap) * snap, sz = Math.round(cz / snap) * snap;
+    d.moon.position.set(sx + SUN_DIR.x * 200, SUN_DIR.y * 200, sz + SUN_DIR.z * 200);
+    d.moon.target.position.set(sx, 0, sz);
+    d.moon.target.updateMatrixWorld();
     for (const L of this.landmarks) for (const b of L.obj.userData.blinkers) b.visible = Math.sin(d.time() * 3.2) > 0.2;
 
     // ---- camera
     this.updateCamera(dt, fx, fz);
+    this.sky.position.copy(d.camera.position);
+    this.updateReflections();
 
     // ---- HUD, sound
     const kmh = Math.abs(s.v) * 3.6;
@@ -657,21 +889,23 @@ export class CityMode {
       return;
     }
     const sf = Math.min(1, Math.abs(s.v) / 60);
-    const back = (look ? -1 : 1) * (6.4 + sf * 1.4);
+    const back = (look ? -1 : 1) * (6.1 + sf * 1.3);
+    const rx = -fz, rz = fx;                         // the car's right-hand side
+    const left = look ? 0 : 1.15;                    // camera sits a little to the left of the car
     // smooth the camera's OFFSET from the car (not its world position), so it never falls
     // behind at speed; the offset swings around smoothly when the car turns
-    const targetOff = new THREE.Vector3(-fx * back * (1 + s.fly * 0.25), 2.5 + sf * 0.3 + s.fly * 0.8, -fz * back * (1 + s.fly * 0.25));
+    const targetOff = new THREE.Vector3(-fx * back * (1 + s.fly * 0.25) - rx * left, 2.15 + sf * 0.3 + s.fly * 0.8, -fz * back * (1 + s.fly * 0.25) - rz * left);
     if (!this.camOff || look !== this.lookWas) { this.camOff = targetOff.clone(); this.lookWas = look; }
     this.camOff.lerp(targetOff, 1 - Math.exp(-dt * 5));
     this.camPos.set(s.x + this.camOff.x, s.y + this.camOff.y, s.z + this.camOff.z);
-    this.camLook.set(s.x + fx * 8 * (look ? -1 : 1), s.y + 1, s.z + fz * 8 * (look ? -1 : 1));
+    this.camLook.set(s.x + fx * 9 * (look ? -1 : 1) + rx * 0.35, s.y + 1.05, s.z + fz * 9 * (look ? -1 : 1) + rz * 0.35);
     // keep the camera out of buildings: pull in if the camera point is inside a block
     const pull = this.blocks.find((r) => this.camPos.y < r.h && this.camPos.x > r.x0 && this.camPos.x < r.x1 && this.camPos.z > r.z0 && this.camPos.z < r.z1);
     if (pull) this.camPos.lerp(new THREE.Vector3(s.x, this.camPos.y + 0.5, s.z), 0.5);
     const shake = d.shakeAmount();
     cam.position.set(this.camPos.x + (Math.random() - 0.5) * shake * 0.3, this.camPos.y + (Math.random() - 0.5) * shake * 0.2, this.camPos.z);
     cam.lookAt(this.camLook);
-    d.setFov(62 + sf * 14 + (s.nitroOn ? 8 : 0), dt);
+    d.setFov(58 + sf * 12 + (s.nitroOn ? 8 : 0), dt);
   }
 
   streetName(x, z) {
@@ -689,17 +923,30 @@ export class CityMode {
     if (!this.mmCtx) return;
     this.mmTick = (this.mmTick || 0) + 1;
     if (this.mmTick % 3) return;
-    const g = this.mmCtx, { S, scale } = this.mm, s = this.state;
-    g.drawImage(this.mmStatic, 0, 0);
-    g.fillStyle = 'rgba(255,255,255,0.55)';
-    for (const c of this.cars) g.fillRect(S / 2 + c.x * scale - 1, S / 2 + c.z * scale - 1, 2, 2);
-    // player arrow (north up)
+    const g = this.mmCtx, { S, scale, view } = this.mm, s = this.state;
+    const D = g.canvas.width, R = D / 2, k = R / view / scale;
+    g.clearRect(0, 0, D, D);
     g.save();
-    g.translate(S / 2 + s.x * scale, S / 2 + s.z * scale);
-    g.rotate(-s.yaw);
-    g.fillStyle = '#00e5ff';
-    g.beginPath(); g.moveTo(0, -6); g.lineTo(4, 5); g.lineTo(0, 3); g.lineTo(-4, 5); g.closePath(); g.fill();
+    g.beginPath(); g.arc(R, R, R - 2, 0, Math.PI * 2); g.clip();
+    g.fillStyle = '#2a2f38'; g.fillRect(0, 0, D, D);
+    // heading-up: turn the map so the car's direction points to the top
+    g.translate(R, R);
+    g.rotate(s.yaw);
+    g.scale(k, k);
+    g.translate(-(S / 2 + s.x * scale), -(S / 2 + s.z * scale));
+    g.drawImage(this.mmStatic, 0, 0);
+    g.fillStyle = '#ffffff';
+    for (const c of this.cars) g.fillRect(S / 2 + c.x * scale - 2, S / 2 + c.z * scale - 2, 4, 4);
     g.restore();
+    // ring + north marker
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4;
+    g.beginPath(); g.arc(R, R, R - 3, 0, Math.PI * 2); g.stroke();
+    const nx = R + Math.sin(s.yaw) * (R - 18), ny = R - Math.cos(s.yaw) * (R - 18);
+    g.fillStyle = '#ffffff'; g.font = 'bold 22px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('N', nx, ny);
+    // the car: yellow arrow in the middle
+    g.fillStyle = '#ffd400'; g.strokeStyle = '#3a2f00'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(R, R - 16); g.lineTo(R + 11, R + 12); g.lineTo(R, R + 6); g.lineTo(R - 11, R + 12); g.closePath(); g.fill(); g.stroke();
   }
 }
 
