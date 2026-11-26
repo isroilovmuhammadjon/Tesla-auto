@@ -33,6 +33,7 @@ export class AudioEngine {
     this.wind = this.noiseLoop('bandpass', 600, 0.6);
     this.nitroN = this.noiseLoop('bandpass', 1600, 1.2);
     this.scrapeN = this.noiseLoop('highpass', 2800, 0.8);
+    this.squealN = this.noiseLoop('bandpass', 1150, 9);   // tyres sliding on asphalt
     this.buildHum();
 
     this.music = new Synthwave(ctx, this.musicBus, this.noise);
@@ -104,7 +105,7 @@ export class AudioEngine {
   }
 
   // Continuous sounds, called every frame
-  update({ rpm = 900, load = 0, engine = 0, wind = 0, nitro = false, scrape = false, electric = false, hover = 0 }) {
+  update({ rpm = 900, load = 0, engine = 0, wind = 0, nitro = false, scrape = false, electric = false, hover = 0, squeal = 0 }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const f = 26 + (rpm / 60) * 1.5;
@@ -120,6 +121,8 @@ export class AudioEngine {
     this.wind.f.frequency.setTargetAtTime(400 + wind * 900, t, 0.1);
     this.nitroN.g.gain.setTargetAtTime(nitro ? 0.2 : 0, t, 0.06);
     this.scrapeN.g.gain.setTargetAtTime(scrape ? 0.22 : 0, t, 0.03);
+    this.squealN.g.gain.setTargetAtTime(Math.min(1, squeal) * 0.32, t, 0.05);
+    this.squealN.f.frequency.setTargetAtTime(950 + Math.min(1, squeal) * 500, t, 0.08);
   }
 
   // ---------- one-shots ----------

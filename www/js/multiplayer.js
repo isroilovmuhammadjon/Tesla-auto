@@ -29,6 +29,10 @@ export function wsUrlFrom(addr) {
   return `ws://${a}/ws`;
 }
 
+// one id per open game tab: the room replaces an older connection from the same tab instead of
+// listing the same player twice
+const CLIENT_ID = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
 export class Multiplayer {
   constructor(scene, hooks = {}) {
     this.scene = scene;
@@ -47,19 +51,25 @@ export class Multiplayer {
   // addr: "192.168.1.5:8080" for a Wi-Fi server, or a ready socket object for a room hosted on this phone
   connect(addr, name, car) {
     this.disconnect();
+    // a second tap while the first connection is still opening must not join the room twice
+    if (this.pending) { try { this.pending.close(); } catch (e) { /* ignore */ } this.pending = null; }
     return new Promise((resolve, reject) => {
       let ws;
       try { ws = typeof addr === 'object' && addr ? addr : new WebSocket(wsUrlFrom(addr)); } catch (e) { reject(e); return; }
-      const timer = setTimeout(() => { try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('timeout')); }, typeof addr === 'object' ? 20000 : 6000);
+      this.pending = ws;
+      const timer = setTimeout(() => { if (this.pending === ws) this.pending = null; try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('timeout')); }, typeof addr === 'object' ? 20000 : 6000);
       ws.onopen = () => {
         clearTimeout(timer);
+        if (this.pending !== ws) { try { ws.close(); } catch (e) { /* ignore */ } reject(new Error('superseded')); return; }
+        this.pending = null;
         this.ws = ws;
         this.connected = true;
-        this.send({ t: 'hello', name, car });
+        this.send({ t: 'hello', name, car, cid: CLIENT_ID });
         resolve();
       };
       ws.onerror = () => { clearTimeout(timer); if (!this.connected) reject(new Error('connection failed')); };
       ws.onclose = () => {
+        if (this.ws !== ws) return;          // an old or abandoned socket
         const was = this.connected;
         this.connected = false;
         this.ws = null;

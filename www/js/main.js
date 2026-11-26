@@ -1232,7 +1232,13 @@ function setOnlineStatus(text, err = false) {
 
 // ---------- online rooms (internet, room code)
 let online = null;   // { code, stop }
+let mpBusy = false;  // a join / host is in progress
 async function onlineHostRoom() {
+  if (mpBusy || mp.connected) return;      // a double tap must not join the room twice
+  mpBusy = true;
+  try { await onlineHostRoomNow(); } finally { mpBusy = false; }
+}
+async function onlineHostRoomNow() {
   const name = $id('mpName').value.trim() || 'Racer';
   storageSet('sr3d_name', name);
   stopScan();
@@ -1251,6 +1257,11 @@ async function onlineHostRoom() {
 }
 
 async function onlineJoinRoom(codeArg) {
+  if (mpBusy || mp.connected) return;      // a double tap must not join the room twice
+  mpBusy = true;
+  try { await onlineJoinRoomNow(codeArg); } finally { mpBusy = false; }
+}
+async function onlineJoinRoomNow(codeArg) {
   const code = cleanCode(codeArg || $id('mpCode').value);
   if (code.length !== 5) { setOnlineStatus('Enter the 5-digit room code', true); return; }
   const name = $id('mpName').value.trim() || 'Racer';
@@ -1394,6 +1405,11 @@ function renderHostButton() {
 let host = null;   // { plugin, room, listeners }
 
 async function hostRoom() {
+  if (mpBusy || mp.connected || host) return;
+  mpBusy = true;
+  try { await hostRoomNow(); } finally { mpBusy = false; }
+}
+async function hostRoomNow() {
   const name = $id('mpName').value.trim() || 'Racer';
   storageSet('sr3d_name', name);
   const plugin = await getPlugin('LanHost');
@@ -1439,6 +1455,11 @@ function stopHosting() {
 }
 
 async function mpConnect(addrOverride) {
+  if (mpBusy || mp.connected) return;      // a double tap must not join the room twice
+  mpBusy = true;
+  try { await mpConnectNow(addrOverride); } finally { mpBusy = false; }
+}
+async function mpConnectNow(addrOverride) {
   const name = $id('mpName').value.trim() || 'Racer';
   const addr = (addrOverride || $id('mpAddr').value).trim();
   if (!addr) { setMpStatus('Enter the server address, e.g. 192.168.1.5:8080', true); return; }

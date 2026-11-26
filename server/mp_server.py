@@ -78,6 +78,7 @@ class Player:
         self.id, self.writer = pid, writer
         self.name, self.car = 'Player', 0
         self.joined = False
+        self.cid = None
         self.lock = asyncio.Lock()
 
     async def send(self, obj):
@@ -164,6 +165,17 @@ class Room:
     async def on_message(self, p, m):
         t = m.get('t')
         if t == 'hello':
+            if p.joined:                                # hello twice on one connection: already in
+                return
+            cid = str(m.get('cid') or '')[:40] or None
+            if cid:                                     # the same game tab connected again: drop the old one
+                for q in [q for q in self.players.values() if q is not p and q.cid == cid]:
+                    try:
+                        q.writer.close()
+                    except Exception:
+                        pass
+                    await self.remove(q)
+            p.cid = cid
             if sum(1 for q in self.players.values() if q.joined) >= MAX_PLAYERS:
                 await p.send({'t': 'error', 'message': 'Room is full'})
                 return

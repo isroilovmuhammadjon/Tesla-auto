@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js';
 import { createUzCar, pickUzType } from './uzcars.js';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js';
+import { People, windSway, WIND } from './life.js';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
   facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js';
 
@@ -427,8 +429,8 @@ export class CityMode {
       { trunk: trunkGeo(2.6, 0.09, 0.06, []),
         crown: lumpy([[0, 3.3, 0, 1.0, 1.1], [0.4, 3.7, 0.2, 0.7]]) },
     ];
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0xb8ab92 });
-    const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+    const trunkMat = windSway(new THREE.MeshLambertMaterial({ color: 0xb8ab92 }), 0.5);
+    const crownMat = windSway(new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), 1);
     const tcol = new THREE.Color();
     const q = new THREE.Quaternion(), e = new THREE.Euler();
     KINDS.forEach((kind, v) => {
@@ -648,6 +650,8 @@ export class CityMode {
     player.group.position.set(this.state.x, 0, this.state.z);
     player.group.rotation.set(0, 0, 0);
     this.spawnTraffic();
+    if (this.skids) this.skids.clear(); else this.skids = new SkidMarks(this.root);
+    if (this.people) this.people.clear(); else this.people = new People(this.root, { mobile: this.d.mobile });
     const mm = document.getElementById('minimap');
     mm.classList.remove('hidden');
     mm.classList.add('round');
@@ -659,6 +663,7 @@ export class CityMode {
     this.root.visible = false;
     this.d.world.setVisible(true);
     for (const c of this.cars) c.mesh.visible = false;
+    if (this.people) this.people.clear();
     const mm = document.getElementById('minimap');
     mm.classList.add('hidden');
     mm.classList.remove('round');
@@ -863,12 +868,29 @@ export class CityMode {
     return best;
   }
 
+  // a sidewalk line for a pedestrian: along an edge of a block 30-130 m from (x, z), 1.8 m in from the kerb
+  sidewalkSpot(x, z) {
+    for (let tries = 0; tries < 8; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 30 + Math.random() * 100;
+      const px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
+      const bi = Math.floor(px / B), bj = Math.floor(pz / B);
+      if (bi < -K || bi >= K || bj < -K || bj >= K) continue;
+      const blk = this.blocks[(bi + K) * 2 * K + (bj + K)];
+      if (!blk || !blk.parts) continue;
+      const pt = blk.parts[Math.floor(Math.random() * blk.parts.length)];
+      const i = 1.8, e = Math.floor(Math.random() * 4);
+      const [x0, x1, z0, z1] = [pt.x0 + i, pt.x1 - i, pt.z0 + i, pt.z1 - i];
+      return [{ ax: x0, az: z0, bx: x1, bz: z0 }, { ax: x0, az: z1, bx: x1, bz: z1 }, { ax: x0, az: z0, bx: x0, bz: z1 }, { ax: x1, az: z0, bx: x1, bz: z1 }][e];
+    }
+    return null;
+  }
+
   // tallest thing standing at (x, z): 0 on streets
-  heightAt(x, z) {
+  heightAt(x, z, margin = 0) {
     const bi = Math.floor(x / B), bj = Math.floor(z / B);
     if (bi < -K || bi >= K || bj < -K || bj >= K) return 0;
     const r = this.blocks[(bi + K) * 2 * K + (bj + K)];
-    return r.parts.some((p) => x > p.x0 && x < p.x1 && z > p.z0 && z < p.z1) ? r.h : 0;
+    return r.parts.some((p) => x > p.x0 - margin && x < p.x1 + margin && z > p.z0 - margin && z < p.z1 + margin) ? r.h : 0;
   }
 
   collide(dt) {
@@ -936,8 +958,14 @@ export class CityMode {
     // ---- input
     const keySteer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     const steerIn = keySteer !== 0 ? keySteer : (d.tilt.enabled ? d.tilt.axis : 0);
-    const maxSteer = 0.62 / (1 + Math.abs(s.v) / 16);
-    s.steer += (steerIn * maxSteer - s.steer) * Math.min(1, dt * 8);
+    // the road wheels turn at the speed a driver turns the wheel; at speed the lock is limited to
+    // a little past what the tyres can use, like a driver who feels the grip through the wheel
+    const P = s.chassis || (s.chassis = chassisFor(def));
+    const sp = Math.max(1, Math.abs(s.v));
+    const maxSteer = Math.min(P.maxWheel, (P.L * P.mu * 9.81) / (sp * sp) + 0.06);
+    const target = steerIn * maxSteer;
+    const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) === Math.sign(s.steer || target) ? 1.5 : 2.6) * dt;
+    s.steer += Math.max(-rate, Math.min(rate, target - s.steer));
     // nitro
     const wasNitro = s.nitroOn;
     s.nitroOn = input.nitro && s.nitro > 0.01 && s.v > 3;
@@ -945,13 +973,13 @@ export class CityMode {
     s.nitro = s.nitroOn ? Math.max(0, s.nitro - dt / (4.2 * def.nitro)) : Math.min(1, s.nitro + dt * 0.05);
     // ---- longitudinal: forward via the powertrain, reverse when braking at a standstill
     let a;
-    if (s.v >= 0 && !(input.down && s.v < 0.4)) {
+    const forward = s.v >= 0 && !(input.down && s.v < 0.4);
+    if (forward) {
       a = pt.step(dt, s.v, input.up || s.nitroOn ? 1 : 0, input.down ? 1 : 0, s.nitroOn, false);
-      s.v = Math.max(0, s.v + a * dt);
     } else {
       // reverse gear: S/Down accelerates backwards, W/Up brakes
-      a = input.down ? -4 : input.up ? 9 : (s.v < 0 ? 2.5 : 0);
-      s.v = Math.max(-7, Math.min(0, s.v + a * dt));
+      a = input.down ? -3.2 : input.up ? 9 : (s.v < 0 ? 2.5 : 0);
+      if (s.v <= -7 && a < 0) a = 0;
       pt.rev(dt, input.down);
     }
     // ---- flight (AERO ION): thrust holds a target altitude against gravity, like the race mode
@@ -962,11 +990,12 @@ export class CityMode {
       // full flight: once airborne the car never hits buildings — it climbs over them on its own
       let floor = 0;
       if (s.altT > 0.05 || s.y > 0.3) {
-        const fwX = -Math.sin(s.yaw), fwZ = -Math.cos(s.yaw);
-        const ahead = Math.max(0, s.v) * 3.5 + 8;
-        for (let t = 0; t <= 1.0001; t += 0.125) {
+        const direction = Math.sign(s.v || 1);
+        const fwX = -Math.sin(s.yaw) * direction, fwZ = -Math.cos(s.yaw) * direction;
+        const ahead = Math.abs(s.v) * 3.5 + 8;
+        for (let distance = 0; distance <= ahead; distance += 5) {
           for (const side of [-2.5, 0, 2.5]) {
-            const h = this.heightAt(s.x + fwX * ahead * t - fwZ * side, s.z + fwZ * ahead * t + fwX * side);
+            const h = this.heightAt(s.x + fwX * distance - fwZ * side, s.z + fwZ * distance + fwX * side, 3);
             if (h > floor) floor = h;
           }
         }
@@ -980,37 +1009,74 @@ export class CityMode {
       const engaged = s.altT > 0.05 || s.y > 0.05;
       s.vy += ((engaged ? thrust : 0) - G) * dt;
       s.y += s.vy * dt;
-      const under = (s.altT > 0.05 || s.y > 0.3) ? this.heightAt(s.x, s.z) : 0;
-      if (under > 0 && s.y < under + 0.5) { s.y = under + 0.5; s.vy = Math.max(0, s.vy); }
       if (s.y <= 0) { if (s.vy < -4) { d.audio.thud(-s.vy); d.shake(Math.min(1, -s.vy * 0.08)); } s.y = 0; s.vy = 0; }
       s.fly += ((s.y > 0.12 || s.altT > 0.05 ? 1 : 0) - s.fly) * Math.min(1, dt * 3);
     }
-    // ---- steering (bicycle model) + small slide after crashes
-    const yawRate = (s.v * Math.tan(s.steer)) / 2.6;
-    s.yaw -= yawRate * dt;
+    // ---- chassis: tyre forces, weight transfer, slides (vehicle.js); a car in the air just glides
+    if (s.r === undefined) { s.r = 0; s.latV = 0; s.ax = 0; }
+    let slide = 0, ay;
+    const airborne = def.flying && s.fly > 0.5;
+    if (airborne) {
+      s.v = Math.max(forward ? 0 : -7, s.v + a * dt);
+      s.r = (s.v * Math.tan(-s.steer)) / P.L;
+      s.latV *= Math.exp(-dt * 4);
+      ay = s.v * s.r;
+      s.ax = a;
+    } else {
+      ({ slide, ay } = stepChassis(s, P, dt, -s.steer, a, forward ? (input.down ? 1 : 0) : (input.up ? 1 : 0)));
+      if (forward && s.v < 0) s.v = 0;
+      if (!forward && s.v > 0) s.v = 0;
+      if (Math.abs(s.v) < 0.05 && !input.up && !input.down) { s.latV *= Math.exp(-dt * 6); }
+    }
+    const yawRate = -s.r;                                // positive = turning right (as before)
+    s.yaw += s.r * dt;
     s.spin *= Math.exp(-dt * 3);
     s.yaw += s.spin * dt;
     const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw);
-    s.x += fx * s.v * dt;
-    s.z += fz * s.v * dt;
-    s.dist += Math.abs(s.v) * dt;
+    const lx = -Math.cos(s.yaw), lz = Math.sin(s.yaw);   // left of the car
+    s.x += (fx * s.v + lx * s.latV) * dt;
+    s.z += (fz * s.v + lz * s.latV) * dt;
+    s.dist += Math.hypot(s.v, s.latV) * dt;
+    // ---- tyre squeal, smoke and marks on the asphalt while sliding
+    s.slide = (s.slide || 0) + (slide - (s.slide || 0)) * Math.min(1, dt * 10);
+    if (this.skids) {
+      const on = s.slide > 0.35 && s.y < 0.1;
+      const rx2 = -lx, rz2 = -lz;
+      [[-0.8, -1.45], [0.8, -1.45], [-0.8, 1.35], [0.8, 1.35]].forEach(([wx, wz], i) =>
+        this.skids.mark(i, s.x + rx2 * wx - fx * wz, s.z + rz2 * wx - fz * wz, on));
+      if (on && Math.random() < s.slide * dt * 30) d.fx.emitSmoke(s.x - fx * 1.4, 0.35, s.z - fz * 1.4, 1);
+    }
+    // Enforce roof clearance at the new position, including the car's footprint.
+    if (def.flying && (s.altT > 0.05 || s.y > 0.3)) {
+      const roof = this.heightAt(s.x, s.z, 3);
+      if (roof > 0 && s.y < roof + 3) {
+        s.y = roof + 3;
+        s.vy = Math.max(0, s.vy);
+      }
+    }
+    const vBefore = s.v;
     this.collide(dt);
+    // a hit takes the sideways slide and the spin down with the forward speed
+    if (Math.abs(vBefore) > 0.1 && Math.abs(s.v) < Math.abs(vBefore)) { const k = s.v / vBefore; s.latV *= k; s.r *= k; }
     this.updateSignals(dt);
     this.updateTraffic(dt);
+    // the living street: wind in the trees, people on the sidewalks
+    WIND.value += dt;
+    if (this.people) this.people.update(dt, d.time(), { x: s.x, z: s.z, vx: fx * s.v + lx * s.latV, vz: fz * s.v + lz * s.latV }, (x, z) => this.sidewalkSpot(x, z));
     d.fx.update(dt, 0);
 
     // ---- car body: suspension pitch/roll from acceleration and cornering
     const k = 70, c = 8.5;
-    s.pitchV += ((Math.max(-0.07, Math.min(0.05, a * 0.0028)) - s.pitch) * k - s.pitchV * c) * dt;
+    s.pitchV += ((Math.max(-0.07, Math.min(0.05, s.ax * 0.0032)) - s.pitch) * k - s.pitchV * c) * dt;
     s.pitch += s.pitchV * dt;
-    const latAcc = s.v * yawRate;
+    const latAcc = -ay;
     s.rollV += ((Math.max(-0.08, Math.min(0.08, latAcc * 0.006)) - s.roll) * k - s.rollV * c) * dt;
     s.roll += s.rollV * dt;
     player.group.position.set(s.x, s.y, s.z);
     // in the air the car banks into turns and pitches with climb / descent
     player.group.rotation.set(Math.max(-0.18, Math.min(0.18, s.vy * 0.03)) * s.fly, s.yaw, -yawRate * 0.35 * s.fly);
     player.body.rotation.set(s.pitch, 0, s.roll * (1 - s.fly));
-    player.update(dt, Math.abs(s.v), steerIn * 0.8, input.down, s.nitroOn, d.time(), s.fly, s.y);
+    player.update(dt, Math.abs(s.v), Math.max(-1.6, Math.min(1.6, s.steer / 0.38)), input.down, s.nitroOn, d.time(), s.fly, s.y);
 
     // ---- the sun's shadow box follows the player (snapped to texels so shadows don't shimmer)
     const cx = s.x + fx * 25, cz = s.z + fz * 25;
@@ -1031,7 +1097,7 @@ export class CityMode {
     d.hud({ speedKmh: kmh, gear: s.v < -0.1 ? 'R' : s.v < 0.5 && !input.up ? 'N' : pt.gear, nitro: s.nitro, nitroActive: s.nitroOn, distance: s.dist, rpm: pt.rpm });
     d.ui.setInfo('KO\'CHA', this.streetName(s.x, s.z), 'win');
     d.ui.setAltitude(def.flying ? s.y : null);
-    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90 + s.y * 0.004, nitro: s.nitroOn, electric: !!def.flying, hover: s.fly });
+    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90 + s.y * 0.004, nitro: s.nitroOn, electric: !!def.flying, hover: s.fly, squeal: s.slide });
     this.drawMinimap();
   }
 
@@ -1043,15 +1109,26 @@ export class CityMode {
     const look = d.input.look;
     if (cockpit) {
       player.group.updateMatrixWorld(true);
-      const p = player.eye.clone();
+      // the driver's head: pressed back when accelerating, forward when braking, out of the turn
+      // in a corner, a little road shake at speed (all in the car's own frame)
+      const hd = this.head || (this.head = { x: 0, z: 0, y: 0 });
+      const ay = s.v * s.r;                                   // left positive
+      const k = 1 - Math.exp(-dt * 6);
+      hd.x += (Math.max(-0.05, Math.min(0.05, ay * 0.0055)) - hd.x) * k;
+      hd.z += (Math.max(-0.05, Math.min(0.05, (s.ax || 0) * 0.006)) - hd.z) * k;
+      const shake = Math.min(1, Math.abs(s.v) / 30) * 0.0025;
+      hd.y = Math.sin(d.time() * 37) * shake + Math.sin(d.time() * 23.7) * shake * 0.6;
+      const p = player.eye.clone().add(new THREE.Vector3(hd.x, hd.y, hd.z));
       player.body.localToWorld(p);
       cam.position.copy(p);
       player.body.getWorldQuaternion(cam.quaternion);
+      cam.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.05));   // eyes on the road
       if (look) cam.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI));
       player.setLookBack(look);
-      // live dashboard + steering wheel in the city too
-      player.updateInterior(((d.input.right ? 1 : 0) - (d.input.left ? 1 : 0)) || (d.tilt.enabled ? d.tilt.axis : 0),
-        Math.abs(s.v) * 3.6, d.pt.rpm, s.v < -0.1 ? 'R' : d.pt.gear, s.nitro, [this.streetName(s.x, s.z).slice(0, 16)]);
+      // live dashboard + steering wheel (about 15:1, so full lock is one and a half turns)
+      player.updateInterior(0, Math.abs(s.v) * 3.6, d.pt.rpm, s.v < -0.1 ? 'R' : s.v < 0.5 && !d.input.up ? 'N' : d.pt.gear, s.nitro,
+        [this.streetName(s.x, s.z).slice(0, 22), Math.round(Math.abs(s.v) * 3.6) + ' km/h'], s.steer * 15);
+      if (player.renderMirror && !look && !d.mobile) player.renderMirror(d.renderer, this.scene);
       d.setFov(60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
       this.camPos.copy(cam.position); this.camLook.set(s.x + fx * 10, 1, s.z + fz * 10);
       return;

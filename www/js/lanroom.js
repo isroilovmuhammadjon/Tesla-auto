@@ -121,7 +121,11 @@ export class LocalRoom {
     if (!p || !m || typeof m !== 'object') return;
     const t = m.t;
     if (t === 'hello') {
-      if (this.joined().length >= MAX_PLAYERS) { this.send(p, { t: 'error', message: 'Room is full' }); return; }
+      if (!p.joined && this.joined().filter((q) => !m.cid || q.cid !== String(m.cid).slice(0, 40)).length >= MAX_PLAYERS) { this.send(p, { t: 'error', message: 'Room is full' }); return; }
+      if (p.joined) return;                       // hello twice on one connection: already in
+      const cid = m.cid ? String(m.cid).slice(0, 40) : null;
+      if (cid) for (const q of [...this.players.values()]) if (q !== p && q.cid === cid) this.onClose(q.id);
+      p.cid = cid;
       p.name = String(m.name || 'Player').trim().slice(0, 16) || 'Player';
       p.car = Number(m.car) || 0;
       p.joined = true;

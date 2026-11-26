@@ -4,6 +4,8 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
+import { SkidMarks } from './vehicle.js';
+import { People, windSway } from './life.js';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CityMode, SUN_DIR } from './city.js';
@@ -125,8 +127,8 @@ export class OsmCity extends CityMode {
       lamp: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
       ground: new THREE.MeshLambertMaterial({ map: groundTexture(), color: 0xffffff }),
       walk: new THREE.MeshStandardMaterial({ color: 0xbab6ac, roughness: 0.9, envMapIntensity: 0.25, polygonOffset: true, polygonOffsetFactor: -0.5, polygonOffsetUnits: -0.5 }),
-      trunk: new THREE.MeshLambertMaterial({ color: 0xb8ab92 }),
-      crown: new THREE.MeshLambertMaterial({ color: 0xffffff }),
+      trunk: windSway(new THREE.MeshLambertMaterial({ color: 0xb8ab92 }), 0.5),
+      crown: windSway(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1),
     };
     // one light street-tree shape shared by every cell (chinar-like: two lumps on a pale trunk)
     const lump = (r, x, y, z) => new THREE.IcosahedronGeometry(r, 1).translate(x, y, z);
@@ -184,6 +186,8 @@ export class OsmCity extends CityMode {
     player.group.rotation.set(0, this.state.yaw, 0);
     for (const c of this.cars) c.mesh.visible = false;
     this.cars.length = 0;
+    if (this.skids) this.skids.clear(); else this.skids = new SkidMarks(this.root);
+    if (this.people) this.people.clear(); else this.people = new People(this.root, { mobile: this.d.mobile });
     const mm = document.getElementById('minimap');
     mm.classList.remove('hidden'); mm.classList.add('round');
     this.envTick = 0;
@@ -833,6 +837,20 @@ export class OsmCity extends CityMode {
       return;
     }
     super.update(dt);
+  }
+
+  // a sidewalk for a pedestrian: beside a collector or main road 30-130 m away, mid-sidewalk
+  sidewalkSpot(x, z) {
+    const near = [];
+    for (const cell of this.cells.values()) for (const r of cell.roads) {
+      const mx = (r.ax + r.bx) / 2 - x, mz = (r.az + r.bz) / 2 - z, d2 = mx * mx + mz * mz;
+      if (d2 > 900 && d2 < 130 * 130 && r.len > 12) near.push(r);
+    }
+    if (!near.length) return null;
+    const r = near[Math.floor(Math.random() * near.length)];
+    const off = (ROAD_W[r.kind] / 2 + WALK * 0.5) * (Math.random() < 0.5 ? -1 : 1);
+    const nx = -(r.bz - r.az) / r.len * off, nz = (r.bx - r.ax) / r.len * off;
+    return { ax: r.ax + nx, az: r.az + nz, bx: r.bx + nx, bz: r.bz + nz };
   }
 
   streetName(x, z) {
