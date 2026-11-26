@@ -21,6 +21,7 @@ import { Multiplayer } from './multiplayer.js';
 import { LocalRoom } from './lanroom.js';
 import { hostOnline, joinOnline, cleanCode } from './online.js';
 import { CityMode } from './city.js';
+import { OsmCity } from './osmcity.js';
 import { setTrafficPalette } from './carModels.js';
 import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
 import { LANES } from './config.js';
@@ -82,7 +83,7 @@ const world = new World(scene, renderer);
 const traffic = new Traffic(scene);
 const rival = new Rival(scene);
 // open-city free roam (TOSHKENT SHAHAR)
-const city = new CityMode(scene, {
+const cityDeps = {
   getPlayer: () => player,
   get pt() { return pt; },
   input, tilt, camera, moon, hemi, renderer,
@@ -102,7 +103,12 @@ const city = new CityMode(scene, {
   shakeAmount: () => { G.shake *= 0.9; return G.shake; },
   hud: (o) => ui.updateHud({ speedKmh: o.speedKmh, gear: o.gear, nitro: o.nitro, nitroActive: o.nitroActive,
     score: o.distance, distance: o.distance, best: G.best, combo: 1, comboOn: false }),
-});
+};
+// TOSHKENT SHAHAR: the real city from OpenStreetMap; the older hand-made grid stays as KLASSIK
+const classicCity = new CityMode(scene, cityDeps);
+const osmCity = new OsmCity(scene, cityDeps);
+osmCity.load().catch(() => {});
+let city = osmCity;
 traffic.extra = [rival];
 const fx = new Effects(scene);
 const audio = new AudioEngine();
@@ -332,7 +338,8 @@ window.addEventListener('orientationchange', () => setTimeout(onResize, 400));
 renderFsButtons();
 
 // TOSHKENT SHAHAR is driven in the black sedan, whatever is picked for racing
-function startCity() {
+function startCity(which = 'osm') {
+  city = which === 'classic' ? classicCity : osmCity;
   if (player.def !== CARS[SEDAN_INDEX]) setPlayerCar(SEDAN_INDEX);
   G.mp = null;
   resetInput();
@@ -352,7 +359,7 @@ function startCity() {
   document.body.classList.toggle('touch-mode', TOUCH);
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
   audio.setMusicLevel(0.22);
-  ui.popup('TOSHKENT SHAHAR');
+  ui.popup(which === 'classic' ? 'KLASSIK SHAHAR' : 'TOSHKENT SHAHAR');
   if (TOUCH) enterFullscreen();
 }
 
@@ -969,7 +976,8 @@ const actions = {
     else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[SEDAN_INDEX]); }
     else startRun();
   },
-  city: () => startCity(),
+  city: () => startCity('osm'),
+  cityClassic: () => startCity('classic'),
   fullscreen: () => goFullscreen(),
   fsClose: () => showFsGuide(false),
   menu: () => {
@@ -1777,7 +1785,7 @@ function boot() {
 
 // expose a small debug handle for testing in the console
 window.__sr3d = {
-  G, P, traffic, rival, world, city, startRun, startCity, toMenu,
+  G, P, traffic, rival, world, get city() { return city; }, startRun, startCity, toMenu,
   Q, setQuality, camera, scene, composer, getPlayer: () => player,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
 };

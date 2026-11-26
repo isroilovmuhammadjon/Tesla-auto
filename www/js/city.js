@@ -84,6 +84,7 @@ function amirTemurMonument() {
 }
 
 // ---------------------------------------------------------------- city
+export { SUN_DIR };
 export class CityMode {
   constructor(scene, deps) {
     this.scene = scene;
@@ -1065,23 +1066,26 @@ export class CityMode {
     this.camYaw += dyaw * (1 - Math.exp(-dt * 3.2));
     const cfx = -Math.sin(this.camYaw), cfz = -Math.cos(this.camYaw);
     const rx = -cfz, rz = cfx;                       // right-hand side of the view
-    const back = (look ? -1 : 1) * (6.6 + sf * 1.4);
+    const back = (look ? -1 : 1) * (6.0 + sf * 0.6);
     const left = look ? 0 : 0.7;                     // a little to the left: rear and left side in view
-    const targetOff = new THREE.Vector3(-cfx * back * (1 + s.fly * 0.25) - rx * left, 2.35 + sf * 0.35 + s.fly * 0.8, -cfz * back * (1 + s.fly * 0.25) - rz * left);
+    const targetOff = new THREE.Vector3(-cfx * back * (1 + s.fly * 0.25) - rx * left, 2.15 + sf * 0.2 + s.fly * 0.8, -cfz * back * (1 + s.fly * 0.25) - rz * left);
     if (!this.camOff || look !== this.lookWas) { this.camOff = targetOff.clone(); this.lookWas = look; }
     this.camOff.lerp(targetOff, 1 - Math.exp(-dt * 8));
     this.camPos.set(s.x + this.camOff.x, s.y + this.camOff.y, s.z + this.camOff.z);
     // aim well down the road (the next crossing stays in the picture), car slightly right of centre
-    const ahead = (look ? -1 : 1) * (11 + sf * 7);
+    const ahead = (look ? -1 : 1) * (11 + sf * 5);
     this.camLook.set(s.x + cfx * ahead + rx * 0.3, s.y + 1.0, s.z + cfz * ahead + rz * 0.3);
     // keep the camera out of buildings: pull in if the camera point is inside a block
-    const cp = this.camPos;
-    const pull = this.blocks.find((r) => cp.y < r.h && r.parts.some((p) => cp.x > p.x0 && cp.x < p.x1 && cp.z > p.z0 && cp.z < p.z1));
-    if (pull) this.camPos.lerp(new THREE.Vector3(s.x, this.camPos.y + 0.5, s.z), 0.5);
+    if (this.cameraBlocked(this.camPos)) this.camPos.lerp(new THREE.Vector3(s.x, this.camPos.y + 0.5, s.z), 0.5);
     const shake = d.shakeAmount();
     cam.position.set(this.camPos.x + (Math.random() - 0.5) * shake * 0.3, this.camPos.y + (Math.random() - 0.5) * shake * 0.2, this.camPos.z);
     cam.lookAt(this.camLook);
-    d.setFov(60 + sf * 12 + (s.nitroOn ? 8 : 0), dt);
+    d.setFov(58 + sf * 7 + (s.nitroOn ? 6 : 0), dt);
+  }
+
+  // is this camera point inside a building?
+  cameraBlocked(cp) {
+    return this.blocks.some((r) => cp.y < r.h && r.parts.some((p) => cp.x > p.x0 && cp.x < p.x1 && cp.z > p.z0 && cp.z < p.z1));
   }
 
   streetName(x, z) {
