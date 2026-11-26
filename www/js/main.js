@@ -187,7 +187,8 @@ function setPlayerCar(index) {
   }
   player = createSportsCar(CARS[index]);
   pt = new Powertrain(CARS[index]);
-  headlight = new THREE.SpotLight(0xe6efff, 220, 120, 0.38, 0.5, 1.2);
+  // physical falloff (decay 2): the road just ahead stays lit, but a truck far ahead no longer glows white
+  headlight = new THREE.SpotLight(0xe6efff, 900, 50, 0.38, 0.5, 2);
   headlight.position.set(0, 0.8, -2.0);
   headlight.target.position.set(0, 0, -30);
   player.group.add(headlight, headlight.target);
