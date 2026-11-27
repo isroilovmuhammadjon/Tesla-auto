@@ -7,9 +7,9 @@
 // wrong turn; the passenger waits on the pavement at a kerb you can reach, and only gets in or out
 // once you have stopped next to them on their side of the street.
 import * as THREE from 'three';
-import { storageGet, storageSet } from './config.js?v=ab17f3c4';
-import { RoadGraph } from './route.js?v=ab17f3c4';
-import { MAP_VER } from './osmcity.js?v=ab17f3c4';
+import { storageGet, storageSet } from './config.js?v=3812a101';
+import { RoadGraph } from './route.js?v=3812a101';
+import { MAP_VER } from './osmcity.js?v=3812a101';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
@@ -487,7 +487,7 @@ export class TaxiShift {
     if (!this.search || !q || q.length < 2) return [];
     const norm = (t) => t.toLowerCase().replace(/[ʻʼ‘’`']/g, "'").replace(/o'/g, 'o').replace(/g'/g, 'g');
     const nq = norm(q);
-    const s = this.city.state;
+    const s = this.city.state || { x: 0, z: 0 };       // before the first drive: rank from the city centre
     const out = [];
     for (const e of this.search) {
       const n = norm(e[1]);

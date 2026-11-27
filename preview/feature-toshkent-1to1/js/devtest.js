@@ -112,3 +112,66 @@ window.__viewAt = async (lat, lon, heading, { eye = 1.6, fov = 55, pitch = 0 } =
   for (let i = 0; i < 3; i++) { S.composer.render(); await new Promise((r) => setTimeout(r, 50)); }
   return { x: Math.round(x), z: Math.round(z) };
 };
+
+// A whole taxi trip through the normal game flow: open TOSHKENT TAKSI, pick a car, start the shift, accept
+// the first order with Enter, drive to the passenger's kerb, wait for boarding, make a deliberate wrong
+// turn on the way to the destination, follow the recalculated route, stop at the kerb and get paid.
+window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15 } = {}) => {
+  const S = window.__sr3d, T = S.taxi;
+  window.__sr3dNoAutoPause = true;
+  if (S.G.hudOff) S.toggleHud(false);
+  S.toMenu(); await new Promise((r) => setTimeout(r, 400));
+  document.querySelector('[data-action=taxi]').click(); await new Promise((r) => setTimeout(r, 300));
+  document.querySelector(`[data-car=${car}]`).click();
+  document.querySelector('[data-action=taxiStart]').click();
+  for (let i = 0; i < 120 && T.phase !== 'offer'; i++) await new Promise((r) => setTimeout(r, 250));
+  const o = T.order;
+  const log = { car, order: { kind: o.kind, from: o.pickName.title, to: o.destName.title, km: +(o.dist / 1000).toFixed(2), fare: o.fare, eta: o.eta, toPassengerM: Math.round(o.pickRoute.length) }, phases: [], wrongTurn: null, stuck: 0 };
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' }));
+  await new Promise((r) => setTimeout(r, 200));
+  const c = S.city, s = c.state, inp = c.d.input;
+  let simT = 0, rev = 0, stuckT = 0, detourAt = null, lastPhase = '';
+  while (simT < budget) {
+    if (T.phase !== lastPhase) { log.phases.push([T.phase, Math.round(simT)]); lastPhase = T.phase; }
+    if (T.phase === 'boarding' && !log.pickupKerb) {
+      const k = T.order.pickKerb, side = (s.x - k.cx) * k.side[0] + (s.z - k.cz) * k.side[1];
+      log.pickupKerb = { distToPassengerM: +Math.hypot(s.x - k.x, s.z - k.z).toFixed(1), onPassengerSide: side > -0.8 };
+    }
+    if (['paid', 'offer', 'search'].includes(T.phase) && log.phases.some((p) => p[0] === 'alighting')) break;
+    if (T.route && (T.phase === 'toPickup' || T.phase === 'toDrop')) {
+      if (T.phase === 'toDrop' && detourAt === null) detourAt = simT + wrongTurnAfter;
+      const r = T.route, P = r.pts, C = r.cum, j = T.prog;
+      const here = C[j] + (C[j + 1] - C[j]) * (T.progT || 0), left = r.length - here;
+      let tgt = P[P.length - 1];
+      const look = Math.max(4, Math.min(16, Math.abs(s.v) * 1.1 + 3));
+      for (let k = j + 1; k < P.length; k++) if (C[k] - here > look) { tgt = P[k]; break; }
+      const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = tgt[0] - s.x, dz = tgt[1] - s.z;
+      const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+      inp.up = inp.down = inp.left = inp.right = false;
+      if (T.phase === 'toDrop' && simT > detourAt && simT < detourAt + 7) {
+        inp.up = s.v < 9; inp.left = simT < detourAt + 2.5;
+        if (!log.wrongTurn) log.wrongTurn = { atSimSec: Math.round(simT), routeKmBefore: +(r.length / 1000).toFixed(2), reroutesBefore: T.reroutes };
+      } else if (rev > 0) { rev -= 0.13; inp.down = true; if (ang < 0) inp.right = true; else inp.left = true; }
+      else {
+        if (ang > 0.05) inp.right = true; else if (ang < -0.05) inp.left = true;
+        let want = Math.abs(ang) > 0.45 ? 4 : 13;
+        if (left < 45) want = Math.min(want, Math.max(0, (left - 2) * 0.32));
+        for (const o2 of c.cars) { const rx = o2.x - s.x, rz = o2.z - s.z, ah = rx * fx + rz * fz, lat = Math.abs(rx * fz - rz * fx); if (ah > 0 && ah < 22 && lat < 2.2) want = Math.min(want, Math.max(0, (ah - 8) * 0.7)); }
+        if (s.v < want - 0.4) inp.up = true; else if (s.v > want + 0.8 && s.v > 0.3) inp.down = true;
+        const queued = c.cars.some((o2) => Math.hypot(o2.x - s.x, o2.z - s.z) < 13);
+        stuckT = Math.abs(s.v) < 0.6 && left > 12 && !queued ? stuckT + 0.13 : 0;
+        if (stuckT > 2) { stuckT = 0; rev = 2.4; log.stuck++; }
+      }
+      if (log.wrongTurn && !log.wrongTurn.routeKmAfter && T.reroutes > log.wrongTurn.reroutesBefore) log.wrongTurn.routeKmAfter = +(T.route.length / 1000).toFixed(2);
+    } else { inp.up = inp.left = inp.right = false; inp.down = s.v > 0.5; }
+    S.step(4, 1 / 30); simT += 4 / 30;
+    if (Math.round(simT * 7.5) % 15 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  inp.up = inp.down = inp.left = inp.right = false;
+  log.simMin = +(simT / 60).toFixed(1);
+  log.paid = !!(T.lastTrip && T.lastTrip.paid); log.fare = T.lastTrip && T.lastTrip.fare; log.reroutes = T.lastTrip ? T.lastTrip.reroutes : T.reroutes;
+  log.savedBalance = localStorage.getItem('sr3d_taxi_balance'); log.savedTrips = localStorage.getItem('sr3d_taxi_trips');
+  log.nextOrderOffered = T.phase === 'offer' || T.phase === 'paid' || T.phase === 'search';
+  window.__shiftResult = log;
+  return log;
+};
