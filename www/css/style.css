@@ -450,3 +450,9 @@ body.touch-mode .minimap.round { top: calc(max(16px, env(safe-area-inset-top)) +
 /* attribution for the real Tashkent map (OpenStreetMap ODbL, Sentinel-2) */
 .map-credit { display: none; position: absolute; left: 50%; transform: translateX(-50%); bottom: 4px; font-size: 10px; color: rgba(255,255,255,0.75); text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; white-space: nowrap; }
 body.osm-map .map-credit { display: block; }
+
+#taxiPanel:not([hidden]) { display:grid; gap:3px; position:absolute; left:50%; top:max(10px,env(safe-area-inset-top)); transform:translateX(-50%); padding:8px 16px; background:#102025eb; color:#fff; border-bottom:2px solid #f9bf57; border-radius:8px; text-align:center; pointer-events:none; font-family:system-ui,sans-serif; }
+#taxiPanel small {color:#ffd58b;font-size:10px;letter-spacing:.06em}
+#taxiPanel strong {font-size:15px}
+#taxiPanel span {font-size:12px}
+@media(max-width:560px) and (orientation:portrait){#taxiPanel:not([hidden]) {top:32%;left:10px;transform:none;padding:6px 10px;text-align:left}}

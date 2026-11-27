@@ -901,6 +901,12 @@ export class OsmCity extends CityMode {
         g.beginPath(); g.arc(o.x, o.z, 6, 0, Math.PI * 2); g.fill();
       }
     }
+    if (this.taxiTarget) {
+      const dx = this.taxiTarget.x - s.x, dz = this.taxiTarget.z - s.z;
+      const clamp = Math.min(1, (view - 22) / (Math.hypot(dx, dz) || 1));
+      g.fillStyle = '#39e2ae'; g.strokeStyle = '#162c32'; g.lineWidth = 4;
+      g.beginPath(); g.arc(s.x + dx * clamp, s.z + dz * clamp, 10, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
     g.fillStyle = '#ffffff';
     for (const c of this.cars) g.fillRect(c.x - 3, c.z - 3, 6, 6);
     g.restore();

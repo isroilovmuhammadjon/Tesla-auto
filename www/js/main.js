@@ -21,6 +21,7 @@ import { Multiplayer } from './multiplayer.js';
 import { LocalRoom } from './lanroom.js';
 import { hostOnline, joinOnline, cleanCode } from './online.js';
 import { CityMode } from './city.js';
+import { TaxiShift } from './taxi.js';
 import { OsmCity } from './osmcity.js';
 import { setTrafficPalette } from './carModels.js';
 import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
@@ -111,6 +112,7 @@ const classicCity = new CityMode(scene, cityDeps);
 const osmCity = new OsmCity(scene, cityDeps);
 osmCity.load().catch(() => {});
 let city = osmCity;
+const taxi = new TaxiShift(osmCity);
 traffic.extra = [rival];
 const fx = new Effects(scene);
 const audio = new AudioEngine();
@@ -341,6 +343,7 @@ renderFsButtons();
 
 // TOSHKENT SHAHAR is driven in the black sedan, whatever is picked for racing
 function startCity(which = 'osm') {
+  taxi.stop();
   city = which === 'classic' ? classicCity : osmCity;
   if (player.def !== CARS[SEDAN_INDEX]) setPlayerCar(SEDAN_INDEX);
   G.mp = null;
@@ -366,6 +369,7 @@ function startCity(which = 'osm') {
 }
 
 function leaveCity() {
+  taxi.stop();
   city.exit();
   G.inCity = false;
   moon.position.set(-30, 60, 25);
@@ -978,6 +982,7 @@ const actions = {
     else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[SEDAN_INDEX]); }
     else startRun();
   },
+  taxi: () => { startCity('osm'); taxi.start(); },
   city: () => startCity('osm'),
   cityClassic: () => startCity('classic'),
   fullscreen: () => goFullscreen(),
@@ -1760,7 +1765,7 @@ function step(dt) {
     case 'menu':
     case 'garage':
     case 'mplobby': updateShowcase(dt); break;
-    case 'city': city.update(dt); world.followCamera(camera); break;
+    case 'city': city.update(dt); taxi.update(dt); world.followCamera(camera); break;
     case 'countdown': updateCountdown(dt); break;
     case 'playing': updatePlaying(dt); break;
     case 'crashing': updateCrashing(dt); break;
