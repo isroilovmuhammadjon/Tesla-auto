@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { buildMalibu, makeMalibuWheel, MALIBU } from './malibu.js?v=864db933';
-import { buildCockpit } from './cockpit.js?v=864db933';
+import { buildMalibu, makeMalibuWheel, MALIBU } from './malibu.js?v=586aa6f4';
+import { buildCockpit } from './cockpit.js?v=586aa6f4';
 
 const BASE_Y = 0.22;
 const WHEEL_R = 0.36;
