@@ -130,9 +130,36 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter' }));
   await new Promise((r) => setTimeout(r, 200));
   const c = S.city, s = c.state, inp = c.d.input;
-  let simT = 0, rev = 0, stuckT = 0, detourAt = null, lastPhase = '';
+  T.lastTrip = null;
+  let simT = 0, rev = 0, stuckT = 0, detourAt = null, lastPhase = '', detour = null;
+  // a real wrong turn: at the next junction ahead take a street the route does not use, and keep
+  // driving along it until the game plans again
+  const G = T.graph, nodeAt = new Map();
+  for (let n = 0; n < G.nx.length; n++) nodeAt.set(Math.round(G.nx[n]) + ',' + Math.round(G.nz[n]), n);
+  const planDetour = (r, here) => {
+    const P = r.pts, C = r.cum;
+    for (let k = 1; k < P.length - 1; k++) {
+      if (C[k] - here < 25) continue;
+      if (C[k] - here > 600) break;
+      const n = nodeAt.get(Math.round(P[k][0]) + ',' + Math.round(P[k][1]));
+      if (n === undefined || G.out[n].length < 3) continue;
+      const hx = P[k + 1][0] - P[k][0], hz = P[k + 1][1] - P[k][1], inx = P[k][0] - P[k - 1][0], inz = P[k][1] - P[k - 1][1];
+      for (const [ej, d2] of G.out[n]) {
+        const ep = d2 > 0 ? G.edges[ej].pts : G.edges[ej].pts.slice().reverse();
+        if (ep.length < 2 || G.edges[ej].len < 30 || G.edges[ej].kind > 1) continue;
+        const bx = ep[1][0] - ep[0][0], bz = ep[1][1] - ep[0][1], lb = Math.hypot(bx, bz) || 1;
+        const offRoute = (bx * hx + bz * hz) / lb / (Math.hypot(hx, hz) || 1) < 0.5;
+        const notBack = (bx * inx + bz * inz) / lb / (Math.hypot(inx, inz) || 1) > -0.5;
+        if (offRoute && notBack) return { pts: P.slice(0, k + 1).concat(ep.slice(1)), at: k };
+      }
+    }
+    return null;
+  };
   while (simT < budget) {
-    if (T.phase !== lastPhase) { log.phases.push([T.phase, Math.round(simT)]); lastPhase = T.phase; }
+    if (T.phase !== lastPhase) {
+      log.phases.push([T.phase, Math.round(simT)]); lastPhase = T.phase;
+      if (T.phase === 'toDrop' && T.route) log.dropStart = { car: [Math.round(s.x), Math.round(s.z), +s.yaw.toFixed(2)], fwd: [+(-Math.sin(s.yaw)).toFixed(2), +(-Math.cos(s.yaw)).toFixed(2)], pts: T.route.pts.slice(0, 8).map((p) => [Math.round(p[0]), Math.round(p[1])]) };
+    }
     if (T.phase === 'boarding' && !log.pickupKerb) {
       const k = T.order.pickKerb, side = (s.x - k.cx) * k.side[0] + (s.z - k.cz) * k.side[1];
       log.pickupKerb = { distToPassengerM: +Math.hypot(s.x - k.x, s.z - k.z).toFixed(1), onPassengerSide: side > -0.8 };
@@ -148,9 +175,22 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
       const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = tgt[0] - s.x, dz = tgt[1] - s.z;
       const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
       inp.up = inp.down = inp.left = inp.right = false;
-      if (T.phase === 'toDrop' && simT > detourAt && simT < detourAt + 7) {
-        inp.up = s.v < 9; inp.left = simT < detourAt + 2.5;
-        if (!log.wrongTurn) log.wrongTurn = { atSimSec: Math.round(simT), routeKmBefore: +(r.length / 1000).toFixed(2), reroutesBefore: T.reroutes };
+      if (T.phase === 'toDrop' && simT > detourAt && !log.wrongTurn) {
+        detour = planDetour(r, here);
+        log.wrongTurn = { atSimSec: Math.round(simT), routeKmBefore: +(r.length / 1000).toFixed(2), reroutesBefore: T.reroutes, junction: detour ? detour.pts[detour.at].map(Math.round) : null };
+        if (detour) { detour.cum = [0]; for (let q = 1; q < detour.pts.length; q++) detour.cum.push(detour.cum[q - 1] + Math.hypot(detour.pts[q][0] - detour.pts[q - 1][0], detour.pts[q][1] - detour.pts[q - 1][1])); detour.until = simT + 60; }
+      }
+      if (detour && (T.reroutes > log.wrongTurn.reroutesBefore || simT > detour.until)) detour = null;
+      if (detour) {
+        // pursue the detour polyline (nearest point, then look ahead)
+        const P2 = detour.pts, C2 = detour.cum; let bi = 0, bd = Infinity;
+        for (let q = 0; q < P2.length; q++) { const dd = (P2[q][0] - s.x) ** 2 + (P2[q][1] - s.z) ** 2; if (dd < bd) { bd = dd; bi = q; } }
+        let tg = P2[P2.length - 1]; for (let q = bi + 1; q < P2.length; q++) if (C2[q] - C2[bi] > 9) { tg = P2[q]; break; }
+        const fx2 = -Math.sin(s.yaw), fz2 = -Math.cos(s.yaw), ddx = tg[0] - s.x, ddz = tg[1] - s.z;
+        const a2 = Math.atan2(fx2 * ddz - fz2 * ddx, fx2 * ddx + fz2 * ddz);
+        if (a2 > 0.05) inp.right = true; else if (a2 < -0.05) inp.left = true;
+        const want2 = Math.abs(a2) > 0.45 ? 4 : 9;
+        if (s.v < want2 - 0.4) inp.up = true; else if (s.v > want2 + 0.8) inp.down = true;
       } else if (rev > 0) { rev -= 0.13; inp.down = true; if (ang < 0) inp.right = true; else inp.left = true; }
       else {
         if (ang > 0.05) inp.right = true; else if (ang < -0.05) inp.left = true;
@@ -160,7 +200,12 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
         if (s.v < want - 0.4) inp.up = true; else if (s.v > want + 0.8 && s.v > 0.3) inp.down = true;
         const queued = c.cars.some((o2) => Math.hypot(o2.x - s.x, o2.z - s.z) < 13);
         stuckT = Math.abs(s.v) < 0.6 && left > 12 && !queued ? stuckT + 0.13 : 0;
-        if (stuckT > 2) { stuckT = 0; rev = 2.4; log.stuck++; }
+        if (stuckT > 2) { stuckT = 0; log.stuck++;
+          // stuck again at the same place: back out further each time (a player would reverse out of a courtyard)
+          const prevS = log.stuckAt && log.stuckAt[log.stuckAt.length - 1];
+          const same = prevS && Math.hypot(prevS.x - s.x, prevS.z - s.z) < 10;
+          rev = same ? Math.min(9, (prevS.rev || 2.4) + 2.4) : 2.4;
+          (log.stuckAt = log.stuckAt || []).push({ t: Math.round(simT), x: Math.round(s.x), z: Math.round(s.z), phase: T.phase, ang: +ang.toFixed(2), hit: c.lastHit ? (c.lastHit.what || c.lastHit.kind || String(c.lastHit)) : null, road: c.roadHere ? [c.roadHere.kind, c.roadHere.width, c.roadHere.name] : null, left: Math.round(left), reroutes: T.reroutes, rev }); }
       }
       if (log.wrongTurn && !log.wrongTurn.routeKmAfter && T.reroutes > log.wrongTurn.reroutesBefore) log.wrongTurn.routeKmAfter = +(T.route.length / 1000).toFixed(2);
     } else { inp.up = inp.left = inp.right = false; inp.down = s.v > 0.5; }
@@ -169,7 +214,7 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   }
   inp.up = inp.down = inp.left = inp.right = false;
   log.simMin = +(simT / 60).toFixed(1);
-  log.paid = !!(T.lastTrip && T.lastTrip.paid); log.fare = T.lastTrip && T.lastTrip.fare; log.reroutes = T.lastTrip ? T.lastTrip.reroutes : T.reroutes;
+  log.paid = !!(T.lastTrip && T.lastTrip.paid) && log.phases.some((p) => p[0] === 'paid'); log.fare = T.lastTrip && T.lastTrip.fare; log.reroutes = T.lastTrip ? T.lastTrip.reroutes : T.reroutes;
   log.savedBalance = localStorage.getItem('sr3d_taxi_balance'); log.savedTrips = localStorage.getItem('sr3d_taxi_trips');
   log.nextOrderOffered = T.phase === 'offer' || T.phase === 'paid' || T.phase === 'search';
   window.__shiftResult = log;

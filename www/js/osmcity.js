@@ -18,7 +18,7 @@ import { busStopParts } from './cityday.js';
 
 const CELL = 500;
 const BASE = 'map/';
-export const MAP_VER = '20261128e';          // bump with every map rebuild: cells are cached by the browser
+export const MAP_VER = '20261128f';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads

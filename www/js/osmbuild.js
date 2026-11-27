@@ -887,7 +887,18 @@ export function faceRoad(x, z, segs, kerbGap = 1.2) {
   const edge = near.w / 2 + kerbGap;
   let ox = x - near.px, oz = z - near.pz, d = Math.hypot(ox, oz);
   if (d < 0.5) { ox = -near.dz / near.l; oz = near.dx / near.l; d = 1; }
-  const nx = ox / d, nz = oz / d;
-  const fx = d < edge ? near.px + nx * edge : x, fz = d < edge ? near.pz + nz * edge : z;
-  return { x: fx, z: fz, rot: Math.atan2(-nx, -nz) };
+  let nx = ox / d, nz = oz / d;
+  if (d >= edge) return { x, z, rot: Math.atan2(-nx, -nz) };
+  // pushed out to the kerb: on a divided road that side can be the other carriageway, so try both sides
+  // (and a little further out) and keep the first spot that is clear of every carriageway
+  const onRoad = (px, pz) => segs.some((s) => {
+    const dx = s.bx - s.ax, dz = s.bz - s.az, l2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((px - s.ax) * dx + (pz - s.az) * dz) / l2));
+    return Math.hypot(s.ax + dx * t - px, s.az + dz * t - pz) < s.width / 2 + 0.3;
+  });
+  for (const extra of [0, 2, 4]) for (const sd of [1, -1]) {
+    const qx = near.px + nx * sd * (edge + extra), qz = near.pz + nz * sd * (edge + extra);
+    if (!onRoad(qx, qz)) return { x: qx, z: qz, rot: Math.atan2(-nx * sd, -nz * sd) };
+  }
+  return { x: near.px + nx * edge, z: near.pz + nz * edge, rot: Math.atan2(-nx, -nz) };
 }

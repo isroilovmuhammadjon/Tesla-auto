@@ -6394,228 +6394,153 @@
  ],
  "walls_on_carriageway": [],
  "objects_on_carriageway": {
-  "bus": 23
+  "sign": 11,
+  "camera": 8,
+  "bus": 3
  },
  "objects_on_carriageway_list": [
   {
-   "type": "bus",
-   "name": "Oltin topgan ko'chasi",
-   "x": 4640,
-   "z": 8652,
+   "type": "sign",
+   "name": "oneway",
+   "x": 1116.5,
+   "z": 1458.1,
    "lonlat": [
-    69.335407,
-    41.232088
-   ],
-   "street": "Bektemir yo'li ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Ibrat mahallasi",
-   "x": -6457,
-   "z": 10964,
-   "lonlat": [
-    69.202802,
-    41.21127
-   ],
-   "street": "Shokirariq ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Yunusobod dahasi 4-mavze",
-   "x": -211,
-   "z": -5551,
-   "lonlat": [
-    69.277474,
-    41.359985
-   ],
-   "street": ""
-  },
-  {
-   "type": "bus",
-   "name": "Fidoyilar mahallasi",
-   "x": 2718,
-   "z": 652,
-   "lonlat": [
-    69.312459,
-    41.304128
-   ],
-   "street": "Mahtumquli ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Улица Шарк Тонги",
-   "x": -4311,
-   "z": 1075,
-   "lonlat": [
-    69.228467,
-    41.300319
-   ],
-   "street": "Seul ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Qo‘yliq dahasi 1-mavze",
-   "x": 2499,
-   "z": 6976,
-   "lonlat": [
-    69.309828,
-    41.247181
-   ],
-   "street": ""
-  },
-  {
-   "type": "bus",
-   "name": "",
-   "x": -3174,
-   "z": -5711,
-   "lonlat": [
-    69.242069,
-    41.361427
-   ],
-   "street": "Qorasaroy ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Xondamir ko'chasi",
-   "x": -8715,
-   "z": -116,
-   "lonlat": [
-    69.175846,
-    41.311045
-   ],
-   "street": "Kukcha Darvoza ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Mexanik zavod",
-   "x": 4428,
-   "z": 1467,
-   "lonlat": [
-    69.33289,
-    41.296789
-   ],
-   "street": "Qorasuv 2-koʻchasi"
-  },
-  {
-   "type": "bus",
-   "name": "144-sonli maktab",
-   "x": -3353,
-   "z": 2977,
-   "lonlat": [
-    69.23991,
-    41.283192
-   ],
-   "street": "Shohjahon koʻchasi"
-  },
-  {
-   "type": "bus",
-   "name": "Yangi 16 Yillik bekati",
-   "x": -7588,
-   "z": -6698,
-   "lonlat": [
-    69.189328,
-    41.370315
-   ],
-   "street": "Toshkent halqa avtomobil yo'li"
-  },
-  {
-   "type": "bus",
-   "name": "",
-   "x": -4482,
-   "z": -5349,
-   "lonlat": [
-    69.226439,
-    41.358167
-   ],
-   "street": ""
-  },
-  {
-   "type": "bus",
-   "name": "Hayvonot bog'i",
-   "x": 2531,
-   "z": -3912,
-   "lonlat": [
-    69.310235,
-    41.345226
-   ],
-   "street": "Bogishamol ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Nodirabegim ko'chasi",
-   "x": 5278,
-   "z": 3918,
-   "lonlat": [
-    69.343041,
-    41.274717
-   ],
-   "street": ""
-  },
-  {
-   "type": "bus",
-   "name": "",
-   "x": 9355,
-   "z": -1209,
-   "lonlat": [
-    69.391769,
-    41.320885
-   ],
-   "street": ""
-  },
-  {
-   "type": "bus",
-   "name": "Ko'zi ojizlar kutubxonasi",
-   "x": -9050,
-   "z": 2508,
-   "lonlat": [
-    69.171837,
-    41.287416
-   ],
-   "street": "Katta Xirmontepa ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "",
-   "x": -3582,
-   "z": 1378,
-   "lonlat": [
-    69.237178,
-    41.297591
-   ],
-   "street": "Novza ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Bo'rijar kanali",
-   "x": -4631,
-   "z": 3954,
-   "lonlat": [
-    69.224637,
-    41.274394
-   ],
-   "street": "Cho'ponota ko'chasi"
-  },
-  {
-   "type": "bus",
-   "name": "Teplovoz deposi",
-   "x": 1574,
-   "z": 1964,
-   "lonlat": [
-    69.298786,
-    41.292313
+    69.29332,
+    41.296869
    ],
    "street": "Farg'ona Yo'li"
   },
   {
-   "type": "bus",
-   "name": "Doʻmbirobod koʻchasi",
-   "x": -6456,
-   "z": 6182,
+   "type": "camera",
+   "name": "",
+   "x": 3390.6,
+   "z": 6019.2,
    "lonlat": [
-    69.202825,
-    41.254332
+    69.320484,
+    41.255797
    ],
-   "street": "Gavxar ko'chasi"
+   "street": "Yangi Qo'yliq ko'chasi"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": 3385.6,
+   "z": 6007.5,
+   "lonlat": [
+    69.320424,
+    41.255902
+   ],
+   "street": "Yangi Qo'yliq ko'chasi"
+  },
+  {
+   "type": "sign",
+   "name": "oneway",
+   "x": -4518.8,
+   "z": 5431.1,
+   "lonlat": [
+    69.225974,
+    41.261093
+   ],
+   "street": "Kichik Halqa yo'li"
+  },
+  {
+   "type": "sign",
+   "name": "speed",
+   "x": -3496.9,
+   "z": 5225.7,
+   "lonlat": [
+    69.238186,
+    41.262943
+   ],
+   "street": ""
+  },
+  {
+   "type": "sign",
+   "name": "no_entry",
+   "x": -4081.1,
+   "z": 1191.0,
+   "lonlat": [
+    69.231214,
+    41.299275
+   ],
+   "street": "Bunyodkor shoh ko'chasi"
+  },
+  {
+   "type": "sign",
+   "name": "no_entry",
+   "x": -2850.5,
+   "z": 10445.8,
+   "lonlat": [
+    69.245898,
+    41.215936
+   ],
+   "street": "Qipchoq ko'chasi"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": -1183.7,
+   "z": -4669.5,
+   "lonlat": [
+    69.265849,
+    41.352048
+   ],
+   "street": "Bog'iravon 2-o'tish ko'chasi"
+  },
+  {
+   "type": "sign",
+   "name": "no_entry",
+   "x": 1515.5,
+   "z": 270.5,
+   "lonlat": [
+    69.298091,
+    41.307563
+   ],
+   "street": ""
+  },
+  {
+   "type": "camera",
+   "name": "Радар-C",
+   "x": -3214.9,
+   "z": -234.4,
+   "lonlat": [
+    69.241568,
+    41.31211
+   ],
+   "street": ""
+  },
+  {
+   "type": "sign",
+   "name": "no_entry",
+   "x": -3526.1,
+   "z": 5091.8,
+   "lonlat": [
+    69.237837,
+    41.264149
+   ],
+   "street": "Sirg'ali yo‘li"
+  },
+  {
+   "type": "sign",
+   "name": "speed",
+   "x": 6942.8,
+   "z": -3811.4,
+   "lonlat": [
+    69.362952,
+    41.34432
+   ],
+   "street": "Buyuk Ipak yo'li ko'chasi"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": 6758.2,
+   "z": -3943.3,
+   "lonlat": [
+    69.360746,
+    41.345507
+   ],
+   "street": ""
   },
   {
    "type": "bus",
@@ -6640,6 +6565,28 @@
    "street": ""
   },
   {
+   "type": "sign",
+   "name": "no_entry",
+   "x": -1573.0,
+   "z": 4526.8,
+   "lonlat": [
+    69.261176,
+    41.269236
+   ],
+   "street": "Bobur ko'chasi"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": -6832.6,
+   "z": 3423.8,
+   "lonlat": [
+    69.198331,
+    41.279169
+   ],
+   "street": ""
+  },
+  {
    "type": "bus",
    "name": "Qo'yliq markaz 3",
    "x": 4048,
@@ -6649,13 +6596,59 @@
     41.242129
    ],
    "street": ""
+  },
+  {
+   "type": "sign",
+   "name": "speed",
+   "x": 4194.1,
+   "z": 7865.3,
+   "lonlat": [
+    69.33008,
+    41.239173
+   ],
+   "street": ""
+  },
+  {
+   "type": "sign",
+   "name": "no_entry",
+   "x": 4205.2,
+   "z": 7848.3,
+   "lonlat": [
+    69.330213,
+    41.239326
+   ],
+   "street": "Farg'ona Yo'li"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": 661.2,
+   "z": -4578.5,
+   "lonlat": [
+    69.287894,
+    41.351228
+   ],
+   "street": "Chinobod ko'chasi"
+  },
+  {
+   "type": "camera",
+   "name": "",
+   "x": 643.3,
+   "z": -4579.3,
+   "lonlat": [
+    69.28768,
+    41.351235
+   ],
+   "street": "Shahriston ko'chasi"
   }
  ],
  "summary": {
   "buildings_on_carriageway": 581,
   "walls_on_carriageway": 0,
   "objects_on_carriageway": {
-   "bus": 23
+   "sign": 11,
+   "camera": 8,
+   "bus": 3
   },
   "taxi_kerb_points_checked": 75438,
   "taxi_kerb_points_inside_buildings": 284

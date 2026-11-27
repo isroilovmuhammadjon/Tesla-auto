@@ -13,19 +13,7 @@
    "bus_stops": 52,
    "metro_stations": 1,
    "metro_entrances": 1,
-   "signals": 24,
-   "old": {
-    "road_km": {
-     "2": 50.4,
-     "1": 202.3,
-     "0": 190.5
-    },
-    "buildings": 16333,
-    "bus_stops": 54,
-    "metro_stations": 1,
-    "metro_entrances": 1,
-    "signals": 23
-   }
+   "signals": 24
   },
   {
    "district": "Chilonzor Tumani",
@@ -39,19 +27,7 @@
    "bus_stops": 205,
    "metro_stations": 6,
    "metro_entrances": 39,
-   "signals": 212,
-   "old": {
-    "road_km": {
-     "2": 132.6,
-     "1": 194.3,
-     "0": 581.0
-    },
-    "buildings": 15861,
-    "bus_stops": 221,
-    "metro_stations": 5,
-    "metro_entrances": 39,
-    "signals": 209
-   }
+   "signals": 212
   },
   {
    "district": "Mirobod Tumani",
@@ -65,19 +41,7 @@
    "bus_stops": 141,
    "metro_stations": 4,
    "metro_entrances": 16,
-   "signals": 194,
-   "old": {
-    "road_km": {
-     "2": 86.9,
-     "1": 136.4,
-     "0": 269.0
-    },
-    "buildings": 12769,
-    "bus_stops": 198,
-    "metro_stations": 4,
-    "metro_entrances": 16,
-    "signals": 199
-   }
+   "signals": 194
   },
   {
    "district": "Mirzo Ulug‘bek Tumani",
@@ -91,19 +55,7 @@
    "bus_stops": 227,
    "metro_stations": 5,
    "metro_entrances": 19,
-   "signals": 221,
-   "old": {
-    "road_km": {
-     "2": 122.3,
-     "1": 248.5,
-     "0": 512.3
-    },
-    "buildings": 19614,
-    "bus_stops": 272,
-    "metro_stations": 5,
-    "metro_entrances": 19,
-    "signals": 213
-   }
+   "signals": 221
   },
   {
    "district": "Olmazor Tumani",
@@ -117,19 +69,7 @@
    "bus_stops": 196,
    "metro_stations": 1,
    "metro_entrances": 4,
-   "signals": 208,
-   "old": {
-    "road_km": {
-     "2": 137.0,
-     "1": 264.0,
-     "0": 476.8
-    },
-    "buildings": 24668,
-    "bus_stops": 225,
-    "metro_stations": 1,
-    "metro_entrances": 4,
-    "signals": 217
-   }
+   "signals": 208
   },
   {
    "district": "Sergeli tumani",
@@ -143,19 +83,7 @@
    "bus_stops": 115,
    "metro_stations": 4,
    "metro_entrances": 5,
-   "signals": 81,
-   "old": {
-    "road_km": {
-     "2": 99.5,
-     "1": 345.7,
-     "0": 437.3
-    },
-    "buildings": 28588,
-    "bus_stops": 140,
-    "metro_stations": 4,
-    "metro_entrances": 5,
-    "signals": 81
-   }
+   "signals": 81
   },
   {
    "district": "Shayhontohur Tumani",
@@ -169,19 +97,7 @@
    "bus_stops": 184,
    "metro_stations": 7,
    "metro_entrances": 20,
-   "signals": 194,
-   "old": {
-    "road_km": {
-     "2": 104.6,
-     "1": 263.9,
-     "0": 415.9
-    },
-    "buildings": 24085,
-    "bus_stops": 234,
-    "metro_stations": 7,
-    "metro_entrances": 20,
-    "signals": 187
-   }
+   "signals": 194
   },
   {
    "district": "Uchtepa Tumani",
@@ -195,19 +111,7 @@
    "bus_stops": 171,
    "metro_stations": 0,
    "metro_entrances": 0,
-   "signals": 137,
-   "old": {
-    "road_km": {
-     "2": 86.5,
-     "1": 283.3,
-     "0": 291.8
-    },
-    "buildings": 26292,
-    "bus_stops": 198,
-    "metro_stations": 0,
-    "metro_entrances": 0,
-    "signals": 140
-   }
+   "signals": 137
   },
   {
    "district": "Yakkasaroy Tumani",
@@ -221,19 +125,7 @@
    "bus_stops": 89,
    "metro_stations": 1,
    "metro_entrances": 3,
-   "signals": 131,
-   "old": {
-    "road_km": {
-     "2": 71.6,
-     "1": 107.8,
-     "0": 254.7
-    },
-    "buildings": 10095,
-    "bus_stops": 107,
-    "metro_stations": 1,
-    "metro_entrances": 3,
-    "signals": 134
-   }
+   "signals": 131
   },
   {
    "district": "Yangi Toshkent Tumani",
@@ -247,19 +139,7 @@
    "bus_stops": 27,
    "metro_stations": 0,
    "metro_entrances": 0,
-   "signals": 13,
-   "old": {
-    "road_km": {
-     "2": 118.9,
-     "1": 496.5,
-     "0": 333.2
-    },
-    "buildings": 32170,
-    "bus_stops": 19,
-    "metro_stations": 0,
-    "metro_entrances": 0,
-    "signals": 13
-   }
+   "signals": 13
   },
   {
    "district": "Yangi hayot tumani",
@@ -273,19 +153,7 @@
    "bus_stops": 96,
    "metro_stations": 7,
    "metro_entrances": 1,
-   "signals": 34,
-   "old": {
-    "road_km": {
-     "2": 80.7,
-     "1": 233.7,
-     "0": 300.4
-    },
-    "buildings": 16377,
-    "bus_stops": 105,
-    "metro_stations": 7,
-    "metro_entrances": 1,
-    "signals": 34
-   }
+   "signals": 34
   },
   {
    "district": "Yashnobod Tumani",
@@ -299,19 +167,7 @@
    "bus_stops": 244,
    "metro_stations": 8,
    "metro_entrances": 7,
-   "signals": 187,
-   "old": {
-    "road_km": {
-     "2": 169.9,
-     "1": 492.2,
-     "0": 658.2
-    },
-    "buildings": 34678,
-    "bus_stops": 264,
-    "metro_stations": 8,
-    "metro_entrances": 7,
-    "signals": 188
-   }
+   "signals": 187
   },
   {
    "district": "Yunusobod Tumani",
@@ -325,19 +181,7 @@
    "bus_stops": 235,
    "metro_stations": 7,
    "metro_entrances": 29,
-   "signals": 231,
-   "old": {
-    "road_km": {
-     "2": 140.8,
-     "1": 362.1,
-     "0": 556.5
-    },
-    "buildings": 26500,
-    "bus_stops": 249,
-    "metro_stations": 7,
-    "metro_entrances": 29,
-    "signals": 230
-   }
+   "signals": 231
   }
  ],
  "outside_districts": {

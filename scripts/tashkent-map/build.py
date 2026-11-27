@@ -444,9 +444,23 @@ print('zebra crossings', len(zebras))
 # 'travel' is the unit direction of the traffic the sign is meant for.
 signs, cameras = [], []
 def kerb_pt(x, z, tx, tz, width): return (x - tz * (width / 2 + 0.9), z + tx * (width / 2 + 0.9))
+road_by_line = [r for r in roads if len(r['xy']) >= 2 and not r['tunnel']]
+rl_lines = [LineString(r['xy']) for r in road_by_line]
+rl_tree = _STR(rl_lines)
+def clear_of_roads(x, z):
+    pt = Point(x, z)
+    return not any(rl_lines[i].distance(pt) < road_by_line[i]['width'] / 2 + 0.4 and not road_by_line[i]['bridge'] for i in rl_tree.query(pt.buffer(30)))
+sign_dropped = 0
 def add_sign(kind, value, x, z, tx, tz, width):
-    kx, kz = kerb_pt(x, z, tx, tz, width)
-    signs.append(['sign', kind, R(kx * 10) / 10, R(kz * 10) / 10, round(math.atan2(tx, tz), 3), value])
+    # on the right kerb; near junctions and on divided roads that spot can be another carriageway:
+    # step out a little, then along the approach, and leave the sign out if nothing is clear
+    global sign_dropped
+    for ds in (0, -6, 6, -12, 12):
+        for ex in (0, 1.2, 2.4):
+            kx, kz = kerb_pt(x + tx * ds, z + tz * ds, tx, tz, width + 2 * ex)
+            if clear_of_roads(kx, kz):
+                signs.append(['sign', kind, R(kx * 10) / 10, R(kz * 10) / 10, round(math.atan2(tx, tz), 3), value]); return
+    sign_dropped += 1
 def along(r, start_end, dist):
     # point `dist` metres in from the start (0) or the end (1) of a road, and the travel direction there
     ln = LineString(r['xy']); L = ln.length
@@ -511,8 +525,6 @@ for via, ri, kind in TURN_SIGNS:
 # speed cameras (OSM highway=speed_camera with its maxspeed): the monitored travel direction is the road's
 # direction for direction=forward / backward or on a one-way road, the traffic heading the camera looks at
 # for a compass direction (the camera faces the oncoming cars), and both directions otherwise.
-road_by_line = [r for r in roads if len(r['xy']) >= 2 and not r['tunnel']]
-rl_tree = _STR([LineString(r['xy']) for r in road_by_line])
 cam_n = 0
 for nid, lon, lat, t in d['nodes']:
     if t.get('highway') != 'speed_camera' or not IN.contains(Point(lon, lat)): continue
@@ -540,7 +552,7 @@ for nid, lon, lat, t in d['nodes']:
         b = ln.interpolate(max(5, min(ln.length - 5, back)))
         add_sign('speed', lim, b.x, b.y, tx, tz, r['width'])
         add_sign('camera', lim, b.x + tx * 4, b.y + tz * 4, tx, tz, r['width'])
-print('speed cameras', cam_n, 'signs', len(signs), Counter(sg[1] for sg in signs))
+print('speed cameras', cam_n, 'signs', len(signs), 'dropped (no clear kerb)', sign_dropped, Counter(sg[1] for sg in signs))
 
 # ------------------------------------------------------------ walls, fences and gates (mahalla courtyards, schools, factories)
 gate_nodes = {nid: (lon, lat, t) for nid, lon, lat, t in d['nodes'] if t.get('barrier') in ('gate', 'lift_gate', 'swing_gate', 'sliding_gate')}

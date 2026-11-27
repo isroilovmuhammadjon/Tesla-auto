@@ -140,6 +140,9 @@ export class RoadGraph {
     const endNode = (ei, dir) => (dir > 0 ? E[ei].v : E[ei].u);
     const h = (n) => Math.hypot(this.nx[n] - tx.x, this.nz[n] - tx.z) / vmax;
     const UTURN = 25;
+    // turning round where you stand: easy on a wide street, a 3-point turn between walls on a narrow
+    // mahalla lane (a car needs ~10-12 m), so a driver there would rather go round the block
+    const UT0 = F.width >= 11 ? UTURN : F.width >= 8 ? 60 : 150;
     // heading at the end / start of an edge, for turn costs
     const headOut = (ei, dir) => { const p = E[ei].pts, a = dir > 0 ? p[p.length - 2] : p[1], b = dir > 0 ? p[p.length - 1] : p[0]; return [b[0] - a[0], b[1] - a[1]]; };
     const headIn = (ei, dir) => { const p = E[ei].pts, a = dir > 0 ? p[0] : p[p.length - 1], b = dir > 0 ? p[1] : p[p.length - 2]; return [b[0] - a[0], b[1] - a[1]]; };
@@ -156,8 +159,8 @@ export class RoadGraph {
       return !t.no.has(E[ej].way);
     };
     const push = (st, c, n) => { if (c < g[st]) { g[st] = c; heap.push(c + h(n), st); return true; } return false; };
-    if (from.dir >= 0 || !F.oneway) { const st = sid(from.e, 1); if (push(st, (F.len - from.s) / speedT(F) + (from.dir < 0 ? UTURN : 0), F.v)) prev[st] = -2; }
-    if (!F.oneway) { const st = sid(from.e, -1); if (push(st, from.s / speedT(F) + (from.dir > 0 ? UTURN : 0), F.u)) prev[st] = -2; }
+    if (from.dir >= 0 || !F.oneway) { const st = sid(from.e, 1); if (push(st, (F.len - from.s) / speedT(F) + (from.dir < 0 ? UT0 : 0), F.v)) prev[st] = -2; }
+    if (!F.oneway) { const st = sid(from.e, -1); if (push(st, from.s / speedT(F) + (from.dir > 0 ? UT0 : 0), F.u)) prev[st] = -2; }
     let best = Infinity, bestState = -1;
     if (from.e === to.e) {
       const forward = to.s >= from.s;

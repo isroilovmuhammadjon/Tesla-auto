@@ -66,6 +66,9 @@ for o in objs:
     if o[0] in ('signal', 'zebra', 'door', 'metro', 'entrance'): continue
     if o[0] == 'gate' and len(o) > 7 and o[7]: continue            # open gates: only posts at the sides    # signals hang over the road; zebras are on it; entrance pavilions are checked by hand
     p = Point(o[2], o[3])
+    if o[0] == 'camera':                   # o[2:4] is the detection point on the centre line; the mast is at the kerb
+        (d0x, d0z), side = o[4][0], (o[7] or 8) / 2 + 1.4
+        p = Point(o[2] - d0z * side, o[3] + d0x * side)
     if o[0] in ('bus', 'gate'):
         # the game moves a stop / gate that stands in the road to the kerb of the nearest road (faceRoad): do the same
         best = None
@@ -78,7 +81,10 @@ for o in objs:
             if dd < 0.5:
                 q2 = ln.interpolate(min(ln.length, ln.project(p) + 1)); ox, oz = -(q2.y - q.y), q2.x - q.x; dd = math.hypot(ox, oz) or 1
             edge = roads[best[1]][1] / 2 + (1.2 if o[0] == 'bus' else 2.5)
-            p = Point(q.x + ox / dd * edge, q.y + oz / dd * edge)
+            # same as faceRoad(): try both sides, then a little further out, keep the first clear spot
+            cand = [Point(q.x + ox / dd * sd * (edge + ex), q.y + oz / dd * sd * (edge + ex)) for ex in (0, 2, 4) for sd in (1, -1)]
+            def clear(pt): return not any(roads[k][0].distance(pt) < roads[k][1] / 2 + 0.3 for k in ctree.query(pt.buffer(30)))
+            p = next((pt for pt in cand if clear(pt)), cand[0])
     for k in ctree.query(p):
         if carr[k].contains(p):
             out['objects_on_carriageway'][o[0]] += 1
