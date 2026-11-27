@@ -1,0 +1,51 @@
+name: Publish branch preview (gh-pages/preview/<branch>)
+
+# Every push to a feature/* branch publishes that branch's www/ to
+#   https://<user>.github.io/<repo>/preview/<branch-name>/
+# so it can be played before it is merged. The main site (gh-pages root) is not touched.
+
+on:
+  push:
+    branches: ['feature/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v5
+        with:
+          path: src
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: Copy the branch build into preview/<branch>
+        run: |
+          V="${GITHUB_SHA::8}"
+          NAME="${GITHUB_REF_NAME//\//-}"
+          DEST="site/preview/${NAME}"
+          rm -rf "$DEST" && mkdir -p "$DEST" && cp -r src/www/. "$DEST/"
+          sed -i -E "s#(from '\./[A-Za-z0-9_]+\.js)'#\1?v=${V}'#g" "$DEST"/js/*.js
+          sed -i -E "s#src=\"js/main\.js\"#src=\"js/main.js?v=${V}\"#; s#href=\"css/style\.css\"#href=\"css/style.css?v=${V}\"#" "$DEST/index.html"
+          echo "Preview of ${GITHUB_REF_NAME} at ${V}" > "$DEST/PREVIEW.txt"
+
+      - name: Push
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Preview ${GITHUB_REF_NAME} ${GITHUB_SHA::8}" || exit 0
+          git push

@@ -11,13 +11,13 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { CityMode, SUN_DIR } from './city.js';
 import { createUzCar, pickUzType } from './uzcars.js';
 import { daySky, facadeTexture } from './cityday.js';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue } from './tashkent.js';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js';
 import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js';
 import { busStopParts } from './cityday.js';
 
 const CELL = 500;
 const BASE = 'map/';
-export const MAP_VER = '20261127e';          // bump with every map rebuild: cells are cached by the browser
+export const MAP_VER = '20261128d';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads
@@ -177,7 +177,7 @@ export class OsmCity extends CityMode {
     this.landmarksPlaced = true;
     const BUILD = { tv: LANDMARK_BUILDERS[0], minor: LANDMARK_BUILDERS[1], mustaqillik: LANDMARK_BUILDERS[2], kokaldosh: LANDMARK_BUILDERS[3],
       tcity: LANDMARK_BUILDERS[4], chorsu: LANDMARK_BUILDERS[5], museum: LANDMARK_BUILDERS[6], hotel: LANDMARK_BUILDERS[7], humo: LANDMARK_BUILDERS[8],
-      hazrati: hazratiImam, temur_statue: temurStatue };
+      hazrati: hazratiImam, temur_statue: temurStatue, forums: forumsPalace, chimes };
     this.landmarkSkip = [];
     for (const l of (this.index && this.index.landmarks) || []) {
       const make = BUILD[l.id];

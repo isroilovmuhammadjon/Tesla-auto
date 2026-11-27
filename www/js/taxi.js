@@ -13,7 +13,7 @@ import { MAP_VER } from './osmcity.js';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
-const STOP_OK = (e) => e.kind <= 1 && !(e.flags & (2 | 4 | 8 | 32)) && e.len > 22 && e.width >= 5;
+const STOP_OK = (e) => e.kind <= 1 && !(e.flags & (2 | 4 | 8 | 32 | 64)) && e.len > 22 && e.width >= 5;
 const KINDS = ['mahalla', 'metro', 'bozor', 'uzoq'];
 const KIND_LABEL = { mahalla: "Mahalla ichida", metro: 'Metroga', bozor: 'Bozordan', uzoq: "Shahar bo'ylab" };
 

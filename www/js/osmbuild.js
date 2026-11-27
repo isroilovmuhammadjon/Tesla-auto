@@ -80,6 +80,7 @@ const LOOKS = [
   ['band', '#efe7d6'], ['metal', ''], ['glass', ''], ['arch', '#f1ece2'],                  // 8-11 public / industry / glass / religious
   ['brick', '#d9c9a8'], ['arch', '#d8cbb3'], ['panel', '#ddd3c2'], ['panel', '#cfd6d9'],    // 12-15 more houses and blocks
   ['brick', '#b9875e'], ['band', '#e2dccf'], ['panel', '#e4d8c6'], ['arch', '#efe2c4'],     // 16-19
+  ['arch', '#d2b178'], ['arch', '#c08a5c'],                                                  // 20-21 old yellow / red brick with arched windows
 ];
 const LOOK_FOR = [[0, 1, 2, 3, 12, 13, 16, 19], [4, 5, 6, 14, 15, 18, 7], [7, 8, 5, 17], [8, 2, 7, 17], [9], [11, 19], [10, 7], [9]];
 
@@ -190,7 +191,7 @@ export function buildCell(city, k, data) {
   const domes = [];
   const col = new THREE.Color(), rcol = new THREE.Color();
   for (const b of data.b || []) {
-    const [h0, typ, wallC, roofC, flat] = b;
+    const [h0, typ, wallC, roofC, flat, passage, mat = 0, rshape = 0] = b;
     const n = flat.length / 2;
     if (n < 3) continue;
     const xs = [], zs = [];
@@ -201,7 +202,8 @@ export function buildCell(city, k, data) {
     if (skip.some((s) => (s.x - cx) ** 2 + (s.z - cz) ** 2 < s.r2)) continue;   // a modelled landmark stands here
     const hv = hashStr(Math.round(xs[0]), Math.round(zs[0]));
     const h = h0;
-    const opts = LOOK_FOR[typ] || LOOK_FOR[0];
+    // a mapped material wins over the guess from the building type: yellow / red brick, glass, concrete panels
+    const opts = mat === 1 ? (typ === 0 ? [0, 12, 16] : typ === 3 || typ === 5 ? [20, 20, 21] : [0, 12, 1]) : mat === 3 ? [10] : mat === 2 && typ !== 0 ? [4, 5, 14, 15] : mat === 4 ? [11, 19] : mat === 5 ? [9] : (LOOK_FOR[typ] || LOOK_FOR[0]);
     const look = opts[Math.floor(hv * opts.length)];
     const sink = W[look];
     // tint: tagged wall colour, else a small random shade so a street isn't one paint tin
@@ -251,9 +253,10 @@ export function buildCell(city, k, data) {
       if (typ === 7) for (const o of [order[0], order[2], order[1]]) { roof.p.push(P[o].x, h - 0.25, P[o].y); roof.c.push(rcol.r * 0.7, rcol.g * 0.7, rcol.b * 0.7); }
     }
     const area = (maxX - minX) * (maxZ - minZ);
-    if (typ === 0 && n <= 8 && area < 600 && h < 9 && !mobile) hipRoof(xs, zs, h, tin, new THREE.Color(roofC || ROOF_TIN[Math.floor(hv * ROOF_TIN.length)]));
+    // pitched roofs: mapped ones (roof:shape) on any building, and the tin roofs of small mahalla houses
+    if ((rshape === 1 && n <= 8) || (typ === 0 && n <= 8 && area < 600 && h < 9 && !mobile)) hipRoof(xs, zs, h, tin, new THREE.Color(roofC || ROOF_TIN[Math.floor(hv * ROOF_TIN.length)]));
     if (typ === 5 && area > 100) domes.push([cx, h, cz, Math.min(9, Math.sqrt(area) / 3.2)]);
-    if (typ === 7) continue;            // fuel-station / market canopies: drive under them
+    if (typ === 7 || passage) continue;  // canopies, and buildings a street runs through (arches, covered entries): drive under them
     const rec = { h, xs, zs, minX, maxX, minZ, maxZ };
     cell.buildings.push(rec);
     for (let i = 0; i < n; i++) {
@@ -324,7 +327,8 @@ export function buildCell(city, k, data) {
   const junction = [];
   for (const [key, c] of vcount) if (c >= 3) { const [x, z] = key.split(',').map(Number); junction.push([x, z, vwide.get(key)]); }
   const nearJunction = (x, z, extra) => {
-    for (const [jx, jz, w] of junction) { const r = w * 0.6 + extra; if ((x - jx) ** 2 + (z - jz) ** 2 < r * r) return true; }
+    // markings stop where the crossing carriageway starts (half its width), plus a little
+    for (const [jx, jz, w] of junction) { const r = Math.min(w * 0.5, 9) + extra; if ((x - jx) ** 2 + (z - jz) ** 2 < r * r) return true; }
     return false;
   };
   const surf = [0, 1, 2].map(() => [0, 1, 2].map(() => ({ p: [], u: [] })));
@@ -477,7 +481,20 @@ export function buildCell(city, k, data) {
   const inBuilding = (x, z, pad = 2) => {
     const b = cell.buckets.get(Math.floor(x / BUCKET) * 100003 + Math.floor(z / BUCKET));
     if (!b) return false;
-    for (const r2 of b.blds) if (x > r2.minX - pad && x < r2.maxX + pad && z > r2.minZ - pad && z < r2.maxZ + pad) return true;
+    // inside the outline itself (or within pad of a wall), not just its bounding box: big L-shaped blocks
+    // would otherwise clear the trees off the whole pavement in front of them
+    for (const r2 of b.blds) {
+      if (x < r2.minX - pad || x > r2.maxX + pad || z < r2.minZ - pad || z > r2.maxZ + pad) continue;
+      let inside = false;
+      const n2 = r2.xs.length;
+      for (let i = 0, j = n2 - 1; i < n2; j = i++) {
+        if ((r2.zs[i] > z) !== (r2.zs[j] > z) && x < ((r2.xs[j] - r2.xs[i]) * (z - r2.zs[i])) / (r2.zs[j] - r2.zs[i]) + r2.xs[i]) inside = !inside;
+        const dx = r2.xs[j] - r2.xs[i], dz = r2.zs[j] - r2.zs[i], l2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((x - r2.xs[i]) * dx + (z - r2.zs[i]) * dz) / l2));
+        if ((r2.xs[i] + dx * t - x) ** 2 + (r2.zs[i] + dz * t - z) ** 2 < pad * pad) return true;
+      }
+      if (inside) return true;
+    }
     return false;
   };
   // trees mapped in OSM (single trees, tree rows) are used as they are; generated ones fill the streets where
@@ -497,8 +514,9 @@ export function buildCell(city, k, data) {
       const hv = hashStr(Math.round(x * 3), Math.round(z * 3)), sc = 0.8 + hv * 0.45;
       tm.compose(new THREE.Vector3(x, 0, z), tq.setFromAxisAngle(UP, hv * 6.28), new THREE.Vector3(sc, sc * (0.9 + hv * 0.25), sc));
       trunk.setMatrixAt(i, tm); crown.setMatrixAt(i, tm);
-      const [h0, s0, l0] = TREE_HSL[type];
-      tc.setHSL(h0 + hv * 0.05, s0, l0 + hv * 0.08);
+      const [h0, s0, l0] = TREE_HSL[type], hv2 = hashStr(Math.round(z * 5), Math.round(x * 5));
+      // no two neighbours the same: olive, fresh, dark and the odd yellowing crown
+      tc.setHSL(h0 + (hv2 - 0.5) * 0.08 + (hv2 > 0.9 ? -0.08 : 0), s0 + (hv - 0.5) * 0.2, l0 + (hv2 - 0.5) * 0.12);
       crown.setColorAt(i, tc);
     });
     trunk.castShadow = crown.castShadow = true;
@@ -539,8 +557,12 @@ export function buildCell(city, k, data) {
   };
   // courtyard and school gates: painted steel leaves (or a barrier arm), set into the wall opening
   const GATE_COL = ['#2f6b4f', '#2c5a8a', '#6b3b2a', '#4c5560', '#7a6a2a', '#2e7f7a'];
-  const gate = ([, , x, z, ang, width, lift]) => {
+  const gate = ([, , x, z, ang, width, lift, open]) => {
     const rot = ang + Math.PI / 2, c = GATE_COL[Math.floor(hashStr(x, z) * GATE_COL.length)];
+    if (open) {             // the gate a street goes through: leaves swung back against the wall, the way clear
+      for (const sx of [-1, 1]) { addBox(x, z, rot, [sx * width / 2, 1.25, 0, 0.18, 2.5, 0.18, '#5b5f66']); addBox(x, z, rot, [sx * (width / 2 + 0.1), 1.15, sx * 0.85, 0.06, 2.2, width / 2 - 0.1, c]); }
+      return;
+    }
     if (lift) { addBox(x, z, rot, [-1.6, 0.5, 0, 0.18, 1, 0.18, '#d8d8d8']); addBox(x, z, rot, [0, 0.95, 0, 3.2, 0.09, 0.09, '#d32f2f']); return; }
     addBox(x, z, rot, [0, 1.15, 0, width - 0.1, 2.3, 0.08, c]);
     addBox(x, z, rot, [0, 2.36, 0, width, 0.1, 0.14, '#3a3d42']);

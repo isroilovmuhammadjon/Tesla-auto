@@ -11,35 +11,35 @@ const MODELS = {
     L: 4.48, W: 1.735, H: 1.51, R: 0.3, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
     top: [[2.25, 0.52], [2.18, 0.69], [1.95, 0.78], [1.3, 0.86], [0.86, 0.91], [-0.5, 0.97], [-1.55, 1.02], [-1.75, 1.04], [-2.15, 1.03], [-2.25, 0.95], [-2.26, 0.55]],
     glass: [[0.86, 0.9], [0.22, 1.45], [-0.75, 1.51], [-1.22, 1.43], [-1.62, 1.03]],
-    head: { x: 0.6, y: 0.74, z: 2.17, w: 0.42, h: 0.14, tilt: 0.5 }, tail: { x: 0.6, y: 0.88, w: 0.4, h: 0.16 },
+    head: { x: 0.6, y: 0.74, z: 2.17, w: 0.42, h: 0.14, tilt: 0.5 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true },
     grille: { y: 0.68, w: 0.7, h: 0.1 }, lower: { y: 0.42, w: 1.0, h: 0.16 },
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
     top: [[2.28, 0.5], [2.22, 0.66], [1.95, 0.75], [1.2, 0.85], [0.8, 0.89], [-0.6, 0.94], [-1.55, 0.98], [-1.78, 1.0], [-2.18, 0.97], [-2.27, 0.84], [-2.25, 0.5]],
     glass: [[0.8, 0.88], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 0.99]],
-    head: { x: 0.58, y: 0.7, z: 2.2, w: 0.46, h: 0.14, tilt: 0.55 }, tail: { x: 0.6, y: 0.86, w: 0.44, h: 0.14 },
+    head: { x: 0.58, y: 0.7, z: 2.2, w: 0.46, h: 0.14, tilt: 0.55 }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true },
     grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 },
   },
   nexia: {
     L: 4.48, W: 1.66, H: 1.39, R: 0.29, wheels: [1.3, -1.22], smooth: false, weight: 0.18,
     top: [[2.27, 0.56], [2.22, 0.68], [1.95, 0.72], [0.95, 0.81], [-0.6, 0.85], [-1.55, 0.89], [-2.18, 0.91], [-2.25, 0.86], [-2.25, 0.42]],
     glass: [[0.95, 0.8], [0.28, 1.36], [-0.85, 1.39], [-1.18, 1.35], [-1.6, 0.89]],
-    head: { x: 0.55, y: 0.6, z: 2.25, w: 0.44, h: 0.14, tilt: 0.15 }, tail: { x: 0.55, y: 0.78, w: 0.46, h: 0.18 },
+    head: { x: 0.55, y: 0.6, z: 2.25, w: 0.44, h: 0.14, tilt: 0.15 }, tail: { x: 0.55, y: 0.82, w: 0.38, h: 0.24, bar: true },
     grille: { y: 0.6, w: 0.55, h: 0.12 }, lower: { y: 0.4, w: 1.4, h: 0.12 },
   },
   spark: {
     L: 3.64, W: 1.6, H: 1.52, R: 0.29, wheels: [1.17, -1.21], smooth: true, weight: 0.18,
     top: [[1.84, 0.55], [1.77, 0.72], [1.45, 0.82], [1.05, 0.88], [-0.4, 0.95], [-1.62, 0.99], [-1.8, 0.97], [-1.84, 0.6]],
     glass: [[1.05, 0.87], [0.42, 1.44], [-0.55, 1.52], [-1.45, 1.5], [-1.7, 1.32], [-1.74, 0.98]],
-    head: { x: 0.52, y: 0.76, z: 1.76, w: 0.36, h: 0.18, tilt: 0.6 }, tail: { x: 0.62, y: 1.1, w: 0.14, h: 0.3 },
+    head: { x: 0.52, y: 0.76, z: 1.76, w: 0.36, h: 0.18, tilt: 0.6 }, tail: { x: 0.62, y: 1.08, w: 0.17, h: 0.36 },
     grille: { y: 0.6, w: 0.5, h: 0.12 }, lower: { y: 0.42, w: 0.8, h: 0.16 },
   },
   damas: {
     L: 3.49, W: 1.4, H: 1.9, R: 0.26, wheels: [0.98, -0.86], smooth: false, weight: 0.12,
     top: [[1.75, 0.72], [1.62, 0.93], [0.6, 1.06], [-1.74, 1.06], [-1.75, 0.34]],
     glass: [[1.62, 0.92], [1.22, 1.8], [1.02, 1.9], [-1.66, 1.9], [-1.74, 1.82], [-1.74, 1.06]],
-    head: { x: 0.48, y: 0.62, z: 1.74, w: 0.3, h: 0.2, tilt: 0 }, tail: { x: 0.6, y: 0.85, w: 0.12, h: 0.32 },
+    head: { x: 0.48, y: 0.62, z: 1.74, w: 0.3, h: 0.2, tilt: 0 }, tail: { x: 0.6, y: 0.72, w: 0.14, h: 0.34 },
     grille: { y: 0.6, w: 0.5, h: 0.1 }, lower: { y: 0.38, w: 1.3, h: 0.14 },
   },
 };
@@ -55,6 +55,19 @@ const chrome = () => cm('chrome', () => new THREE.MeshStandardMaterial({ color: 
 const tire = () => cm('tire', () => new THREE.MeshStandardMaterial({ color: 0x121214, roughness: 0.92 }));
 const hub = () => cm('hub', () => new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.85, roughness: 0.3 }));
 const headMat = () => cm('head', () => new THREE.MeshStandardMaterial({ color: 0xe8edf2, emissive: 0xfff3dc, emissiveIntensity: 0.35, metalness: 0.5, roughness: 0.1 }));
+const revMat = () => cm('rev', () => new THREE.MeshStandardMaterial({ color: 0xf4f4f4, emissive: 0x222222, roughness: 0.2 }));
+// Uzbek number plate: white, region code box, flag, black characters (a generic number)
+const rearPlateMat = () => cm('rplate', () => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 56;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f4f4f2'; g.fillRect(0, 0, 256, 56); g.strokeStyle = '#111'; g.lineWidth = 3; g.strokeRect(2, 2, 252, 52);
+  g.fillStyle = '#111'; g.font = 'bold 34px Arial, sans-serif'; g.textBaseline = 'middle'; g.fillText('01', 10, 30);
+  g.fillRect(56, 6, 2, 44);
+  g.fillText('A 123 BC', 66, 30);
+  g.fillStyle = '#1eb53a'; g.fillRect(226, 12, 20, 8); g.fillStyle = '#fff'; g.fillRect(226, 20, 20, 6); g.fillStyle = '#0099b5'; g.fillRect(226, 26, 20, 8);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.5 });
+});
 const plateMat = () => cm('plate', () => new THREE.MeshStandardMaterial({ color: 0xf2f3f0, roughness: 0.5 }));
 
 function extrude(shape, width, bevel) {
@@ -227,14 +240,20 @@ export function createUzCar(type) {
   B(m.grille.w * 0.9, 0.02, 0.055, chrome(), 0, m.grille.y + m.grille.h * 0.15, zF + 0.02);
   B(0.52, 0.11, 0.02, plateMat(), 0, m.lower.y + 0.01, zF - 0.02);
   B(m.W * 0.96, 0.2, 0.12, black(), 0, m.lower.y - 0.02, zR - 0.04);
-  B(0.52, 0.11, 0.02, plateMat(), 0, m.tail.y - 0.3, zR + 0.03);
+  { const pl = B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.y - (type === 'damas' ? 0.22 : 0.33), zR + 0.08); void pl; }
+  if (m.tail.bar) B(m.W * 0.45, 0.035, 0.03, chrome(), 0, m.tail.y + m.tail.h * 0.1, zR + 0.07, detail);   // chrome strip on the boot lid
   // lights
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
     const h = B(m.head.w, m.head.h, 0.06, headMat(), s * m.head.x, m.head.y, -m.head.z, g);
     h.rotation.x = -m.head.tilt;
-    B(m.tail.w, m.tail.h, 0.05, tailMat, s * m.tail.x, m.tail.y, zR - 0.01, g);
+    // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
+    const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 0.87);
+    const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
+    B(m.tail.w, m.tail.h, 0.08, tailMat, tx, m.tail.y, zR + 0.05, g);
+    B(m.tail.w * 0.42, m.tail.h * 0.28, 0.085, revMat(), tx - s * m.tail.w * 0.22, m.tail.y - m.tail.h * 0.28, zR + 0.056, g);
+    B(0.06, m.tail.h * 0.9, 0.14, tailMat, s * (halfRear + 0.03), m.tail.y, zR - 0.02, g);         // wraps round onto the flank
     B(0.1, 0.06, 0.04, blinkMat, s * (m.tail.x + m.tail.w / 2 + 0.06), m.tail.y, zR - 0.01);
     // mirrors
     B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));

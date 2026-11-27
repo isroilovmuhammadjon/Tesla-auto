@@ -27,8 +27,8 @@ for f in glob.glob(os.path.join(MAP, 'cells', '*.json')):
         pts = list(zip(flat[0::2], flat[1::2]))
         if len(pts) >= 2 and not flags & 4: roads.append((LineString(pts), width, kind, flags, name))
     for bb in cl['b']:
-        h, typ, _, _, flat = bb
-        if typ == 7: continue          # canopies: you drive under them
+        h, typ, _, _, flat = bb[:5]
+        if typ == 7 or (len(bb) > 5 and bb[5]): continue          # canopies and passages: you drive under them
         pts = list(zip(flat[0::2], flat[1::2]))
         if len(pts) >= 3:
             p = Polygon(pts).buffer(0)
@@ -63,8 +63,22 @@ for ln, h in walls:
             out['walls_on_carriageway'].append({'x': round(m.x), 'z': round(m.y), 'lonlat': lonlat(m.x, m.y), 'length_m': round(inter, 1), 'street': roads[k][4]})
             break
 for o in objs:
-    if o[0] in ('signal', 'zebra', 'door', 'metro', 'entrance'): continue    # signals hang over the road; zebras are on it; entrance pavilions are checked by hand
+    if o[0] in ('signal', 'zebra', 'door', 'metro', 'entrance'): continue
+    if o[0] == 'gate' and len(o) > 7 and o[7]: continue            # open gates: only posts at the sides    # signals hang over the road; zebras are on it; entrance pavilions are checked by hand
     p = Point(o[2], o[3])
+    if o[0] in ('bus', 'gate'):
+        # the game moves a stop / gate that stands in the road to the kerb of the nearest road (faceRoad): do the same
+        best = None
+        for k in ctree.query(p.buffer(40)):
+            dd = roads[k][0].distance(p)
+            if best is None or dd < best[0]: best = (dd, k)
+        if best and best[0] < roads[best[1]][1] / 2 + (1.2 if o[0] == 'bus' else 2.5):
+            ln = roads[best[1]][0]; q = ln.interpolate(ln.project(p))
+            ox, oz = p.x - q.x, p.y - q.y; dd = math.hypot(ox, oz)
+            if dd < 0.5:
+                q2 = ln.interpolate(min(ln.length, ln.project(p) + 1)); ox, oz = -(q2.y - q.y), q2.x - q.x; dd = math.hypot(ox, oz) or 1
+            edge = roads[best[1]][1] / 2 + (1.2 if o[0] == 'bus' else 2.5)
+            p = Point(q.x + ox / dd * edge, q.y + oz / dd * edge)
     for k in ctree.query(p):
         if carr[k].contains(p):
             out['objects_on_carriageway'][o[0]] += 1
@@ -74,17 +88,19 @@ for o in objs:
 # taxi kerbs: every stop-legal street (not main roads / bridges / tunnels / roundabouts / private, width >= 5, length > 22),
 # kerb points every 40 m on both sides: is the pavement there free of buildings?
 btree = STRtree([p for p, h in blds])
-legal = [(ln, w) for ln, w, k, fl, nm in roads if k <= 1 and not fl & (2 | 4 | 8 | 32) and w >= 5 and ln.length > 22]
+gr = json.load(open(os.path.join(MAP, 'graph.json'))); GN = gr['nodes']
 kerbs = blocked = 0
-for ln, w in legal:
-    L = ln.length
-    for s in [x for x in range(9, int(L) - 9, 40)]:
-        p = ln.interpolate(s); q = ln.interpolate(min(L, s + 1))
+for e in gr['edges']:
+    if e[3] > 1 or e[4] & (2 | 4 | 8 | 32 | 64) or e[8] < 5: continue
+    pts = [(GN[2 * e[0]], GN[2 * e[0] + 1])] + [(e[7][i], e[7][i + 1]) for i in range(0, len(e[7]), 2)] + [(GN[2 * e[1]], GN[2 * e[1] + 1])]
+    ln = LineString(pts); L = ln.length; w = e[8]
+    if L <= 22: continue
+    for s0 in range(9, int(L) - 9, 40):
+        p = ln.interpolate(s0); q = ln.interpolate(min(L, s0 + 1))
         dx, dz = q.x - p.x, q.y - p.y; l = math.hypot(dx, dz) or 1
         for sd in (1, -1):
-            kx, kz = p.x - dz / l * (w / 2 + 1.2) * sd, p.y + dx / l * (w / 2 + 1.2) * sd
+            kp = Point(p.x - dz / l * (w / 2 + 1.2) * sd, p.y + dx / l * (w / 2 + 1.2) * sd)
             kerbs += 1
-            kp = Point(kx, kz)
             if any(blds[i][0].contains(kp) for i in btree.query(kp)): blocked += 1
 out['summary'] = {
     'buildings_on_carriageway': len(out['buildings_on_carriageway']),

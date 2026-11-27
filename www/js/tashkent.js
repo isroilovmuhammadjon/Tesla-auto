@@ -336,6 +336,44 @@ export function temurStatue() {
   return g;
 }
 
+
+// International Forums Palace (Amir Temur square): a white block behind a tall colonnade of square
+// pillars with dark glazing between them, under a wide shallow dome. Front faces -x.
+export function forumsPalace() {
+  const g = new THREE.Group();
+  const white = std(0xeeece6, { roughness: 0.5 }), glass = std(0x1c2a3a, { roughness: 0.15, metalness: 0.4 });
+  mesh(new THREE.BoxGeometry(56, 26, 96), white, 0, 13, 0, g);
+  mesh(new THREE.BoxGeometry(0.4, 22, 84), glass, -28.3, 12, 0, g);
+  for (let z = -42; z <= 42; z += 6) mesh(new THREE.BoxGeometry(2.2, 27, 2.2), white, -29.5, 13.5, z, g);
+  mesh(new THREE.BoxGeometry(6, 3, 98), white, -27, 27.5, 0, g);
+  mesh(new THREE.CylinderGeometry(24, 26, 5, 40), white, 0, 31, 0, g);
+  mesh(domeGeo(24, 0.42, 40), std(0x8fb6d8, { roughness: 0.35, metalness: 0.3 }), 0, 33.5, 0, g);
+  mesh(new THREE.BoxGeometry(14, 1.2, 70), std(0xcfcac0), -38, 0.6, 0, g);       // steps
+  g.userData = { name: 'Xalqaro anjumanlar saroyi', width: 100, setback: 40 };
+  return g;
+}
+
+// Tashkent chimes: a slim beige clock tower with a white open belfry and a flag, beside a long one-storey
+// pavilion with arched windows and glazed verandas. Front faces -x.
+export function chimes() {
+  const g = new THREE.Group();
+  const beige = std(0xd9cfb4, { roughness: 0.8 }), white = std(0xf2efe8, { roughness: 0.6 }), glass = std(0x2a3640, { roughness: 0.2, metalness: 0.3 });
+  mesh(new THREE.BoxGeometry(10, 5.2, 36), beige, 0, 2.6, 0, g);
+  mesh(new THREE.BoxGeometry(10.6, 0.5, 36.6), white, 0, 5.3, 0, g);
+  for (const z of [-3, 3]) { mesh(new THREE.BoxGeometry(0.3, 3.2, 2.4), white, -5.1, 2.3, z, g); mesh(new THREE.BoxGeometry(0.32, 2.6, 1.9), glass, -5.15, 2.1, z, g); }
+  for (const z0 of [-14, 11]) { mesh(new THREE.BoxGeometry(5, 3, 9), glass, -7.5, 1.5, z0, g); mesh(new THREE.BoxGeometry(5.4, 0.25, 9.4), std(0x9aa3a8), -7.5, 3.1, z0, g); }
+  mesh(new THREE.BoxGeometry(4.2, 22, 4.2), beige, 0, 11, 9, g);
+  mesh(new THREE.BoxGeometry(4.6, 0.6, 4.6), white, 0, 17, 9, g);
+  mesh(new THREE.BoxGeometry(4.4, 4, 4.4), white, 0, 20, 9, g);
+  mesh(new THREE.BoxGeometry(5.2, 0.6, 5.2), white, 0, 22.3, 9, g);
+  const face = mesh(new THREE.CircleGeometry(0.9, 24), std(0x141414), -2.12, 15.3, 9, g); face.rotation.y = -Math.PI / 2;
+  mesh(new THREE.BoxGeometry(0.05, 0.9, 0.06), glow(0xffffff, 1), -2.15, 15.5, 9, g);
+  mesh(new THREE.CylinderGeometry(0.05, 0.05, 4, 6), std(0xcccccc), 0, 24.6, 9, g);
+  mesh(new THREE.BoxGeometry(0.05, 1, 1.6), std(0x2e8b57), 0, 26, 9.8, g);
+  g.userData = { name: 'Toshkent kurantlari', width: 30, setback: 10 };
+  return g;
+}
+
 export const LANDMARK_BUILDERS = [tvTower, minorMosque, ezgulikArch, madrasa, tashkentCity, chorsu, temurMuseum, hotelUzbekistan, humoArena];
 
 // Uzbek road-sign texts for the overhead gantries

@@ -242,9 +242,45 @@ for oid, fromway, rings, t in d['areas']:
     if h >= 45 and typ in (1, 2, 3): typ = 6
     bstats['est' if est else 'tagged'] += 1
     x0, z0 = sum(p[0] for p in xy) / len(xy), sum(p[1] for p in xy) / len(xy)
-    buildings.append({'xy': xy, 'h': round(min(h, 320), 1), 'typ': typ, 'wall': colour(t.get('building:colour')), 'roof': colour(t.get('roof:colour')),
+    mat = {'brick': 1, 'glass': 3, 'concrete': 2, 'plaster': 2, 'stone': 4, 'metal': 5, 'wood': 6, 'panel': 2}.get((t.get('building:material') or t.get('material') or '').lower(), 0)
+    rshape = 1 if t.get('roof:shape') in ('hipped', 'gabled', 'pyramidal', 'half-hipped', 'gambrel', 'mansard') else 2 if t.get('roof:shape') in ('dome', 'onion') else 0
+    buildings.append({'xy': xy, 'h': round(min(h, 320), 1), 'typ': typ, 'wall': colour(t.get('building:colour')), 'roof': colour(t.get('roof:colour')), 'mat': mat, 'rshape': rshape,
                       'c': (x0, z0), 'name': nm(t), 'id': oid})
 print('buildings', len(buildings), dict(bstats))
+
+# ------------------------------------------------------------ roads vs buildings
+# OSM centre lines of lanes and the footprints of the houses beside them are drawn by different people with
+# different imagery: an estimated width (no lanes / width tag) is narrowed to the clearance to the nearest
+# building, and a building that a street's centre line runs through is a passage (arch, covered entry): it
+# stays in the picture but you can drive through it.
+from shapely.strtree import STRtree as _STRB
+bpolys, bidx = [], []
+for i, b in enumerate(buildings):
+    try:
+        pg = Polygon(b['xy']).buffer(0)
+        if not pg.is_empty: bpolys.append(pg); bidx.append(i)
+    except Exception: pass
+btree = _STRB(bpolys)
+narrowed = passages = 0
+for r in roads:
+    if r['bridge'] or r['tunnel'] or len(r['xy']) < 2: continue
+    line = LineString(r['xy'])
+    clear = 99.0
+    for k in btree.query(line.buffer(r['width'] / 2 + 1)):
+        pg = bpolys[k]
+        if pg.intersects(line):
+            inside = pg.intersection(line).length
+            if inside > 1.0:
+                b = buildings[bidx[k]]
+                if not b.get('pass'): b['pass'] = True; passages += 1
+            continue
+        clear = min(clear, pg.distance(line))
+    tagged = r['lanes'] > 0
+    if clear < r['width'] / 2 + 0.3:
+        new = max(3.0 if not tagged else r['width'] * 0.8, round(2 * clear - 0.4, 1))
+        if new < r['width']: r['width'] = new; narrowed += 1
+print('roads narrowed to their clearance', narrowed, 'buildings marked as passages', passages)
+for e in G_edges: e[8] = roads[e[9]]['width']
 
 # ------------------------------------------------------------ street objects
 objects = []     # type, name, x, z, extra
@@ -331,11 +367,13 @@ LMK = [
     ('mustaqillik', 'Mustaqillik maydoni', lambda t: (has(t, 'mustaqillik maydoni') or has(t, 'площадь независимости')) and (t.get('place') == 'square' or t.get('leisure') or t.get('highway') or t.get('landuse'))),
     ('humo', 'Humo Arena', lambda t: has(t, 'humo arena') or has(t, 'хумо арена')),
     ('hotel', '"O\'zbekiston" mehmonxonasi', lambda t: t.get('tourism') == 'hotel' and (has(t, 'hotel uzbekistan') or has(t, 'гостиница узбекистан') or has(t, "o'zbekiston mehmonxonasi") or has(t, 'uzbekistan hotel'))),
+    ('forums', 'Xalqaro anjumanlar saroyi', lambda t: has(t, 'anjumanlar saroyi') or has(t, 'дворец форумов')),
+    ('chimes', 'Toshkent kurantlari', lambda t: has(t, 'ташкентские куранты') or has(t, 'toshkent kurantlari')),
     ('museum', 'Amir Temur muzeyi', lambda t: t.get('tourism') == 'museum' and (has(t, 'temur') or has(t, 'темур') or has(t, 'timurid'))),
 ]
 landmarks = []
 for key, label, pred in LMK:
-    pos, src = find(pred, 'area' if key == 'museum' else 'any')
+    pos, src = find(pred, 'area' if key in ('museum', 'forums', 'chimes') else 'any')
     print('landmark', key, pos and (R(pos[0]), R(pos[1])), src)
     if pos: landmarks.append({'id': key, 'name': label, 'x': R(pos[0]), 'z': R(pos[1]), 'osm': src})
 
@@ -447,6 +485,26 @@ for w in walls:
             if piece.geom_type == 'LineString' and len(piece.coords) >= 2: cut_walls.append([w[0], w[1], list(piece.coords)])
         pos = max(pos, g1)
 walls = cut_walls
+# ... and nothing of a wall may run along inside a carriageway (a wall mapped a metre into a narrow lane)
+from shapely.ops import unary_union as _union
+carr_polys = [rl.buffer(max(0.8, rw / 2 - 0.3), cap_style=2) for rl, rw in road_lines]
+carr_tree = _STR(carr_polys)
+trimmed = []
+for w in walls:
+    line = LineString(w[2])
+    near = [carr_polys[k] for k in carr_tree.query(line)]
+    if near:
+        rest = line.difference(_union(near))
+        parts = [rest] if rest.geom_type == 'LineString' else list(getattr(rest, 'geoms', []))
+        for pc in parts:
+            if pc.geom_type == 'LineString' and pc.length > 0.6: trimmed.append([w[0], w[1], list(pc.coords)])
+    else: trimmed.append(w)
+walls = trimmed
+# a gate on a road is the way in: drawn open (posts only), never across the lane
+for gt in gates:
+    pnt = Point(gt[2], gt[3])
+    gt.append(1 if any(carr_polys[k].contains(pnt) for k in carr_tree.query(pnt)) else 0)
+print('walls after trimming to the kerbs', len(walls), 'gates on a roadway (open)', sum(g[-1] for g in gates))
 print('walls', len(walls), 'gates', len(gates), 'openings cut where roads cross walls', cuts)
 
 # ------------------------------------------------------------ doors (entrance nodes on building outlines)
@@ -501,7 +559,7 @@ cells = defaultdict(lambda: {'b': [], 'r': [], 'o': [], 'p': [], 'w': [], 't': [
 def ck(x, z): return f'{math.floor(x / CELL)}_{math.floor(z / CELL)}'
 for b in buildings:
     flat = [R(c) for p in b['xy'] for c in p]
-    cells[ck(*b['c'])]['b'].append([b['h'], b['typ'], b['wall'], b['roof'], flat])
+    cells[ck(*b['c'])]['b'].append([b['h'], b['typ'], b['wall'], b['roof'], flat, 1 if b.get('pass') else 0, b['mat'], b['rshape']])
 for ri, r in enumerate(roads):
     xy = r['xy']
     flags = (1 if r['oneway'] else 0) | (2 if r['bridge'] else 0) | (4 if r['tunnel'] else 0) | (8 if r['round'] else 0)
@@ -555,6 +613,24 @@ for k, c in cells.items():
 print('cells written', len(cells))
 
 # ------------------------------------------------------------ graph + search + index
+# taxi stops: a street whose kerb (half width + 1.2 m) falls inside buildings on either side at more than a
+# third of the 20 m samples is not offered as a pickup / drop-off street (flag 64)
+blocked_edges = 0
+for e in G_edges:
+    if e[3] > 1 or e[4] & (2 | 4 | 8 | 32): continue
+    pts = [(G_nodes[2 * e[0]], G_nodes[2 * e[0] + 1])] + [(e[7][i], e[7][i + 1]) for i in range(0, len(e[7]), 2)] + [(G_nodes[2 * e[1]], G_nodes[2 * e[1] + 1])]
+    ln = LineString(pts)
+    if ln.length < 22: continue
+    n = bad = 0
+    for sdist in range(9, int(ln.length) - 8, 20):
+        p0 = ln.interpolate(sdist); p1 = ln.interpolate(min(ln.length, sdist + 1))
+        dx, dz = p1.x - p0.x, p1.y - p0.y; l = math.hypot(dx, dz) or 1
+        for sd in (1, -1):
+            kp = Point(p0.x - dz / l * (e[8] / 2 + 1.2) * sd, p0.y + dx / l * (e[8] / 2 + 1.2) * sd)
+            n += 1
+            if any(bpolys[k].contains(kp) and not buildings[bidx[k]].get('pass') for k in btree.query(kp)): bad += 1
+    if n and bad / n > 1 / 3: e[4] |= 64; blocked_edges += 1
+print('streets with kerbs inside buildings (no taxi stops)', blocked_edges)
 json.dump({'v': 3, 'nodes': G_nodes, 'edges': G_edges, 'names': names, 'turns': TURNS}, open(os.path.join(OUT, 'graph.json'), 'w'), separators=(',', ':'), ensure_ascii=False)
 
 search = []
@@ -611,6 +687,11 @@ for l in landmarks:
     dx, dz = b[1] - l['x'], b[2] - l['z']; dd = math.hypot(dx, dz) or 1
     # the models' fronts face local -x: turn that towards the nearest street
     l['rot'] = round(math.atan2(dz / dd, -dx / dd), 3); l['road'] = round(dd)
+# orientation checked against dated street photos (Wikimedia Commons, see docs/MATCHED-VIEWS.md):
+# the chimes' long front faces the square to the north, the tower at its west end (right, seen from the square)
+FACING = {'chimes': -math.pi / 2}
+for l in landmarks:
+    if l['id'] in FACING: l['rot'] = round(FACING[l['id']], 3)
 SP = P(69.14956, 41.28602)        # "O'rikzor bozori" bus stop, OSM node 5398889412
 b = nearest_edge_point(*SP)
 spawn = [round(b[1], 1), round(b[2], 1), round(b[3], 3), round(b[4], 3)]

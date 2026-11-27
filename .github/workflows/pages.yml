@@ -36,6 +36,10 @@ jobs:
           sed -i -E "s#src=\"js/main\.js\"#src=\"js/main.js?v=${V}\"#; s#href=\"css/style\.css\"#href=\"css/style.css?v=${V}\"#" site/index.html
           grep -c "?v=${V}" site/index.html site/js/main.js
 
+      - name: Keep branch previews
+        run: |
+          git fetch -q origin gh-pages && git worktree add -q old origin/gh-pages && { [ -d old/preview ] && cp -r old/preview site/preview || true; } || true
+
       - name: Push to gh-pages
         run: |
           cd site
