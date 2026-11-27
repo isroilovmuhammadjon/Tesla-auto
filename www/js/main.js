@@ -457,6 +457,7 @@ function leaveCity() {
   G.inCity = false;
   document.body.classList.remove('uz-drive');
   ui.setSpeedoMax();
+  ui.setLimit(null);            // the city's speed-limit sign does not belong in a race
   moon.position.set(-30, 60, 25);
   moon.target.position.set(0, 0, -15);
   setTrafficPalette(G.map);
