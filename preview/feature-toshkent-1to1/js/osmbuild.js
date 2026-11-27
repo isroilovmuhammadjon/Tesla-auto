@@ -6,7 +6,7 @@
 // Data (c) OpenStreetMap contributors, ODbL 1.0.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=3812a101';
+import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=3438ee8c';
 
 export const WALK = 3.2;
 const BUCKET = 25;
@@ -59,6 +59,66 @@ function fenceTex() {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+// Road signs in the Uzbek (Vienna convention) style, one 128 px cell each in a shared atlas
+export const SIGN_CELLS = ['speed5', 'speed10', 'speed20', 'speed30', 'speed40', 'speed50', 'speed60', 'speed70', 'speed80', 'speed90', 'speed100',
+  'stop', 'give_way', 'no_entry', 'oneway', 'no_left', 'no_right', 'no_u', 'no_straight', 'only_straight', 'only_left', 'only_right', 'camera'];
+let signAtlasTex = null;
+export function roadSignAtlas() {
+  if (signAtlasTex) return signAtlasTex;
+  const N = 8, C = 128, rows = Math.ceil(SIGN_CELLS.length / N);
+  const cv = document.createElement('canvas'); cv.width = N * C; cv.height = rows * C;
+  const g = cv.getContext('2d');
+  const arrow = (cx, cy, ang, len, col) => {
+    g.save(); g.translate(cx, cy); g.rotate(ang); g.fillStyle = col;
+    g.fillRect(-7, -len / 2 + 14, 14, len - 14); g.beginPath(); g.moveTo(0, -len / 2 - 4); g.lineTo(18, -len / 2 + 18); g.lineTo(-18, -len / 2 + 18); g.closePath(); g.fill(); g.restore();
+  };
+  const turnArrow = (dir, col) => {      // up then bend left (-1) / right (+1)
+    g.fillStyle = col; g.fillRect(57, 58, 14, 40); g.fillRect(dir > 0 ? 57 : 37, 44, 34, 14);
+    g.beginPath(); const x = dir > 0 ? 92 : 36; g.moveTo(x, 51); g.lineTo(x - dir * 16, 33); g.lineTo(x - dir * 16, 69); g.closePath(); g.fill();
+  };
+  SIGN_CELLS.forEach((k, i) => {
+    g.save(); g.translate((i % N) * C, Math.floor(i / N) * C);
+    const ring = (fill = '#fff') => { g.fillStyle = '#d32f2f'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.fillStyle = fill; g.beginPath(); g.arc(64, 64, 47, 0, 7); g.fill(); };
+    const blue = () => { g.fillStyle = '#1565c0'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); };
+    const slash = () => { g.strokeStyle = '#d32f2f'; g.lineWidth = 12; g.beginPath(); g.moveTo(31, 31); g.lineTo(97, 97); g.stroke(); };
+    if (k.startsWith('speed')) {
+      ring(); g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const n = k.slice(5); g.font = `bold ${n.length > 2 ? 40 : 52}px Arial, sans-serif`; g.fillText(n, 64, 68);
+    } else if (k === 'stop') {
+      g.fillStyle = '#fff'; g.beginPath(); for (let a = 0; a < 8; a++) { const t = Math.PI / 8 + a * Math.PI / 4; g.lineTo(64 + Math.cos(t) * 62, 64 + Math.sin(t) * 62); } g.closePath(); g.fill();
+      g.fillStyle = '#c62828'; g.beginPath(); for (let a = 0; a < 8; a++) { const t = Math.PI / 8 + a * Math.PI / 4; g.lineTo(64 + Math.cos(t) * 57, 64 + Math.sin(t) * 57); } g.closePath(); g.fill();
+      g.fillStyle = '#fff'; g.font = 'bold 36px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('STOP', 64, 66);
+    } else if (k === 'give_way') {
+      g.fillStyle = '#d32f2f'; g.beginPath(); g.moveTo(4, 12); g.lineTo(124, 12); g.lineTo(64, 120); g.closePath(); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(24, 24); g.lineTo(104, 24); g.lineTo(64, 96); g.closePath(); g.fill();
+    } else if (k === 'no_entry') {
+      g.fillStyle = '#d32f2f'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillRect(22, 54, 84, 20);
+    } else if (k === 'oneway') {
+      g.fillStyle = '#1565c0'; g.fillRect(6, 6, 116, 116); g.strokeStyle = '#fff'; g.lineWidth = 4; g.strokeRect(8, 8, 112, 112); arrow(64, 64, 0, 84, '#fff');
+    } else if (k === 'no_left' || k === 'no_right') {
+      ring(); turnArrow(k === 'no_left' ? -1 : 1, '#111'); slash();
+    } else if (k === 'no_u') {
+      ring(); g.strokeStyle = '#111'; g.lineWidth = 12; g.beginPath(); g.arc(58, 56, 16, Math.PI, 0); g.stroke(); g.fillStyle = '#111'; g.fillRect(36, 56, 12, 36); g.beginPath(); g.moveTo(62, 66); g.lineTo(90, 66); g.lineTo(76, 84); g.closePath(); g.fill(); slash();
+    } else if (k === 'no_straight') {
+      ring(); arrow(64, 66, 0, 70, '#111'); slash();
+    } else if (k === 'only_straight') { blue(); arrow(64, 66, 0, 76, '#fff'); }
+    else if (k === 'only_left' || k === 'only_right') { blue(); turnArrow(k === 'only_left' ? -1 : 1, '#fff'); }
+    else if (k === 'camera') {
+      g.fillStyle = '#1565c0'; g.fillRect(6, 6, 116, 116); g.strokeStyle = '#fff'; g.lineWidth = 4; g.strokeRect(8, 8, 112, 112);
+      g.fillStyle = '#fff'; g.fillRect(30, 46, 54, 34); g.beginPath(); g.moveTo(84, 54); g.lineTo(102, 44); g.lineTo(102, 82); g.lineTo(84, 72); g.closePath(); g.fill();
+      g.fillStyle = '#1565c0'; g.beginPath(); g.arc(52, 63, 10, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 15px Arial, sans-serif'; g.textAlign = 'center'; g.fillText('RADAR', 64, 104);
+    }
+    g.restore();
+  });
+  signAtlasTex = new THREE.CanvasTexture(cv); signAtlasTex.colorSpace = THREE.SRGBColorSpace; signAtlasTex.anisotropy = 8;
+  return signAtlasTex;
+}
+function signCell(kind, value) {
+  if (kind === 'speed') { const v = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].reduce((a, b) => (Math.abs(b - value) < Math.abs(a - value) ? b : a)); return SIGN_CELLS.indexOf('speed' + v); }
+  if (kind === 'camera') return SIGN_CELLS.indexOf('camera');
+  return SIGN_CELLS.indexOf(kind);
+}
+
 function metalFacade() {
   return canvas(128, 256, (g, w, h) => {
     g.fillStyle = '#b9bcbf'; g.fillRect(0, 0, w, h);
@@ -107,6 +167,8 @@ export function makeMaterials() {
     glass: new THREE.MeshStandardMaterial({ color: 0x9fc4d6, transparent: true, opacity: 0.35, roughness: 0.05, depthWrite: false }),
     metroM: new THREE.MeshBasicMaterial({ map: letterTex('M', '#1557b0') }),
     crossSign: new THREE.MeshLambertMaterial({ map: crossingSignTexture(), side: THREE.DoubleSide }),
+    roadSign: new THREE.MeshBasicMaterial({ map: roadSignAtlas(), transparent: true, alphaTest: 0.3 }),
+    signBack: new THREE.MeshLambertMaterial({ color: 0x8a9096 }),
     wallPlain: new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }),
     fence: new THREE.MeshLambertMaterial({ map: fenceTex(), transparent: false, alphaTest: 0.5, side: THREE.DoubleSide }),
     // 0 lawn / park, 1 (unused), 2 industrial concrete, 3 market / commercial paving, 4 water, 5 cemetery, 6 wood,
@@ -296,10 +358,10 @@ export function buildCell(city, k, data) {
   // junctions: a vertex shared by two road pieces (or used twice by one) — markings and kerbs stop short of it
   const vkey = (x, z) => `${Math.round(x)},${Math.round(z)}`;
   const vcount = new Map(), vwide = new Map();
-  const runs = (data.r || []).map(([kind, width, flags, layer, name, flat, lanes = 0, median = 0]) => {
+  const runs = (data.r || []).map(([kind, width, flags, layer, name, flat, lanes = 0, median = 0, limit = 0]) => {
     const pts = [];
     for (let i = 0; i < flat.length; i += 2) pts.push([flat[i], flat[i + 1]]);
-    return { kind, width, oneway: !!(flags & 1), bridge: !!(flags & 2), tunnel: !!(flags & 4), round: !!(flags & 8), median: flags & 16 ? Math.max(1, median) : 0, private: !!(flags & 32), lanes, layer, name, pts };
+    return { kind, width, oneway: !!(flags & 1), bridge: !!(flags & 2), tunnel: !!(flags & 4), round: !!(flags & 8), median: flags & 16 ? Math.max(1, median) : 0, private: !!(flags & 32), lanes, limit, layer, name, pts };
   });
   // every carriageway in this cell, for keeping trees, signs and walls off the road
   const RG = 20, roadGrid = new Map();
@@ -356,9 +418,9 @@ export function buildCell(city, k, data) {
       out.p.push(ax + nx, y, az + nz, bx + nx, y, bz + nz, bx - nx, y, bz - nz, ax + nx, y, az + nz, bx - nx, y, bz - nz, ax - nx, y, az - nz);
       for (const [x, z] of [[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax + nx, az + nz], [bx - nx, bz - nz], [ax - nx, az - nz]]) out.u.push(x / 7, z / 7);
       disc(out, ax, az, w, y); if (i === P.length - 2) disc(out, bx, bz, w, y);
-      const seg = { ax, az, bx, bz, len, kind: r.kind, width: r.width, lanes: r.lanes, median: r.median, oneway: r.oneway, name: r.name, tunnel: r.tunnel, bridge: r.bridge, keys: [vkey(ax, az), vkey(bx, bz)] };
+      const seg = { ax, az, bx, bz, len, kind: r.kind, width: r.width, lanes: r.lanes, median: r.median, limit: r.limit, oneway: r.oneway, name: r.name, tunnel: r.tunnel, bridge: r.bridge, keys: [vkey(ax, az), vkey(bx, bz)] };
       segsByKind[r.kind].push([ax, az, bx, bz]);
-      if (r.name) cell.named.push(seg);
+      if (r.name || r.limit) cell.named.push(seg);
       if (r.kind >= 1 && !r.tunnel) {
         cell.roads.push(seg);
         for (const end of [0, 1]) {
@@ -500,7 +562,10 @@ export function buildCell(city, k, data) {
   // trees mapped in OSM (single trees, tree rows) are used as they are; generated ones fill the streets where
   // nothing is mapped. Nothing may stand on a carriageway (that is where the route line runs) or in a building.
   for (const [x, z, t] of data.t || []) treePts.push([x, z, t === 1 ? 4 : t === 2 ? (hashStr(Math.round(x / 40), Math.round(z / 40)) < 0.6 ? 0 : 3) : (hashStr(Math.round(x), Math.round(z)) < 0.5 ? 0 : 2), true]);
-  const pts = treePts.filter(([x, z, type, mapped]) => !onRoad(x, z, mapped ? 0.2 : 0.9) && !inBuilding(x, z, type === 1 || mapped ? 0.6 : 2))
+  // nothing may hide a sign or a camera from the drivers it is for: no tree within 4 m of one
+  const signSpots = (data.o || []).filter((o) => o[0] === 'sign' || o[0] === 'camera').map((o) => [o[2], o[3]]);
+  const nearSign = (x, z) => signSpots.some(([sx, sz]) => (sx - x) ** 2 + (sz - z) ** 2 < 16);
+  const pts = treePts.filter(([x, z, type, mapped]) => !onRoad(x, z, mapped ? 0.2 : 0.9) && !inBuilding(x, z, type === 1 || mapped ? 0.6 : 2) && !nearSign(x, z))
     .filter((p2, i) => p2[3] || !mobile || i % 2 === 0).slice(0, mobile ? 140 : 360);
   cell.trees = [];
   const geos = treeGeos(city);
@@ -591,6 +656,36 @@ export function buildCell(city, k, data) {
     addBox(best.qx, best.qz, rot, [0, 2.2, 0.06, 1.35, 0.12, 0.1, '#e8e4dc']);
     if (main) addBox(best.qx, best.qz, rot, [0, 2.6, 0.55, 1.8, 0.1, 1.1, '#9aa0a6']);
   };
+  // a road sign: grey post, the face (from the atlas) turned to the drivers it is for, a plain back
+  const signQuads = [], signBacks = [];
+  const roadSign = ([, kind, x, z, ang, value]) => {
+    const cell = signCell(kind, value); if (cell < 0) return;
+    const tx = Math.sin(ang), tz = Math.cos(ang), rot = Math.atan2(-tx, -tz);
+    addBox(x, z, rot, [0, 1.25, 0, 0.07, 2.5, 0.07, '#8a9199']);
+    const size = kind === 'oneway' || kind === 'camera' ? 0.7 : 0.75;
+    const geo = new THREE.PlaneGeometry(size, size), uv = geo.attributes.uv, N = 8, rows = Math.ceil(SIGN_CELLS.length / N);
+    const u0 = (cell % N) / N, v1 = 1 - Math.floor(cell / N) / rows, v0 = v1 - 1 / rows;
+    for (let k2 = 0; k2 < uv.count; k2++) uv.setXY(k2, u0 + uv.getX(k2) / N, v0 + uv.getY(k2) / rows);
+    m4.compose(new THREE.Vector3(0, 2.45, 0.05).applyAxisAngle(UP, rot).add(new THREE.Vector3(x, 0, z)), q.setFromAxisAngle(UP, rot), new THREE.Vector3(1, 1, 1));
+    signQuads.push(geo.applyMatrix4(m4));
+    m4.compose(new THREE.Vector3(0, 2.45, 0.035).applyAxisAngle(UP, rot).add(new THREE.Vector3(x, 0, z)), q.setFromAxisAngle(UP, rot + Math.PI), new THREE.Vector3(1, 1, 1));
+    signBacks.push(new THREE.PlaneGeometry(size * 0.95, size * 0.95).applyMatrix4(m4));
+  };
+  // speed camera (OSM highway=speed_camera): a mast with a camera head looking at each monitored approach
+  cell.cameras = [];
+  const speedCamera = ([, name, x, z, dirs, limit, osmId, width]) => {
+    const side = (width || 8) / 2 + 1.4;
+    const [d0x, d0z] = dirs[0];
+    const mx = x - d0z * side, mz = z + d0x * side;                 // on the right of the first monitored direction
+    addBox(mx, mz, 0, [0, 2.6, 0, 0.16, 5.2, 0.16, '#9aa0a6']);
+    for (const [tx, tz] of dirs) {
+      const rot = Math.atan2(-tx, -tz);                             // the head looks at the oncoming traffic
+      addBox(mx, mz, rot, [0, 5.3, 0.1, 0.42, 0.34, 0.62, '#eceff1']);
+      addBox(mx, mz, rot, [0, 5.3, 0.43, 0.26, 0.2, 0.05, '#1b1f24']);
+      addBox(mx, mz, rot, [0, 5.62, 0.1, 0.5, 0.06, 0.7, '#cfd8dc']);
+    }
+    cell.cameras.push({ x, z, dirs, limit, id: osmId, name, width: width || 8, mx, mz });
+  };
   const place = (x, z, model) => {
     const g = model.clone().applyMatrix4(m4);
     return g;
@@ -602,6 +697,8 @@ export function buildCell(city, k, data) {
     if (type === 'zebra') { zebra(o); continue; }
     if (type === 'gate') { gate(o); continue; }
     if (type === 'door') { door(o); continue; }
+    if (type === 'sign') { roadSign(o); continue; }
+    if (type === 'camera') { speedCamera(o); continue; }
     if (type === 'signal') {
       const parts = city.models.signal;
       const f = faceRoad(ox, oz, allSegs), x = f.x, z = f.z, rot = f.rot + Math.PI;   // the signal model faces -z
@@ -662,6 +759,7 @@ export function buildCell(city, k, data) {
     group.add(m);
   }
   if (zebP.length) { fixUp(zebP); addMesh(zebP, mats.marking); }
+  if (signQuads.length) { group.add(new THREE.Mesh(mergeGeometries(signQuads), mats.roadSign)); group.add(new THREE.Mesh(mergeGeometries(signBacks), mats.signBack)); }
   if (signG.length) group.add(new THREE.Mesh(mergeGeometries(signG), mats.crossSign));
   // walls and fences (OSM barrier ways), with the openings for gates already cut in the data
   const wallP = [], wallC = [], fenceP = [];

@@ -4,12 +4,12 @@
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=3812a101';
-import { createUzCar, pickUzType } from './uzcars.js?v=3812a101';
-import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=3812a101';
-import { People, windSway, WIND } from './life.js?v=3812a101';
+import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=3438ee8c';
+import { createUzCar, pickUzType } from './uzcars.js?v=3438ee8c';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=3438ee8c';
+import { People, windSway, WIND } from './life.js?v=3438ee8c';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
-  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=3812a101';
+  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=3438ee8c';
 
 // warm afternoon sun from the south-west, high enough that the street itself is in the sun
 // (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes
@@ -963,9 +963,39 @@ export class CityMode {
     const P = s.chassis || (s.chassis = chassisFor(def));
     const sp = Math.max(1, Math.abs(s.v));
     const maxSteer = Math.min(P.maxWheel, (P.L * P.mu * 9.81) / (sp * sp) + 0.06);
-    const target = steerIn * maxSteer;
-    const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) === Math.sign(s.steer || target) ? 1.5 : 2.6) * dt;
-    s.steer += Math.max(-rate, Math.min(rate, target - s.steer));
+    // A virtual steering wheel u (-1..1): holding A/D (or a touch button) turns it at a steady rate, so a
+    // short tap is a small correction and a held key builds up to full lock in about half a second; let go
+    // and it self-centres. The road-wheel angle is u (finer near the centre) times the speed-dependent
+    // lock. (Before, the road wheels slewed at a fixed 1.5 rad/s towards the lock: at 90 km/h that lock is
+    // only 0.1 rad, so every press snapped to the grip limit in 70 ms and nothing in between was possible.)
+    if (s.wheelU === undefined) s.wheelU = 0;
+    if (this.legacySteer) {          // the previous behaviour, kept only for before/after tests (?test)
+      const target = steerIn * maxSteer;
+      const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) === Math.sign(s.steer || target) ? 1.5 : 2.6) * dt;
+      s.steer += Math.max(-rate, Math.min(rate, target - s.steer));
+    } else {
+    if (keySteer !== 0) {
+      const toward = keySteer * (Math.sign(s.wheelU) === -keySteer ? 6 : 3.4);   // counter-steer is quicker
+      s.wheelU = Math.max(-1, Math.min(1, s.wheelU + toward * dt));
+    } else if (d.tilt.enabled && d.tilt.axis) {
+      s.wheelU += (d.tilt.axis - s.wheelU) * Math.min(1, dt * 10);
+    } else {
+      const back = Math.min(Math.abs(s.wheelU), (3.2 + Math.abs(s.wheelU) * 2) * dt);
+      s.wheelU -= Math.sign(s.wheelU) * back;
+    }
+    const u = s.wheelU, shaped = u * (0.4 + 0.6 * Math.abs(u));
+    s.steer = shaped * maxSteer;
+    }
+    // Keep the front tyres near their grip peak: the road wheels may point at most ~8 degrees beyond the
+    // direction the front axle is actually travelling. A driver feels this through the wheel; without it,
+    // braking in a turn (the lock opens up as speed drops) pushed the fronts to 30+ degrees of slip and
+    // the rear swung the car round the other way.
+    if (s.v > 4 && P) {
+      const fwdDir = Math.atan2((s.latV || 0) + P.a * (s.r || 0), s.v);   // front axle travel, left positive
+      const peak = 0.14, delta = -s.steer;
+      const lo = fwdDir - peak, hi = fwdDir + peak;
+      if (delta < lo) s.steer = -lo; else if (delta > hi) s.steer = -hi;
+    }
     // nitro
     const wasNitro = s.nitroOn;
     s.nitroOn = input.nitro && s.nitro > 0.01 && s.v > 3;
@@ -978,8 +1008,9 @@ export class CityMode {
       a = pt.step(dt, s.v, input.up || s.nitroOn ? 1 : 0, input.down ? 1 : 0, s.nitroOn, false);
     } else {
       // reverse gear: S/Down accelerates backwards, W/Up brakes
-      a = input.down ? -3.2 : input.up ? 9 : (s.v < 0 ? 2.5 : 0);
-      if (s.v <= -7 && a < 0) a = 0;
+      // reverse gear: a gentle pull to walking-to-jogging pace, as in a real car
+      a = input.down ? -2.2 : input.up ? 9 : (s.v < 0 ? 2.5 : 0);
+      if (s.v <= -4.5 && a < 0) a = 0;
       pt.rev(dt, input.down);
     }
     // ---- flight (AERO ION): thrust holds a target altitude against gravity, like the race mode
@@ -1076,7 +1107,8 @@ export class CityMode {
     // in the air the car banks into turns and pitches with climb / descent
     player.group.rotation.set(Math.max(-0.18, Math.min(0.18, s.vy * 0.03)) * s.fly, s.yaw, -yawRate * 0.35 * s.fly);
     player.body.rotation.set(s.pitch, 0, s.roll * (1 - s.fly));
-    player.update(dt, Math.abs(s.v), Math.max(-1.6, Math.min(1.6, s.steer / 0.38)), input.down, s.nitroOn, d.time(), s.fly, s.y);
+    // signed speed: the wheels turn backwards when the car reverses
+    player.update(dt, s.v, Math.max(-1.6, Math.min(1.6, s.steer / 0.38)), input.down, s.nitroOn, d.time(), s.fly, s.y);
 
     // ---- the sun's shadow box follows the player (snapped to texels so shadows don't shimmer)
     const cx = s.x + fx * 25, cz = s.z + fz * 25;
@@ -1140,7 +1172,8 @@ export class CityMode {
     let dyaw = s.yaw - this.camYaw;
     while (dyaw > Math.PI) dyaw -= Math.PI * 2;
     while (dyaw < -Math.PI) dyaw += Math.PI * 2;
-    this.camYaw += dyaw * (1 - Math.exp(-dt * 3.2));
+    // the chase camera swings round with the car; at speed it follows faster so a turn shows on screen at once
+    this.camYaw += dyaw * (1 - Math.exp(-dt * (4 + Math.abs(s.v) * 0.14)));
     const cfx = -Math.sin(this.camYaw), cfz = -Math.cos(this.camYaw);
     const rx = -cfz, rz = cfx;                       // right-hand side of the view
     const back = (look ? -1 : 1) * (6.0 + sf * 0.6);

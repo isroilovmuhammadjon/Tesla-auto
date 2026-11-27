@@ -23,8 +23,9 @@ export function chassisFor(def) {
     const c = def.chassis, L = c.a + c.b;
     return {
       m: c.m, a: c.a, b: c.b, L, Iz: c.m * c.a * c.b * 1.05, h: c.h,
-      mu: 0.95 * (0.9 + 0.1 * def.handling), Cf: 125000 * (c.m / 1200) * (0.85 + 0.15 * def.handling), Cr: 140000 * (c.m / 1200) * (0.85 + 0.15 * def.handling),
-      esc: 1, muF: 0.94, muR: 1.06, drive: c.rear ? 'rear' : 'front', maxWheel: 0.62,
+      mu: 0.95 * (0.9 + 0.1 * def.handling) * (c.grip || 1), Cf: 125000 * (c.m / 1200) * (0.85 + 0.15 * def.handling), Cr: 140000 * (c.m / 1200) * (0.85 + 0.15 * def.handling),
+      // lock from the real turning circle (wall to wall): radius = wheelbase / tan(lock)
+      esc: 1, muF: 0.94, muR: 1.06, drive: c.rear ? 'rear' : 'front', maxWheel: c.lock || 0.46,
     };
   }
   const sedan = def.style === 'malibu';
@@ -42,7 +43,7 @@ export function chassisFor(def) {
     // roll-stiffness balance: a family sedan is set up to run wide at the limit, never to spin
     muF: sedan ? 0.93 : 0.99, muR: sedan ? 1.07 : 1.01,               // stability control: the family sedan catches slides, sports cars let you drift
     drive: sedan ? 'front' : def.flying ? 'all' : 'rear',
-    maxWheel: 0.6,                       // road-wheel lock (rad), about 34 degrees
+    maxWheel: sedan ? 0.46 : 0.6,        // road-wheel lock (rad): the sedan's 11.4 m turning circle
   };
 }
 
@@ -86,6 +87,15 @@ export function stepChassis(s, P, dt, delta, aLong, braking) {
     // a more heavily loaded tyre is a little less grippy per kilo (load sensitivity)
     const Fz0 = P.m * G / 2;
     const limF = P.mu * P.muF * Fzf * (1 - 0.1 * (Fzf / Fz0 - 1)), limR = P.mu * P.muR * Fzr * (1 - 0.1 * (Fzr / Fz0 - 1));
+    // electronic brake-force distribution: the rear brakes never take more than half of the rear tyres'
+    // grip, so braking in a turn leaves the rear enough side force (the front brakes take the rest)
+    const rearShare = 0.5 + 0.4 * (1 - Math.min(1, Math.abs(delta) / 0.08));     // straight ahead the rear may brake harder
+    if (Fx < 0 && braking > 0 && Math.abs(Fxr) > limR * rearShare) {
+      const extra = Math.abs(Fxr) - limR * rearShare;
+      Fxr = -limR * rearShare; Fxf = -(Math.abs(Fxf) + extra);
+    }
+    // ABS: a braked front wheel never locks — it keeps about a third of its grip for steering
+    if (Fx < 0 && braking > 0) Fxf = Math.max(Fxf, -limF * (0.97 - 0.27 * Math.min(1, Math.abs(delta) / 0.08)));
     const spinF = Math.abs(Fxf) > limF, spinR = Math.abs(Fxr) > limR;
     Fxf = Math.max(-limF, Math.min(limF, Fxf));
     Fxr = Math.max(-limR, Math.min(limR, Fxr));
@@ -109,14 +119,18 @@ export function stepChassis(s, P, dt, delta, aLong, braking) {
       // the yaw rate a sound car would make: what the steering asks for, capped by the grip
       const Kus = (P.m / P.L) * (P.b / P.Cf - P.a / P.Cr);
       const rWant = (vx * Math.tan(delta)) / (P.L + Math.max(0, Kus) * vx * vx);
-      const rCap = (0.9 * P.mu * G) / Math.max(speed, 1);
+      const rCap = (1.0 * P.mu * G) / Math.max(speed, 1);
       const rRef = Math.sign(rWant) * Math.min(Math.abs(rWant), rCap);
       const over = Math.abs(r) - Math.abs(rRef) - 0.05;
       if (P.esc > 0 && over > 0 && Math.sign(r) === Math.sign(rRef || r)) {
-        dr -= Math.sign(r) * over * 9 * P.esc;
-        dv -= over * 3 * P.esc;
+        // the stability control catches a slide; it doesn't fight a car that is simply turning
+        dr -= Math.sign(r) * Math.max(0, over - 0.03) * 6 * P.esc;
+        dv -= Math.max(0, over - 0.03) * 2 * P.esc;
       }
       if (P.esc > 0) dvy -= vy * Math.max(0, Math.abs(Math.atan2(vy, speed)) - 0.05) * 6 * P.esc;
+      // a growing sideslip (the tail stepping out) is braked away, as stability control does
+      const beta = Math.atan2(vy, speed);
+      if (P.esc > 0 && Math.abs(beta) > 0.07 && Math.sign(beta) === -Math.sign(r || -beta)) dr += Math.sign(beta) * (Math.abs(beta) - 0.07) * 8 * P.esc;
       ay = dvy + vx * r;
       // how far past the grip peak the tyres are (for squeal and smoke)
       const peak = 0.13;

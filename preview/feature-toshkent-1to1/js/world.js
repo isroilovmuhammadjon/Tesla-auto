@@ -1,8 +1,8 @@
 // Endless night-city highway. The player stays at z = 0 and the world scrolls
 // towards +z; objects that fall behind the camera are recycled ahead.
 import * as THREE from 'three';
-import { LANDMARK_BUILDERS, SIGN_TEXTS, createTrees, flagTexture, panelTexture, glassTexture, textTexture } from './tashkent.js?v=3812a101';
-import { setTrafficPalette } from './carModels.js?v=3812a101';
+import { LANDMARK_BUILDERS, SIGN_TEXTS, createTrees, flagTexture, panelTexture, glassTexture, textTexture } from './tashkent.js?v=3438ee8c';
+import { setTrafficPalette } from './carModels.js?v=3438ee8c';
 
 const ROAD_LEN = 900;
 const ROAD_TILE = 24;          // metres covered by one road texture tile

@@ -175,3 +175,175 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   window.__shiftResult = log;
   return log;
 };
+
+// Steering measurement with the player's own controls (input.left/right = the A/D keys or the touch
+// buttons): cruise straight at `kmh`, hold D for `hold` seconds, release, and log yaw rate over time.
+// Collisions are switched off for the test so a wall can't end it early.
+window.__steerTest = async ({ kmh = 60, hold = 2, tap = false, fps = 60, car = null } = {}) => {
+  const S = window.__sr3d, c = S.city, inp = c.d.input;
+  if (S.G.mode !== 'city') S.startCity('osm');
+  await new Promise((r) => setTimeout(r, 300));
+  const s = c.state, coll = c.collide;
+  c.collide = () => {};
+  S.G.mode = 'debug';
+  Object.assign(s, { x: 30000, z: 30000, yaw: 0, v: kmh / 3.6, latV: 0, r: 0, ax: 0, steer: 0, spin: 0 });
+  const dt = 1 / fps, out = [];
+  let t = 0, first = null, peak = 0, release = null, settle = null;
+  inp.left = inp.right = inp.down = false; inp.up = false;
+  // hold speed like a driver keeping the throttle steady
+  const cruise = () => { inp.up = s.v < kmh / 3.6 - 0.2; };
+  for (; t < 0.5; t += dt) { cruise(); S.G.mode = 'city'; c.update(dt); S.G.mode = 'debug'; }
+  const t0 = t;
+  for (; t < t0 + hold + 3; t += dt) {
+    cruise();
+    inp.right = t - t0 < (tap ? 0.12 : hold);
+    S.G.mode = 'city'; c.update(dt); S.G.mode = 'debug';
+    const yr = -s.r;                                        // + = to the right
+    if (first === null && yr > 0.02) first = t - t0;
+    peak = Math.max(peak, yr);
+    if (!inp.right && release === null) release = t;
+    if (release !== null && settle === null && Math.abs(yr) < 0.02) settle = t - release;
+    if (Math.round((t - t0) * fps) % Math.max(1, Math.round(fps / 10)) === 0) out.push([+(t - t0).toFixed(2), +yr.toFixed(3), +s.steer.toFixed(3), +(s.v * 3.6).toFixed(0)]);
+  }
+  inp.left = inp.right = inp.up = false;
+  c.collide = coll; S.G.mode = 'city';
+  const v = kmh / 3.6;
+  return { kmh, fps, tap, msToTurn: first === null ? null : Math.round(first * 1000), peakYawRate: +peak.toFixed(3), minRadiusM: peak > 0 ? Math.round(v / peak) : null, latG: +(v * peak / 9.81).toFixed(2), msToStraighten: settle === null ? null : Math.round(settle * 1000), trace: out };
+};
+
+// Follow a real bend with the keyboard only, like a player: W/S to hold `kmh`, and A/D pressed or released
+// 20 times a second depending on whether the car is left or right of the lane line ahead. Reports how far
+// the car strays from the lane (the real game loop is stepped, collisions on).
+window.__bendTest = async ({ edge, from = 40, kmh = 60, legacy = false, record = false, reactMs = 50 } = {}) => {
+  const S = window.__sr3d, T = S.taxi, c = S.city; await T.ensureData();
+  const g = T.graph, E = g.edges[edge];
+  const lane = (sx) => { const p = g.pointAt(edge, sx); const off = E.oneway ? Math.max(0, E.width / 2 - 1.8) : E.width / 4; return { x: p.x - p.uz * off, z: p.z + p.ux * off, ux: p.ux, uz: p.uz }; };
+  // start inside the bend, on the lane line, pointing along it (the first metres of an OSM way can kink)
+  const p0 = lane(from), p1 = lane(from + 6);
+  await S.teleport(p0.x, p0.z, Math.atan2(-(p1.x - p0.x), -(p1.z - p0.z)));
+  c.legacySteer = legacy;
+  // handling only: no traffic in the way (it made runs depend on where cars happened to be)
+  const traffic = c.updateTraffic; c.updateTraffic = () => {}; for (const car of c.cars) car.mesh.visible = false; c.cars.length = 0;
+  const s = c.state; s.v = kmh / 3.6; c.hitCount = {};
+  const keys = { up: false, left: false, right: false, down: false };
+  const press = (code, on) => window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { code, key: code }));
+  const set = (k, code, on) => { if (keys[k] !== on) { keys[k] = on; press(code, on); } };
+  let maxErr = 0, sumErr = 0, n = 0, presses = 0, lastRight = false, lastLeft = false;
+  const t0 = performance.now();
+  while (true) {
+    // nearest lane point and the lateral error; aim 12 m ahead
+    let best = from, bd = 1e9;
+    for (let sx = Math.max(0, from - 20); sx < Math.min(E.len, from + 120); sx += 1) { const q = lane(sx); const d2 = (q.x - s.x) ** 2 + (q.z - s.z) ** 2; if (d2 < bd) { bd = d2; best = sx; } }
+    from = best;
+    if (best > E.len - 30) break;
+    const q = lane(best), err = (s.x - q.x) * -q.uz + (s.z - q.z) * q.ux;          // + = right of the lane line
+    maxErr = Math.max(maxErr, Math.abs(err)); sumErr += err * err; n++;
+    const a = lane(Math.min(E.len, best + 10 + s.v * 0.6));
+    const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = a.x - s.x, dz = a.z - s.z;
+    const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+    // a person decides every ~250 ms (reactMs) and holds the key until the next decision
+    const decide = !window.__lastDecide || performance.now() - window.__lastDecide >= reactMs;
+    if (decide) window.__lastDecide = performance.now();
+    const right = decide ? ang > 0.012 : lastRight, left = decide ? ang < -0.012 : lastLeft;
+    if (right && !lastRight) presses++; if (left && !lastLeft) presses++;
+    lastRight = right; lastLeft = left;
+    set('right', 'KeyD', right); set('left', 'KeyA', left);
+    set('up', 'KeyW', s.v < kmh / 3.6 - 0.3); set('down', 'KeyS', s.v > kmh / 3.6 + 1.5);
+    await new Promise((r) => setTimeout(r, 50));
+    if (performance.now() - t0 > 40000) break;
+  }
+  for (const [k, code] of [['up', 'KeyW'], ['left', 'KeyA'], ['right', 'KeyD'], ['down', 'KeyS']]) set(k, code, false);
+  c.legacySteer = false; c.updateTraffic = traffic;
+  return { kmh, legacy, hits: { ...(c.hitCount || {}) }, maxErrM: +maxErr.toFixed(2), rmsErrM: +Math.sqrt(sumErr / Math.max(1, n)).toFixed(2), keyPresses: presses, seconds: +((performance.now() - t0) / 1000).toFixed(1) };
+};
+
+// Live (real-time game loop) steering probe with real key events on an open straight: cruise at `kmh`
+// with W, then `pattern` = 'tap' (D for 120 ms), 'hold' (D for 2 s) or 'lane' (D 0.6 s, A 0.6 s);
+// samples key state, virtual wheel, road-wheel angle, yaw rate and position every frame.
+window.__liveSteer = async ({ kmh = 60, pattern = 'hold', legacy = false, x = 30000, z = 30000 } = {}) => {
+  const S = window.__sr3d, c = S.city;
+  await S.teleport(x, z, 0);
+  const coll = c.collide; c.collide = () => {};
+  c.legacySteer = legacy;
+  const s = c.state; s.v = kmh / 3.6;
+  const key = (code, on) => window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { code, key: code }));
+  const log = []; let alive = true;
+  const sample = () => { if (!alive) return; log.push([+(performance.now() / 1000).toFixed(3), c.d.input.right ? 1 : c.d.input.left ? -1 : 0, +(s.wheelU || 0).toFixed(2), +(-s.steer * 57.3).toFixed(2), +(-s.r).toFixed(3), +(s.v * 3.6).toFixed(0), Math.round(s.x * 10) / 10, Math.round(s.z * 10) / 10]); requestAnimationFrame(sample); };
+  const cruise = setInterval(() => { const want = s.v < kmh / 3.6 - 0.3; if (want !== c.d.input.up) key('KeyW', want); }, 30);
+  await new Promise((r) => setTimeout(r, 600));
+  const t0 = performance.now() / 1000; sample();
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  if (pattern === 'tap') { key('KeyD', true); await wait(120); key('KeyD', false); await wait(1800); }
+  else if (pattern === 'hold') { key('KeyD', true); await wait(2000); key('KeyD', false); await wait(1500); }
+  else { key('KeyD', true); await wait(600); key('KeyD', false); key('KeyA', true); await wait(600); key('KeyA', false); await wait(1500); }
+  alive = false; clearInterval(cruise); key('KeyW', false);
+  c.collide = coll; c.legacySteer = false;
+  const rows = log.map((r) => [+(r[0] - t0).toFixed(2), ...r.slice(1)]);
+  const first = rows.find((r) => Math.abs(r[4]) > 0.02);
+  const lat = rows.length ? Math.round(((rows[rows.length - 1][6] - rows[0][6]) * 1 + 0) * 10) / 10 : 0;
+  return { kmh, pattern, legacy, frames: rows.length, msToHeadingChange: first ? Math.round(first[0] * 1000) : null, peakWheelDeg: Math.max(...rows.map((r) => Math.abs(r[3]))), peakYaw: Math.max(...rows.map((r) => Math.abs(r[4]))), lateralShiftM: lat, rows: rows.filter((_, i) => i % 6 === 0) };
+};
+
+// Longitudinal checks with real keys on an open straight: pull away (W), lift off, normal brake (S tapped
+// to ~4 m/s² feel = held S), hard brake, stop and stay stopped, reverse only when S is held at a standstill.
+window.__pedalTest = async () => {
+  const S = window.__sr3d, c = S.city; await S.teleport(30000, 30000, 0);
+  const coll = c.collide; c.collide = () => {};
+  const s = c.state, key = (code, on) => window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { code, key: code }));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const kmh = () => +(s.v * 3.6).toFixed(1), out = {};
+  let t = performance.now();
+  key('KeyW', true);
+  while (s.v < 100 / 3.6 && performance.now() - t < 20000) await wait(20);
+  out.zeroTo100s = +((performance.now() - t) / 1000).toFixed(2);
+  key('KeyW', false);
+  const v0 = kmh(); await wait(3000); out.liftOff3sFrom = [v0, kmh()];
+  // hard brake from current speed to stop
+  const vb = s.v, zb = s.z; t = performance.now(); key('KeyS', true);
+  let minV = s.v; while (s.v > 0.05 && performance.now() - t < 10000) { await wait(16); minV = Math.min(minV, s.v); }
+  key('KeyS', false);
+  out.hardBrakeFromKmh = +(vb * 3.6).toFixed(0); out.hardBrakeM = +Math.abs(s.z - zb).toFixed(1); out.hardBrakeS = +((performance.now() - t) / 1000).toFixed(2);
+  await wait(1500); out.afterStopKmh = kmh();             // must stay stopped (no creeping into reverse)
+  key('KeyS', true); await wait(1500); out.reverseWhenHeldKmh = kmh(); key('KeyS', false); await wait(1500); out.reverseReleasedKmh = kmh();
+  c.collide = coll;
+  return out;
+};
+
+// The bend test without the browser's frame loop (works when the page is hidden): the game's city update is
+// stepped at a fixed `fps` and a "driver" sets the same input flags the A/D/W/S keys set, deciding every
+// `reactMs` like a person. Logs the path, the keys and the lane error.
+window.__bendSim = ({ edge = 66172, from = 40, kmh = 60, legacy = false, reactMs = 250, fps = 60, traffic = false } = {}) => {
+  const S = window.__sr3d, T = S.taxi, c = S.city, g = T.graph, E = g.edges[edge], inp = c.d.input;
+  const lane = (sx) => { const p = g.pointAt(edge, sx); const off = E.oneway ? Math.max(0, E.width / 2 - 1.8) : E.width / 4; return { x: p.x - p.uz * off, z: p.z + p.ux * off, ux: p.ux, uz: p.uz }; };
+  const p0 = lane(from), p1 = lane(from + 6);
+  const s = c.state;
+  Object.assign(s, { x: p0.x, z: p0.z, yaw: Math.atan2(-(p1.x - p0.x), -(p1.z - p0.z)), v: kmh / 3.6, latV: 0, r: 0, ax: 0, steer: 0, wheelU: 0, spin: 0 });
+  const trf = c.updateTraffic; if (!traffic) { c.updateTraffic = () => {}; for (const car of c.cars) car.mesh.visible = false; c.cars.length = 0; }
+  c.legacySteer = legacy; c.hitCount = {};
+  const mode = S.G.mode; S.G.mode = 'city';
+  const dt = 1 / fps, every = Math.max(1, Math.round(reactMs / 1000 * fps));
+  let pos = from, maxErr = 0, sum = 0, n = 0, presses = 0, lastKey = 0, maxYaw = 0, frames = 0;
+  const path = [];
+  for (let i = 0; i < fps * 60; i++) {
+    let best = pos, bd = 1e9;
+    for (let sx = Math.max(0, pos - 10); sx < Math.min(E.len, pos + 60); sx += 0.5) { const q = lane(sx); const d2 = (q.x - s.x) ** 2 + (q.z - s.z) ** 2; if (d2 < bd) { bd = d2; best = sx; } }
+    pos = best; if (pos > E.len - 30) break;
+    const q = lane(pos), err = (s.x - q.x) * -q.uz + (s.z - q.z) * q.ux;
+    maxErr = Math.max(maxErr, Math.abs(err)); sum += err * err; n++;
+    if (i % every === 0) {
+      const a = lane(Math.min(E.len, pos + 10 + s.v * 0.6));
+      const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = a.x - s.x, dz = a.z - s.z;
+      const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+      const k = ang > 0.012 ? 1 : ang < -0.012 ? -1 : 0;
+      if (k && k !== lastKey) presses++;
+      lastKey = k; inp.right = k > 0; inp.left = k < 0;
+    }
+    inp.up = s.v < kmh / 3.6 - 0.3; inp.down = s.v > kmh / 3.6 + 1.5;
+    c.update(dt); frames++;
+    maxYaw = Math.max(maxYaw, Math.abs(s.r));
+    if (i % Math.round(fps / 5) === 0) path.push([+(i / fps).toFixed(1), Math.round(s.x * 10) / 10, Math.round(s.z * 10) / 10, +err.toFixed(2), lastKey, +(-s.steer * 57.3).toFixed(1), +(-s.r).toFixed(3)]);
+  }
+  inp.left = inp.right = inp.up = inp.down = false;
+  c.legacySteer = false; c.updateTraffic = trf; S.G.mode = mode;
+  return { edge, kmh, legacy, fps, reactMs, seconds: +(frames / fps).toFixed(1), maxErrM: +maxErr.toFixed(2), rmsErrM: +Math.sqrt(sum / Math.max(1, n)).toFixed(2), keyChanges: presses, maxYawRate: +maxYaw.toFixed(2), hits: { ...(c.hitCount || {}) }, path };
+};
