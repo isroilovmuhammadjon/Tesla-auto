@@ -490,7 +490,10 @@ body.osm-map .find-btn { display: block; }
 .taxi-info { min-height: 2.6em; }
 @media (max-width: 640px) { .taxi-cars { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) and (orientation: portrait) {
-  #taxiPanel:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 150px); max-width: 92vw; }
+  /* phone: the order panel goes below the minimap / dial / limit sign, the street name below the top buttons */
+  #taxiPanel:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 262px); max-width: 92vw; }
+  body.uz-drive .hud-tl { top: calc(max(10px, env(safe-area-inset-top)) + 56px); padding: 5px 10px; max-width: 58vw; }
+  .tx-btns .btn { letter-spacing: 0.08em; font-size: 15px; padding-left: 6px; padding-right: 6px; }
   .taxi-offer:not([hidden]) { top: auto; bottom: 150px; }
 }
 @media (max-height: 480px) and (orientation: landscape) {
