@@ -3,8 +3,8 @@
 // unfair crash). Everyone's world scrolls with their own distance, so a remote car sits at
 // z = myDistance - theirDistance, extrapolated with their speed between updates.
 import * as THREE from 'three';
-import { createSportsCar } from './carModels.js?v=d2f79ac5';
-import { CARS } from './config.js?v=d2f79ac5';
+import { createSportsCar } from './carModels.js?v=78ee488d';
+import { CARS } from './config.js?v=78ee488d';
 
 function nameTexture(text, color) {
   const c = document.createElement('canvas');

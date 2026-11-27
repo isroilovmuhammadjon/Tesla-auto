@@ -425,6 +425,7 @@ window.__record = async (name, run, { caption = '', fps = 30 } = {}) => {
   const draw = () => {
     if (!alive) return;
     g.drawImage(src, 0, 0, W, H);
+    if (caption === null) { requestAnimationFrame(draw); return; }   // clean picture (HUD-off clips)
     const s = c.state, kmh = Math.round(Math.abs(s.v) * 3.6), inp = c.d.input;
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, H - 64, W, 64); g.fillRect(0, 0, W, 36);
     g.fillStyle = '#fff'; g.font = 'bold 22px Arial'; g.fillText(caption, 14, 25);
