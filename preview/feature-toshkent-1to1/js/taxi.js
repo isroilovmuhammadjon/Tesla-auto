@@ -7,9 +7,9 @@
 // wrong turn; the passenger waits on the pavement at a kerb you can reach, and only gets in or out
 // once you have stopped next to them on their side of the street.
 import * as THREE from 'three';
-import { storageGet, storageSet } from './config.js?v=3438ee8c';
-import { RoadGraph } from './route.js?v=3438ee8c';
-import { MAP_VER } from './osmcity.js?v=3438ee8c';
+import { storageGet, storageSet } from './config.js?v=f72d9a3a';
+import { RoadGraph } from './route.js?v=f72d9a3a';
+import { MAP_VER } from './osmcity.js?v=f72d9a3a';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
@@ -223,15 +223,22 @@ export class TaxiShift {
       dest = this.randomStop(pp.x, pp.z, 1500, 5000, false);
     }
     if (!dest || dest.e === pickup.e) return null;
-    const toPick = this.routeTo(from, pickup);
+    // the side of the street to pick the passenger up on: the one that gives the shortest time to the
+    // passenger and on to the destination together, so the car does not have to turn round on a
+    // narrow lane right after the passenger gets in
+    let toPick = null, trip = null, bestT = Infinity;
+    for (const dir of this.graph.edges[pickup.e].oneway ? [1] : [1, -1]) {
+      const a = this.graph.route(from, { e: pickup.e, s: pickup.s, dir });
+      if (!a) continue;
+      const b = this.routeTo({ e: pickup.e, s: pickup.s, dir }, dest);
+      if (b && a.time + b.r.time < bestT) { bestT = a.time + b.r.time; toPick = { r: a, dir }; trip = b; }
+    }
     if (!toPick) return null;
     // a dispatcher offers passengers who are close by road, not just as the crow flies
     this.tries = (this.tries || 0) + 1;
     if (toPick.r.length > 2200 && this.tries < 6) return null;
     this.tries = 0;
     pickup.dir = toPick.dir;
-    const trip = this.routeTo({ e: pickup.e, s: pickup.s, dir: pickup.dir }, dest);
-    if (!trip) return null;
     dest.dir = trip.dir;
     const dist = trip.r.length;
     const fare = Math.round((this.rate[0] + this.rate[1] * dist / 1000) / 500) * 500;
@@ -423,7 +430,8 @@ export class TaxiShift {
         if (this.phase === 'boarding') {
           this.pax.visible = false;
           this.phase = 'toDrop';
-          const r = this.graph.route({ e: this.order.pickup.e, s: this.order.pickup.s, dir: this.order.pickup.dir }, this.order.dest);
+          const cs = this.carSnap(), pu = this.order.pickup;
+          const r = this.graph.route({ e: pu.e, s: pu.s, dir: cs && cs.e === pu.e ? cs.dir : pu.dir }, this.order.dest);
           const k2 = this.graph.kerb(this.order.dest);
           this.order.destKerb = k2;
           this.setRoute(r, 0x39e2ae);

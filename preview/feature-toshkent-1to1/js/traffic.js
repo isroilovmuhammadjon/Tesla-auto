@@ -1,7 +1,7 @@
 // Traffic: ground cars and flying cars. Spawning, following, lane changes, pooling,
 // and rigid-body physics (gravity, bounces, flips) for vehicles that get hit.
-import { createTrafficCar, pickTrafficType, TRAFFIC_TYPES } from './carModels.js?v=3438ee8c';
-import { LANES, GRAVITY } from './config.js?v=3438ee8c';
+import { createTrafficCar, pickTrafficType, TRAFFIC_TYPES } from './carModels.js?v=f72d9a3a';
+import { LANES, GRAVITY } from './config.js?v=f72d9a3a';
 
 const smooth = (t) => t * t * (3 - 2 * t);
 export const AIR_LEVELS = [5.2, 10.6, 14.6];   // flying-traffic altitudes (clear of gantries at ~8 m)

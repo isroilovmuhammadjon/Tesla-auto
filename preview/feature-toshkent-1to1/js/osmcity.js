@@ -4,21 +4,21 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
-import { SkidMarks } from './vehicle.js?v=3438ee8c';
-import { People, windSway } from './life.js?v=3438ee8c';
-import { storageGet, storageSet } from './config.js?v=3438ee8c';
+import { SkidMarks } from './vehicle.js?v=f72d9a3a';
+import { People, windSway } from './life.js?v=f72d9a3a';
+import { storageGet, storageSet } from './config.js?v=f72d9a3a';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CityMode, SUN_DIR } from './city.js?v=3438ee8c';
-import { createUzCar, pickUzType } from './uzcars.js?v=3438ee8c';
-import { daySky, facadeTexture } from './cityday.js?v=3438ee8c';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=3438ee8c';
-import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=3438ee8c';
-import { busStopParts } from './cityday.js?v=3438ee8c';
+import { CityMode, SUN_DIR } from './city.js?v=f72d9a3a';
+import { createUzCar, pickUzType } from './uzcars.js?v=f72d9a3a';
+import { daySky, facadeTexture } from './cityday.js?v=f72d9a3a';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=f72d9a3a';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=f72d9a3a';
+import { busStopParts } from './cityday.js?v=f72d9a3a';
 
 const CELL = 500;
 const BASE = 'map/';
-export const MAP_VER = '20261128e';          // bump with every map rebuild: cells are cached by the browser
+export const MAP_VER = '20261128f';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads

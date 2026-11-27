@@ -8,26 +8,26 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import {
   CARS, PLAYER_LIMIT, PLAYER_HALF_W, PLAYER_HALF_L, STORAGE, storageGet, storageSet,
   PLAYER_MASS, GRAVITY, MAX_ALTITUDE, GANTRY_Y, LAMP_ARM_Y, LAMP_ARM_X, SEDAN_INDEX,
-} from './config.js?v=3438ee8c';
-import { createSportsCar } from './carModels.js?v=3438ee8c';
-import { World } from './world.js?v=3438ee8c';
-import { Traffic, restHeight } from './traffic.js?v=3438ee8c';
-import { Effects } from './effects.js?v=3438ee8c';
-import { AudioEngine } from './audio.js?v=3438ee8c';
-import { input, initInput, resetInput, isTouchDevice, tilt, setTilt, calibrateTilt } from './input.js?v=3438ee8c';
-import { Rival } from './rival.js?v=3438ee8c';
-import { Powertrain } from './physics.js?v=3438ee8c';
-import { Multiplayer } from './multiplayer.js?v=3438ee8c';
-import { LocalRoom } from './lanroom.js?v=3438ee8c';
-import { hostOnline, joinOnline, cleanCode } from './online.js?v=3438ee8c';
-import { CityMode } from './city.js?v=3438ee8c';
-import { TaxiShift } from './taxi.js?v=3438ee8c';
-import { createUzPlayer, UZ_CARS } from './uzplayer.js?v=3438ee8c';
-import { OsmCity } from './osmcity.js?v=3438ee8c';
-import { setTrafficPalette } from './carModels.js?v=3438ee8c';
-import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js?v=3438ee8c';
-import { LANES } from './config.js?v=3438ee8c';
-import { UI } from './ui.js?v=3438ee8c';
+} from './config.js?v=f72d9a3a';
+import { createSportsCar } from './carModels.js?v=f72d9a3a';
+import { World } from './world.js?v=f72d9a3a';
+import { Traffic, restHeight } from './traffic.js?v=f72d9a3a';
+import { Effects } from './effects.js?v=f72d9a3a';
+import { AudioEngine } from './audio.js?v=f72d9a3a';
+import { input, initInput, resetInput, isTouchDevice, tilt, setTilt, calibrateTilt } from './input.js?v=f72d9a3a';
+import { Rival } from './rival.js?v=f72d9a3a';
+import { Powertrain } from './physics.js?v=f72d9a3a';
+import { Multiplayer } from './multiplayer.js?v=f72d9a3a';
+import { LocalRoom } from './lanroom.js?v=f72d9a3a';
+import { hostOnline, joinOnline, cleanCode } from './online.js?v=f72d9a3a';
+import { CityMode } from './city.js?v=f72d9a3a';
+import { TaxiShift } from './taxi.js?v=f72d9a3a';
+import { createUzPlayer, UZ_CARS } from './uzplayer.js?v=f72d9a3a';
+import { OsmCity } from './osmcity.js?v=f72d9a3a';
+import { setTrafficPalette } from './carModels.js?v=f72d9a3a';
+import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js?v=f72d9a3a';
+import { LANES } from './config.js?v=f72d9a3a';
+import { UI } from './ui.js?v=f72d9a3a';
 
 // ---------------------------------------------------------------- renderer
 const canvas = document.getElementById('game');
