@@ -13,7 +13,7 @@ import { MAP_VER } from './osmcity.js';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
-const STOP_OK = (e) => e.kind <= 1 && !(e.flags & (2 | 4 | 8)) && e.len > 22 && e.width >= 5;
+const STOP_OK = (e) => e.kind <= 1 && !(e.flags & (2 | 4 | 8 | 32)) && e.len > 22 && e.width >= 5;
 const KINDS = ['mahalla', 'metro', 'bozor', 'uzoq'];
 const KIND_LABEL = { mahalla: "Mahalla ichida", metro: 'Metroga', bozor: 'Bozordan', uzoq: "Shahar bo'ylab" };
 
@@ -372,7 +372,8 @@ export class TaxiShift {
     this.ribbon.geometry.dispose();
     this.ribbon.geometry = g;
     this.ribbon.material.side = THREE.DoubleSide;
-    this.ribbon.visible = true;
+    this.ribbon.visible = !this.city.hudOff;
+    this.pin.group.visible = !this.city.hudOff || this.phase === 'toPickup';
   }
 
   // is the car stopped beside the kerb point k, on the passenger's side of the street?
@@ -435,7 +436,8 @@ export class TaxiShift {
     // driving to the passenger or to the destination
     const tr = this.track();
     // off the route for a moment (a wrong turn): plan again from here, at most every 3 s
-    this.offT = tr.off > 22 ? this.offT + dt : 0;
+    // a parallel service road is often only 12-20 m away, so a smaller distance held for longer also counts
+    this.offT = tr.off > 22 ? this.offT + dt : tr.off > 12 ? this.offT + dt * 0.6 : 0;
     this.sinceReroute = (this.sinceReroute || 0) + dt;
     if (this.offT > 1.2 && this.sinceReroute > 3) { this.offT = 0; this.sinceReroute = 0; this.reroute(); return; }
     this.updateRibbon();
@@ -523,7 +525,7 @@ export class TaxiShift {
   updateNav(dt) {
     if (this.phase !== 'nav') return false;
     const tr = this.track();
-    this.offT = tr.off > 22 ? this.offT + dt : 0;
+    this.offT = tr.off > 22 ? this.offT + dt : tr.off > 12 ? this.offT + dt * 0.6 : 0;
     if (this.offT > 1.2) {
       this.offT = 0;
       const from = this.carSnap(); const r = from && this.graph.route(from, this.order.dest);

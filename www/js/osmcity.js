@@ -17,7 +17,7 @@ import { busStopParts } from './cityday.js';
 
 const CELL = 500;
 const BASE = 'map/';
-export const MAP_VER = '20261127b';          // bump with every map rebuild: cells are cached by the browser
+export const MAP_VER = '20261127e';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads
@@ -316,7 +316,7 @@ export class OsmCity extends CityMode {
     if (!cell) return;
     this.root.remove(cell.group);
     cell.group.traverse((o) => {
-      if (o.geometry && o.geometry !== this.treeGeo.trunk && o.geometry !== this.treeGeo.crown && o.geometry !== this.lampGeo) o.geometry.dispose();
+      if (o.geometry && !o.geometry.userData.shared && o.geometry !== this.treeGeo.trunk && o.geometry !== this.treeGeo.crown && o.geometry !== this.lampGeo) o.geometry.dispose();
       if (o.isSprite) { o.material.map.dispose(); o.material.dispose(); }
     });
     if (cell.lampMesh) cell.lampMesh.dispose();
@@ -670,8 +670,10 @@ export class OsmCity extends CityMode {
   collide(dt) {
     const s = this.state, fx = this.d.fx, audio = this.d.audio;
     s.bumpCd = Math.max(0, s.bumpCd - dt);
-    const hit = (x, z, strength) => {
+    const hit = (x, z, strength, what = 'building') => {
       if (s.bumpCd > 0) return;
+      const hc = this.hitCount || (this.hitCount = {}); hc[what] = (hc[what] || 0) + 1;     // for test drives
+      this.lastHit = { what, x, z };
       s.bumpCd = 0.35;
       fx.emitSparks(x, 0.6, z, Math.min(120, 20 + strength * 6), { spread: 6, up: 3, life: 0.6 });
       if (strength > 12) { fx.emitSmoke(x, 0.6, z, 6, true); audio.crash(); s.spin = (Math.random() - 0.5) * 3; }
@@ -683,7 +685,7 @@ export class OsmCity extends CityMode {
     if (!flying) {
       for (const off of [1.5, 0, -1.5]) {
         const px = s.x + fwdX * off, pz = s.z + fwdZ * off, rad = 1.05;
-        let pushX = 0, pushZ = 0, worst = 0, hx = 0, hz = 0;
+        let pushX = 0, pushZ = 0, worst = 0, hx = 0, hz = 0, hw = false;
         const seen = new Set();
         for (const b of this.nearbyBuckets(px, pz)) for (const e of b.edges) {
           if (seen.has(e)) continue;
@@ -696,7 +698,7 @@ export class OsmCity extends CityMode {
           const ox = px - cx, oz = pz - cz, d = Math.hypot(ox, oz);
           if (d >= rad || d < 1e-4) continue;
           const depth = rad - d;
-          if (depth > worst) { worst = depth; pushX = ox / d; pushZ = oz / d; hx = cx; hz = cz; }
+          if (depth > worst) { worst = depth; pushX = ox / d; pushZ = oz / d; hx = cx; hz = cz; hw = !!e[4].wall; }
         }
         if (worst > 0) {
           s.x += pushX * worst; s.z += pushZ * worst;
@@ -704,7 +706,7 @@ export class OsmCity extends CityMode {
           const impact = Math.abs(s.v) * Math.max(0.2, into);
           // head-on: most speed gone; scraping along: some; wedged in a corner the pushes add up and it stops
           s.v *= into > 0.7 ? 0.35 : into > 0.25 ? 0.75 : 0.95;
-          hit(hx, hz, impact);
+          hit(hx, hz, impact, hw ? 'wall' : 'building');
         }
       }
     }
@@ -717,7 +719,7 @@ export class OsmCity extends CityMode {
       const rel = Math.abs(s.v - c.speed * Math.cos(c.yaw - s.yaw));
       c.speed = Math.max(0, c.speed * 0.4);
       s.v *= 0.55;
-      hit((s.x + c.x) / 2, (s.z + c.z) / 2, rel);
+      hit((s.x + c.x) / 2, (s.z + c.z) / 2, rel, 'car');
     }
   }
 
@@ -738,7 +740,7 @@ export class OsmCity extends CityMode {
       if (!cell || !cell.lampMesh) continue;
       // each signal head shows the phase of the street it faces; lamps keep their own colour slot
       cell.lampInfo.forEach((l, i) => {
-        const p = (this.signalTime + hashStr(Math.round(l.x), Math.round(l.z)) * 32) % 32;
+        const p = (this.signalTime + (l.phase ?? hashStr(Math.round(l.x), Math.round(l.z)) * 32)) % 32;
         const st = p < 13 ? 'g' : p < 16 ? 'y' : 'r';
         const on = (l.color === '#ed4545' && st === 'r') || (l.color === '#e9aa35' && st === 'y') || (l.color === '#31ac74' && st === 'g');
         cell.lampMesh.setColorAt(i, on ? LIGHT[st] : LIGHT.off);
@@ -748,7 +750,7 @@ export class OsmCity extends CityMode {
     // labels only close up
     for (const cell of this.cells.values()) {
       if (!cell) continue;
-      for (const o of cell.objects) { const d1 = Math.abs(o.x - s.x) + Math.abs(o.z - s.z); o.sprite.visible = d1 > 9 && d1 < 110; }
+      for (const o of cell.objects) { const d1 = Math.abs(o.x - s.x) + Math.abs(o.z - s.z); o.sprite.visible = !this.hudOff && d1 > 9 && d1 < 110; }
     }
   }
 
@@ -768,9 +770,12 @@ export class OsmCity extends CityMode {
   }
 
   // right-hand traffic: the outer lane of a one-way carriageway, the middle of the right half of a two-way road
-  laneOffset(seg) {
-    if (seg.width) return seg.oneway ? Math.max(0, seg.width / 2 - 1.8) : Math.max(1.6, seg.width / 4);
-    return seg.kind === 2 ? 3.2 : 2.0;
+  // each car keeps a lane: lanes from OSM (or the width), counted from the kerb on the right
+  laneOffset(seg, lane = 0) {
+    if (!seg.width) return seg.kind === 2 ? 3.2 : 2.0;
+    const per = seg.oneway ? (seg.lanes || Math.max(1, Math.round(seg.width / 3.3))) : Math.max(1, seg.lanes ? Math.floor(seg.lanes / 2) : Math.floor(seg.width / 2 / 3.0));
+    const lw = (seg.oneway ? seg.width : seg.width / 2) / per, k = Math.min(lane, per - 1);
+    return seg.oneway ? seg.width / 2 - lw * (k + 0.5) : seg.width / 2 - lw * (k + 0.5);
   }
 
   placeOnSeg(c, seg, fromEnd, t) {
@@ -783,7 +788,7 @@ export class OsmCity extends CityMode {
     const ax = c.rev ? seg.bx : seg.ax, az = c.rev ? seg.bz : seg.az, bx = c.rev ? seg.ax : seg.bx, bz = c.rev ? seg.az : seg.bz;
     const f = c.t / seg.len, dx = (bx - ax) / seg.len, dz = (bz - az) / seg.len;
     // right-hand traffic: offset to the right of the direction of travel
-    const off = this.laneOffset(seg);
+    const off = this.laneOffset(seg, c.lane || 0);
     c.x = ax + (bx - ax) * f - dz * off;
     c.z = az + (bz - az) * f + dx * off;
     c.dirX = dx; c.dirZ = dz;
@@ -805,6 +810,7 @@ export class OsmCity extends CityMode {
         if (c.setTaxi) c.setTaxi(c.type !== 'damas' && Math.random() < 0.18);   // about one car in six is a taxi
         c.mesh.visible = true;
         c.baseSpeed = seg.kind === 2 ? 10 + Math.random() * 5 : 7 + Math.random() * 4;
+        c.lane = Math.random() < 0.55 ? 0 : Math.random() < 0.7 ? 1 : 2;
         c.speed = c.baseSpeed;
         this.placeOnSeg(c, seg, seg.oneway || Math.random() < 0.5 ? 0 : 1, Math.random() * seg.len);
         if (this.cars.some((o) => Math.hypot(o.x - c.x, o.z - c.z) < 12)) { (this.pool || (this.pool = [])).push(c); c.mesh.visible = false; continue; }
@@ -820,7 +826,13 @@ export class OsmCity extends CityMode {
         if (o === c) continue;
         const rx = o.x - c.x, rz = o.z - c.z;
         const ahead = rx * c.dirX + rz * c.dirZ, lat = Math.abs(rx * c.dirZ - rz * c.dirX);
-        if (ahead > 0 && ahead < 20 && lat < 2.6) limit = Math.min(limit, Math.max(0, (ahead - 7) * 0.8));
+        // follow cars going the same way; a car crossing the junction only matters when it is right in front.
+        // A driver who has waited a long time edges through (ghost) so junctions never lock up.
+        const same = o.player || (o.dirX * c.dirX + o.dirZ * c.dirZ) > 0.5;
+        if (!o.player && c.ghost > 0) continue;
+        if (same ? ahead > 0 && ahead < 20 && lat < 2.6 : ahead > 0 && ahead < 6 && lat < 1.8) limit = Math.min(limit, Math.max(0, (ahead - (same ? 7 : 3.5)) * 0.8));
+        // the player's car crossing in front at a junction: stop dead, don't creep into it
+        if (o.player && !(c.goFirst > 0) && ahead > -1 && ahead < 8 && lat < 4.5 && Math.abs(c.dirX * -Math.sin(s.yaw) + c.dirZ * -Math.cos(s.yaw)) < 0.85) limit = 0;
       }
       // red lights at the OSM signal nodes just ahead
       const axis = Math.abs(c.dirX) > Math.abs(c.dirZ) ? 'ew' : 'ns';
@@ -830,10 +842,30 @@ export class OsmCity extends CityMode {
         const ahead = rx * c.dirX + rz * c.dirZ, lat = Math.abs(rx * c.dirZ - rz * c.dirX);
         if (ahead > 2 && ahead < 22 && lat < 9) {
           const st = this.lightAt(sg, axis);
-          if (st === 'r' || (st === 'y' && ahead > c.speed * 1.3)) limit = Math.min(limit, Math.max(0, (ahead - 8) * 0.6));
+          if (st === 'r' || (st === 'y' && ahead > c.speed * 1.3)) { limit = Math.min(limit, Math.max(0, (ahead - 8) * 0.6)); c.atRed = true; }
         }
       }
+      const red = c.atRed; c.atRed = false;
+      c.waitT = c.speed < 0.3 && !red ? (c.waitT || 0) + dt : 0;
+      if (c.waitT > 8) { c.ghost = 2.5; c.waitT = 0; }
+      if (c.ghost > 0) c.ghost -= dt;
+      c.stuckT = c.speed < 0.3 ? (c.stuckT || 0) + dt : 0;
+      if (c.stuckT > 30) {
+        const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), pd2 = Math.hypot(c.x - s.x, c.z - s.z);
+        if (pd2 > 40 && ((c.x - s.x) * fx + (c.z - s.z) * fz) / pd2 < 0.3) { this.removeCar(i); continue; }
+      }
       c.speed += (limit - c.speed) * Math.min(1, dt * (limit < c.speed ? 4 : 1));
+      // waiting on the player for a long time (wedged at a junction): the driver goes round, i.e. the car
+      // leaves the street, but only when the player isn't looking at it
+      const pd = Math.hypot(c.x - s.x, c.z - s.z);
+      c.blockedT = c.speed < 0.8 && pd < 9 ? (c.blockedT || 0) + dt : 0;
+      // both waiting for each other: the other driver goes first
+      if (c.blockedT > 3 && Math.abs(s.v) < 0.5) { c.goFirst = 4; c.blockedT = 0; }
+      if (c.goFirst > 0) c.goFirst -= dt;
+      if (c.blockedT > 4) {
+        const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw);
+        if (((c.x - s.x) * fx + (c.z - s.z) * fz) / (pd || 1) < 0.5) { this.removeCar(i); continue; }
+      }
       c.setBrake(limit < c.speed - 0.5);
       c.t += c.speed * dt;
       // end of the segment: carry on along a connected road (mostly straight on)
@@ -900,7 +932,8 @@ export class OsmCity extends CityMode {
     }
     if (!near.length) return null;
     const r = near[Math.floor(Math.random() * near.length)];
-    const off = ((r.width || ROAD_W[r.kind]) / 2 + WALK * 0.5) * (Math.random() < 0.5 ? -1 : 1);
+    // on a divided road the pavement is only on the right; the left is the planted median
+    const off = ((r.width || ROAD_W[r.kind]) / 2 + WALK * 0.5) * (r.median || Math.random() < 0.5 ? 1 : -1);
     const nx = -(r.bz - r.az) / r.len * off, nz = (r.bx - r.ax) / r.len * off;
     return { ax: r.ax + nx, az: r.az + nz, bx: r.bx + nx, bz: r.bz + nz };
   }

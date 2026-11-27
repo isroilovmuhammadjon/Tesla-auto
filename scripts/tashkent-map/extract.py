@@ -12,7 +12,11 @@ KEEP_TAGS = ('name', 'name:uz', 'name:uz-Latn', 'name:ru', 'name:en', 'highway',
              'bridge', 'tunnel', 'service', 'access', 'motor_vehicle', 'building', 'building:levels', 'height',
              'amenity', 'shop', 'railway', 'station', 'public_transport', 'bus', 'ref', 'admin_level', 'boundary',
              'place', 'tourism', 'historic', 'leisure', 'landuse', 'religion', 'man_made', 'office', 'barrier', 'colour',
-             'building:colour', 'roof:colour', 'natural', 'waterway', 'water', 'subway', 'level', 'covered', 'area')
+             'building:colour', 'roof:colour', 'natural', 'waterway', 'water', 'subway', 'level', 'covered', 'area',
+             'lanes:forward', 'lanes:backward', 'turn:lanes', 'turn:lanes:forward', 'turn:lanes:backward', 'maxspeed',
+             'sidewalk', 'crossing', 'entrance', 'addr:housenumber', 'addr:street', 'traffic_sign', 'direction',
+             'traffic_signals:direction', 'leaf_type', 'denotation', 'surface', 'width', 'roof:shape', 'roof:levels',
+             'building:material', 'wall', 'restriction', 'type', 'except', 'leisure', 'genus', 'species', 'min_height', 'building:part')
 
 def tags(o): return {k: o.tags[k] for k in KEEP_TAGS if k in o.tags}
 
@@ -27,21 +31,27 @@ def rings(a):
 class H(osmium.SimpleHandler):
     def __init__(s):
         super().__init__()
-        s.nodes, s.ways, s.areas = [], [], []
+        s.nodes, s.ways, s.areas, s.restr = [], [], [], []
     def node(s, n):
         if not n.location.valid() or not inb(n.location.lon, n.location.lat): return
         t = n.tags
-        if ('highway' in t and t['highway'] in ('bus_stop', 'traffic_signals', 'crossing', 'stop')) or 'public_transport' in t \
+        if ('highway' in t and t['highway'] in ('bus_stop', 'traffic_signals', 'crossing', 'stop', 'give_way', 'street_lamp', 'speed_camera')) or 'public_transport' in t \
+           or t.get('natural') == 'tree' or 'entrance' in t or t.get('barrier') in ('gate', 'lift_gate', 'swing_gate', 'sliding_gate') or 'traffic_sign' in t \
            or 'railway' in t or 'amenity' in t or 'shop' in t or 'place' in t or 'tourism' in t or 'historic' in t or 'man_made' in t or 'office' in t:
             s.nodes.append((n.id, n.location.lon, n.location.lat, tags(n)))
     def way(s, w):
         hw = w.tags.get('highway')
         rail = w.tags.get('railway')
-        if hw not in DRIVE and rail not in ('subway', 'rail', 'tram') and 'waterway' not in w.tags and 'barrier' not in w.tags: return
+        if hw not in DRIVE and rail not in ('subway', 'rail', 'tram') and 'waterway' not in w.tags and 'barrier' not in w.tags \
+           and w.tags.get('natural') != 'tree_row' and hw not in ('footway', 'pedestrian', 'path', 'cycleway', 'steps'): return
         try: pts = [(n.ref, n.lon, n.lat) for n in w.nodes]
         except osmium.InvalidLocationError: return
         if not any(inb(lon, lat) for _, lon, lat in pts): return
         s.ways.append((w.id, pts, tags(w)))
+    def relation(s, r):
+        if r.tags.get('type') != 'restriction': return
+        mem = [(m.type, m.ref, m.role) for m in r.members]
+        s.restr.append((r.id, mem, dict(r.tags)))
     def area(s, a):
         t = a.tags
         want = 'building' in t or t.get('boundary') == 'administrative' or 'place' in t or 'landuse' in t or 'leisure' in t \
@@ -55,5 +65,5 @@ class H(osmium.SimpleHandler):
 
 h = H()
 h.apply_file(sys.argv[1], locations=True, idx='flex_mem')
-print('nodes', len(h.nodes), 'ways', len(h.ways), 'areas', len(h.areas))
-pickle.dump({'nodes': h.nodes, 'ways': h.ways, 'areas': h.areas}, open(sys.argv[2], 'wb'))
+print('nodes', len(h.nodes), 'ways', len(h.ways), 'areas', len(h.areas), 'restrictions', len(h.restr))
+pickle.dump({'nodes': h.nodes, 'ways': h.ways, 'areas': h.areas, 'restr': h.restr}, open(sys.argv[2], 'wb'))

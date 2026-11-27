@@ -371,6 +371,15 @@ function startCity(which = 'osm', def = CARS[SEDAN_INDEX], opts = {}) {
   if (TOUCH) enterFullscreen();
 }
 
+// HUD off (H): only the view through the windshield — no speedometer, map, labels or route line
+function toggleHud(force) {
+  G.hudOff = force !== undefined ? force : !G.hudOff;
+  document.body.classList.toggle('hud-off', G.hudOff);
+  osmCity.hudOff = G.hudOff;
+  taxi.ribbonAt = -1;
+  ui.popup(G.hudOff ? 'HUD O\'CHIQ (H)' : 'HUD YONIQ');
+}
+
 // ---------------------------------------------------------------- TOSHKENT TAKSI
 function taxiEntry(id) { return UZ_CARS.find((c) => c.id === id) || UZ_CARS[0]; }
 function taxiCarDef(entry) { return entry.sedan ? CARS[SEDAN_INDEX] : entry; }
@@ -1033,6 +1042,7 @@ function onKey(e) {
       else if (G.mode === 'mplobby' && !mp.connected && e.code === 'Escape') toMenu();
       break;
     case 'KeyM': toggleMute(); break;
+    case 'KeyH': if (G.mode === 'city') toggleHud(); break;
     case 'KeyC': if (G.mode === 'playing' || G.mode === 'countdown' || G.mode === 'city') toggleView(); break;
     case 'Enter':
       if (G.mode === 'menu' || G.mode === 'gameover') { G.mp = null; startRun(); }
@@ -1071,6 +1081,7 @@ const actions = {
   taxiSkip: () => taxi.decline(),
   findOpen: () => openFind(true),
   findClose: () => openFind(false),
+  hud: () => toggleHud(),
   city: () => startCity('osm'),
   cityClassic: () => startCity('classic'),
   fullscreen: () => goFullscreen(),
@@ -1904,7 +1915,7 @@ function boot() {
 
 // expose a small debug handle for testing in the console
 window.__sr3d = {
-  G, P, traffic, rival, world, get city() { return city; }, startRun, startCity, toMenu, taxi, get pt() { return pt; },
+  G, P, traffic, rival, world, get city() { return city; }, startRun, startCity, toMenu, taxi, get pt() { return pt; }, toggleHud,
   Q, setQuality, camera, scene, composer, getPlayer: () => player,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
   // testing: put the car somewhere in the open city, standing still, and wait for the map there
@@ -1921,3 +1932,4 @@ window.__sr3d = {
 };
 
 boot();
+if (/[?&]test\b/.test(location.search)) import('./devtest.js');

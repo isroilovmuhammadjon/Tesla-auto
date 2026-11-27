@@ -65,6 +65,57 @@ function extrude(shape, width, bevel) {
   return toCreasedNormals(g, Math.PI / 3.5);
 }
 
+// The side profile is extruded at full width; these warps give the body its plan shape and
+// tumblehome so it reads as a car, not a slab: the nose and tail round in towards the corners,
+// the flanks pull in above the shoulder line and the glasshouse narrows towards the roof.
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function shapeBody(g, m, type) {
+  const p = g.attributes.position, half = m.L / 2, box = type === 'damas';
+  const shoulder = m.glass[0][1] - 0.08;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const t = Math.abs(z) / half;
+    let k = 1 - (box ? 0.05 : 0.13) * smooth(0.72, 1.0, t);                 // corners rounded in plan
+    k *= 1 - (box ? 0.02 : 0.07) * smooth(shoulder, m.H, y);                // flanks lean in above the waist
+    k *= 1 - 0.04 * smooth(0.6, 0.1, y);                                    // a little tuck under the sills
+    p.setX(i, x * k);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+function shapeGlass(g, m, type) {
+  const p = g.attributes.position, belt = m.glass[0][1], top = Math.max(...m.glass.map((q) => q[1]));
+  const taper = type === 'damas' ? 0.06 : 0.2;
+  for (let i = 0; i < p.count; i++) p.setX(i, p.getX(i) * (1 - taper * smooth(belt, top, p.getY(i))));
+  g.computeVertexNormals();
+  return g;
+}
+// tyre with a rounded shoulder; rim with five spokes (steel wheels with covers on the Damas)
+function tyreGeo(R) {
+  const pts = [[R * 0.66, -0.1], [R - 0.035, -0.1], [R - 0.004, -0.075], [R, 0], [R - 0.004, 0.075], [R - 0.035, 0.1], [R * 0.66, 0.1]].map(([r, y]) => new THREE.Vector2(r, y));
+  const g = new THREE.LatheGeometry(pts, 24);
+  g.rotateZ(Math.PI / 2);
+  return g;
+}
+function rimGeo(R, type) {
+  const parts = [new THREE.CylinderGeometry(R * 0.64, R * 0.64, 0.05, 20).rotateZ(Math.PI / 2).translate(0.07, 0, 0),
+    new THREE.CylinderGeometry(R * 0.17, R * 0.17, 0.07, 12).rotateZ(Math.PI / 2).translate(0.1, 0, 0)];
+  const spokes = type === 'damas' ? 0 : type === 'spark' ? 4 : 5;
+  for (let i = 0; i < spokes; i++) parts.push(new THREE.BoxGeometry(0.04, R * 0.5, 0.07).translate(0.105, R * 0.33, 0).rotateX((i / spokes) * Math.PI * 2));
+  const all = parts.map((g) => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); return n; });
+  const merged = mergeParts(all);
+  return merged;
+}
+function mergeParts(list) {
+  let count = 0; for (const g of list) count += g.attributes.position.count;
+  const pos = new Float32Array(count * 3), nor = new Float32Array(count * 3);
+  let o = 0;
+  for (const g of list) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  return g;
+}
+
 function bodyShape(m) {
   const s = new THREE.Shape();
   const yb = m.R * 0.95, ar = m.R + 0.07;
@@ -150,8 +201,8 @@ export function createUzCar(type) {
   const g = new THREE.Group();
   const detail = new THREE.Group();       // small parts, hidden for far-away cars
   g.add(detail);
-  const bodyGeo = cg(`${type}b`, () => extrude(bodyShape(m), m.W, 0.07));
-  const glassGeo = cg(`${type}g`, () => extrude(glassShape(m), m.W * 0.84, 0.05));
+  const bodyGeo = cg(`${type}b`, () => shapeBody(extrude(bodyShape(m), m.W, 0.07), m, type));
+  const glassGeo = cg(`${type}g`, () => shapeGlass(extrude(glassShape(m), m.W * 0.84, 0.05), m, type));
   const body = new THREE.Mesh(bodyGeo, paint(COLORS[0]));
   body.castShadow = true;
   const cab = new THREE.Mesh(glassGeo, glass());
@@ -161,7 +212,8 @@ export function createUzCar(type) {
   const roofX0 = m.glass[1][0] - 0.12, roofX1 = m.glass[m.glass.length - 2][0] + 0.1;
   const roofY = Math.min(...m.glass.slice(1, -1).map((p) => p[1])) ;
   const roofLen = roofX0 - roofX1;
-  const roof = new THREE.Mesh(cg(`${type}r`, () => new THREE.BoxGeometry(m.W * 0.8, 0.05, roofLen)), body.material);
+  const glassTop = (type === 'damas' ? 0.94 : 0.8) * m.W * 0.84;          // the glasshouse narrows to this at the roof
+  const roof = new THREE.Mesh(cg(`${type}r`, () => new THREE.BoxGeometry(glassTop * 0.99, 0.05, roofLen)), body.material);
   roof.position.set(0, Math.max(...m.glass.map((p) => p[1])) - 0.005, -(roofX0 + roofX1) / 2);
   roof.castShadow = true;
   g.add(roof);
@@ -188,12 +240,12 @@ export function createUzCar(type) {
     B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
   }
   // wheels
-  const tg = cg(`t${m.R}`, () => new THREE.CylinderGeometry(m.R, m.R, 0.2, 20).rotateZ(Math.PI / 2));
-  const hg = cg(`h${m.R}`, () => new THREE.CylinderGeometry(m.R * 0.62, m.R * 0.62, 0.21, 16).rotateZ(Math.PI / 2));
+  const tg = cg(`t${m.R}`, () => tyreGeo(m.R));
+  const hg = cg(`h${m.R}${type}`, () => rimGeo(m.R, type));
   const wheels = [];
   for (const wx of m.wheels) for (const s of [-1, 1]) {
     const t = new THREE.Mesh(tg, tire()); t.position.set(s * (m.W / 2 - 0.12), m.R, -wx); t.castShadow = true; g.add(t);
-    const hb = new THREE.Mesh(hg, hub()); hb.position.copy(t.position); detail.add(hb);
+    const hb = new THREE.Mesh(hg, hub()); hb.position.copy(t.position); hb.scale.x = s; detail.add(hb);
     wheels.push({ tire: t, hub: hb, front: wx > 0, side: s });
   }
   // body-colour door pillars break the glass into windows (B-pillar; the Damas gets two)
@@ -205,7 +257,8 @@ export function createUzCar(type) {
     const x = front + (rear - front) * f;
     for (const sd of [-1, 1]) {
       const p = new THREE.Mesh(cg(`pil${type}`, () => new THREE.BoxGeometry(0.03, top - belt - 0.04, 0.1)), body.material);
-      p.position.set(sd * (m.W * 0.42 + 0.006), (top + belt) / 2, -x);
+      p.position.set(sd * ((m.W * 0.42 + glassTop / 2) / 2 + 0.006), (top + belt) / 2, -x);
+      p.rotation.z = sd * Math.atan2((m.W * 0.42 - glassTop / 2), top - belt);
       g.add(p); pillars.push(p);
     }
   }

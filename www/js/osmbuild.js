@@ -5,8 +5,8 @@
 //
 // Data (c) OpenStreetMap contributors, ODbL 1.0.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts } from './cityday.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js';
 
 export const WALK = 3.2;
 const BUCKET = 25;
@@ -41,6 +41,24 @@ function paving() {
     }
   });
 }
+// ground cover textures, 8 m per tile
+function groundTex(base, spots, stripes) {
+  return canvas(128, 128, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    let r = 11; const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 700; i++) { const [c, a] = spots[Math.floor(rnd() * spots.length)]; g.fillStyle = c; g.globalAlpha = a; g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 3, 1 + rnd() * 3); }
+    g.globalAlpha = 1;
+    if (stripes) { g.fillStyle = 'rgba(255,255,255,0.12)'; for (let y = 0; y < h; y += 32) g.fillRect(0, y, w, 16); }
+  });
+}
+function fenceTex() {
+  const c = document.createElement('canvas'); c.width = 32; c.height = 64;
+  const g = c.getContext('2d'); g.clearRect(0, 0, 32, 64);
+  g.fillStyle = '#3d444b'; g.fillRect(0, 0, 32, 4); g.fillRect(0, 56, 32, 4); g.fillRect(0, 30, 32, 3);
+  for (let x = 2; x < 32; x += 8) g.fillRect(x, 0, 3, 64);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 function metalFacade() {
   return canvas(128, 256, (g, w, h) => {
     g.fillStyle = '#b9bcbf'; g.fillRect(0, 0, w, h);
@@ -60,8 +78,10 @@ const LOOKS = [
   ['brick', '#e0c08c'], ['brick', '#c98a5f'], ['arch', '#eee3cc'], ['arch', '#e6dccb'],     // 0-3 houses
   ['panel', '#e6e0d2'], ['panel', '#d5dadf'], ['panel', '#e9dfcf'], ['band', '#eceae4'],    // 4-7 blocks
   ['band', '#efe7d6'], ['metal', ''], ['glass', ''], ['arch', '#f1ece2'],                  // 8-11 public / industry / glass / religious
+  ['brick', '#d9c9a8'], ['arch', '#d8cbb3'], ['panel', '#ddd3c2'], ['panel', '#cfd6d9'],    // 12-15 more houses and blocks
+  ['brick', '#b9875e'], ['band', '#e2dccf'], ['panel', '#e4d8c6'], ['arch', '#efe2c4'],     // 16-19
 ];
-const LOOK_FOR = [[0, 1, 2, 3, 0, 2], [4, 5, 6, 4, 5, 7], [7, 8, 5], [8, 2, 7], [9], [11], [10, 7], [9]];
+const LOOK_FOR = [[0, 1, 2, 3, 12, 13, 16, 19], [4, 5, 6, 14, 15, 18, 7], [7, 8, 5, 17], [8, 2, 7, 17], [9], [11, 19], [10, 7], [9]];
 
 export function makeMaterials() {
   const walls = LOOKS.map(([st, c], i) => {
@@ -85,6 +105,23 @@ export function makeMaterials() {
     props: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.2 }),
     glass: new THREE.MeshStandardMaterial({ color: 0x9fc4d6, transparent: true, opacity: 0.35, roughness: 0.05, depthWrite: false }),
     metroM: new THREE.MeshBasicMaterial({ map: letterTex('M', '#1557b0') }),
+    crossSign: new THREE.MeshLambertMaterial({ map: crossingSignTexture(), side: THREE.DoubleSide }),
+    wallPlain: new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }),
+    fence: new THREE.MeshLambertMaterial({ map: fenceTex(), transparent: false, alphaTest: 0.5, side: THREE.DoubleSide }),
+    // 0 lawn / park, 1 (unused), 2 industrial concrete, 3 market / commercial paving, 4 water, 5 cemetery, 6 wood,
+    // 7 fields and orchards, 8 building site, 9 sports pitch
+    land: [
+      groundTex('#6f8f4a', [['#5d7d3c', 0.6], ['#86a35a', 0.5], ['#9a8f5e', 0.25]]),
+      groundTex('#a39d8a', [['#8f8a78', 0.5]]),
+      groundTex('#7d7c77', [['#6b6a65', 0.5], ['#8f8d87', 0.4], ['#5c5b57', 0.3]]),
+      groundTex('#868076', [['#77716a', 0.5], ['#958f84', 0.4]]),
+      groundTex('#4f7c8c', [['#5f8f9e', 0.5], ['#46707f', 0.4]]),
+      groundTex('#7a8a58', [['#6a7a48', 0.5], ['#a29a7a', 0.4]]),
+      groundTex('#56733d', [['#46632e', 0.6], ['#6a8a4a', 0.4]]),
+      groundTex('#8f8a5a', [['#7a7a48', 0.5], ['#a09a6a', 0.4], ['#6f8a48', 0.3]]),
+      groundTex('#8f7a5a', [['#7d6a4d', 0.6], ['#a08a68', 0.4]]),
+      groundTex('#4f8a46', [['#5f9a52', 0.5]], true),
+    ].map((map, i) => new THREE.MeshStandardMaterial({ map, roughness: i === 4 ? 0.15 : 0.95, metalness: 0, envMapIntensity: i === 4 ? 0.9 : 0.15, polygonOffset: true, polygonOffsetFactor: -0.2, polygonOffsetUnits: -0.2 })),
     busSign: null,
   };
 }
@@ -113,6 +150,26 @@ function hipRoof(xs, zs, h, out, col) {
   tri(c1, r1, c2); tri(c2, r1, r2);
   tri(c3, r2, c4); tri(c4, r2, r1);
   tri(c2, r2, c3); tri(c4, r1, c1);
+}
+
+// ------------------------------------------------------------------ trees of Tashkent streets
+// 0 plane tree (chinar), 1 fruit tree (apricot / mulberry), 2 elm (qayrag'och), 3 poplar (terak), 4 juniper (archa)
+const TREE_HSL = [[0.22, 0.42, 0.28], [0.25, 0.45, 0.3], [0.24, 0.38, 0.25], [0.2, 0.4, 0.3], [0.33, 0.35, 0.18]];
+let TREE_GEOS = null;
+function treeGeos(city) {
+  if (TREE_GEOS) return TREE_GEOS;
+  const clean = (g) => { g.deleteAttribute('uv'); g.deleteAttribute('normal'); return g; };
+  // welded vertices: the wind shader moves shared corners together, so the crowns never crack open
+  const lumps = (list) => { const g = mergeGeometries(list.map(([r, x, y, z, sx = 1, sy = 1, sz = 1]) => mergeVertices(clean(new THREE.IcosahedronGeometry(r, 1).scale(sx, sy, sz).translate(x, y, z))))); g.computeVertexNormals(); return g; };
+  TREE_GEOS = [
+    { trunk: city.treeGeo.trunk, crown: city.treeGeo.crown },
+    { trunk: new THREE.CylinderGeometry(0.12, 0.18, 1.8, 6).translate(0, 0.9, 0), crown: lumps([[1.7, 0, 2.6, 0, 1.2, 0.75, 1.2], [1.1, 0.9, 2.9, 0.4, 1, 0.8, 1], [1.0, -0.8, 2.8, -0.5, 1, 0.8, 1]]) },
+    { trunk: new THREE.CylinderGeometry(0.18, 0.3, 3.4, 6).translate(0, 1.7, 0), crown: lumps([[2.8, 0, 5.4, 0, 1, 0.85, 1], [1.8, 1.6, 5.0, 0.8], [1.7, -1.4, 5.6, -0.9], [1.5, 0.3, 6.6, -1.2]]) },
+    { trunk: new THREE.CylinderGeometry(0.15, 0.25, 3, 6).translate(0, 1.5, 0), crown: lumps([[1, 0, 9, 0, 1.45, 6.2, 1.45], [0.8, 0.25, 6.5, 0.2, 1.3, 3.2, 1.3]]) },
+    { trunk: new THREE.CylinderGeometry(0.1, 0.15, 1, 6).translate(0, 0.5, 0), crown: (() => { const g = mergeVertices(clean(new THREE.ConeGeometry(1.4, 5.2, 8).translate(0, 3.4, 0))); g.computeVertexNormals(); return g; })() },
+  ];
+  for (const t of TREE_GEOS) { t.trunk.userData.shared = true; t.crown.userData.shared = true; }
+  return TREE_GEOS;
 }
 
 function pushQuad(arr, a, b, c, d) { arr.push(...a, ...b, ...c, ...a, ...c, ...d); }
@@ -236,11 +293,29 @@ export function buildCell(city, k, data) {
   // junctions: a vertex shared by two road pieces (or used twice by one) — markings and kerbs stop short of it
   const vkey = (x, z) => `${Math.round(x)},${Math.round(z)}`;
   const vcount = new Map(), vwide = new Map();
-  const runs = (data.r || []).map(([kind, width, flags, layer, name, flat]) => {
+  const runs = (data.r || []).map(([kind, width, flags, layer, name, flat, lanes = 0, median = 0]) => {
     const pts = [];
     for (let i = 0; i < flat.length; i += 2) pts.push([flat[i], flat[i + 1]]);
-    return { kind, width, oneway: !!(flags & 1), bridge: !!(flags & 2), tunnel: !!(flags & 4), round: !!(flags & 8), layer, name, pts };
+    return { kind, width, oneway: !!(flags & 1), bridge: !!(flags & 2), tunnel: !!(flags & 4), round: !!(flags & 8), median: flags & 16 ? Math.max(1, median) : 0, private: !!(flags & 32), lanes, layer, name, pts };
   });
+  // every carriageway in this cell, for keeping trees, signs and walls off the road
+  const RG = 20, roadGrid = new Map();
+  for (const r of runs) for (let i = 0; i < r.pts.length - 1; i++) {
+    const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], hw = r.width / 2;
+    for (let x = Math.floor((Math.min(ax, bx) - hw) / RG); x <= Math.floor((Math.max(ax, bx) + hw) / RG); x++)
+      for (let z = Math.floor((Math.min(az, bz) - hw) / RG); z <= Math.floor((Math.max(az, bz) + hw) / RG); z++) {
+        const k2 = x * 100003 + z; let l = roadGrid.get(k2); if (!l) roadGrid.set(k2, (l = [])); l.push([ax, az, bx, bz, hw]);
+      }
+  }
+  const onRoad = (x, z, pad) => {
+    for (const [ax, az, bx, bz, hw] of roadGrid.get(Math.floor(x / RG) * 100003 + Math.floor(z / RG)) || []) {
+      const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+      if ((ax + dx * t - x) ** 2 + (az + dz * t - z) ** 2 < (hw + pad) ** 2) return true;
+    }
+    return false;
+  };
+  cell.onRoad = onRoad;
   for (const r of runs) r.pts.forEach(([x, z], i) => {
     const key = vkey(x, z);
     vcount.set(key, (vcount.get(key) || 0) + (i === 0 || i === r.pts.length - 1 ? 1 : 2));
@@ -253,7 +328,7 @@ export function buildCell(city, k, data) {
     return false;
   };
   const surf = [0, 1, 2].map(() => [0, 1, 2].map(() => ({ p: [], u: [] })));
-  const walkP = [], walkU = [], markP = [], kerbP = [];
+  const walkP = [], walkU = [], markP = [], kerbP = [], medP = [];
   const segsByKind = [[], [], []];
   const treePts = [];
   const disc = (out, x, z, rad, y, N = 10) => {
@@ -277,7 +352,7 @@ export function buildCell(city, k, data) {
       out.p.push(ax + nx, y, az + nz, bx + nx, y, bz + nz, bx - nx, y, bz - nz, ax + nx, y, az + nz, bx - nx, y, bz - nz, ax - nx, y, az - nz);
       for (const [x, z] of [[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax + nx, az + nz], [bx - nx, bz - nz], [ax - nx, az - nz]]) out.u.push(x / 7, z / 7);
       disc(out, ax, az, w, y); if (i === P.length - 2) disc(out, bx, bz, w, y);
-      const seg = { ax, az, bx, bz, len, kind: r.kind, width: r.width, oneway: r.oneway, name: r.name, tunnel: r.tunnel, bridge: r.bridge, keys: [vkey(ax, az), vkey(bx, bz)] };
+      const seg = { ax, az, bx, bz, len, kind: r.kind, width: r.width, lanes: r.lanes, median: r.median, oneway: r.oneway, name: r.name, tunnel: r.tunnel, bridge: r.bridge, keys: [vkey(ax, az), vkey(bx, bz)] };
       segsByKind[r.kind].push([ax, az, bx, bz]);
       if (r.name) cell.named.push(seg);
       if (r.kind >= 1 && !r.tunnel) {
@@ -291,9 +366,15 @@ export function buildCell(city, k, data) {
       // sidewalk (paved, under the carriageway) on collector and main roads
       if (r.kind >= 1 && !r.tunnel && !r.bridge) {
         const sw = w + WALK, sx = -dz * sw, sz = dx * sw;
-        const q = [[ax + sx, az + sz], [bx + sx, bz + sz], [bx - sx, bz - sz], [ax + sx, az + sz], [bx - sx, bz - sz], [ax - sx, az - sz]];
+        // a divided road: pavement on the right only, a planted median on the left (towards the other carriageway)
+        const lsw = r.median ? 0 : sw, lx = dz * lsw, lz = -dx * lsw;
+        const q = [[ax + sx, az + sz], [bx + sx, bz + sz], [bx + lx, bz + lz], [ax + sx, az + sz], [bx + lx, bz + lz], [ax + lx, az + lz]];
         for (const [x, z] of q) { walkP.push(x, 0.015, z); walkU.push(x / 2.5, z / 2.5); }
-        for (const [x, z] of [[ax, az], [bx, bz]]) for (let s = 0; s < 8; s++) {
+        if (r.median) {
+          const mw = w + Math.min(r.median / 2 + 0.3, 9), mx2 = dz * mw, mz2 = -dx * mw;
+          pushQuad(medP, [ax, 0.017, az], [bx, 0.017, bz], [bx + mx2, 0.017, bz + mz2], [ax + mx2, 0.017, az + mz2]);
+        }
+        if (!r.median) for (const [x, z] of [[ax, az], [bx, bz]]) for (let s = 0; s < 8; s++) {
           const a0 = (s / 8) * Math.PI * 2, a1 = ((s + 1) / 8) * Math.PI * 2;
           for (const [px, pz] of [[x, z], [x + Math.cos(a1) * sw, z + Math.sin(a1) * sw], [x + Math.cos(a0) * sw, z + Math.sin(a0) * sw]]) { walkP.push(px, 0.015, pz); walkU.push(px / 2.5, pz / 2.5); }
         }
@@ -303,11 +384,11 @@ export function buildCell(city, k, data) {
       const lines = [];
       if (marks && !r.round) {
         if (r.oneway) {
-          const lanes = Math.max(1, Math.round(r.width / 3.3)), lw = r.width / lanes;
+          const lanes = r.lanes || Math.max(1, Math.round(r.width / 3.3)), lw = r.width / lanes;
           for (let j = 1; j < lanes; j++) lines.push([-w + j * lw, 'dash']);
         } else {
-          lines.push([0, r.kind === 2 ? 'solid' : 'dash']);
-          const per = Math.max(1, Math.floor(w / 3.0)), lw = w / per;
+          lines.push([0, r.kind === 2 || r.lanes >= 4 ? 'solid' : 'dash']);
+          const per = r.lanes >= 2 ? Math.floor(r.lanes / 2) : Math.max(1, Math.floor(w / 3.0)), lw = w / per;
           for (let j = 1; j < per; j++) { lines.push([j * lw, 'dash']); lines.push([-j * lw, 'dash']); }
         }
         if (r.kind === 2) { lines.push([w - 0.35, 'solid']); lines.push([-w + 0.35, 'solid']); }
@@ -335,8 +416,11 @@ export function buildCell(city, k, data) {
       // plane trees along collector and main roads; fruit trees along mahalla lanes
       if (r.kind >= 1 && !r.tunnel && !r.bridge && len > 12) {
         const off = w + WALK - 0.9;
+        // avenues: plane trees (chinar), some stretches of poplars (terak); medians get poplars and junipers
+        const kind0 = hashStr(Math.round(ax / 60), Math.round(az / 60)) < 0.7 ? 0 : 3;
         for (let t = 6; t < len - 6; t += 12 + hashStr(Math.round(ax + t), Math.round(az)) * 6) {
-          for (const sd of [-1, 1]) { const x = ax + dx * t - dz * off * sd, z = az + dz * t + dx * off * sd; if (!nearJunction(x, z, 6)) treePts.push([x, z, 0]); }
+          for (const sd of (r.median ? [1] : [-1, 1])) { const x = ax + dx * t - dz * off * sd, z = az + dz * t + dx * off * sd; if (!nearJunction(x, z, 6)) treePts.push([x, z, kind0]); }
+          if (r.median >= 3.5) { const mo = -(w + r.median / 2); const x = ax + dx * t - dz * mo, z = az + dz * t + dx * mo; if (!nearJunction(x, z, 6)) treePts.push([x, z, hashStr(Math.round(t), 7) < 0.5 ? 3 : 4]); }
         }
       } else if (r.kind === 0 && len > 12 && !r.tunnel) {
         // mahalla lanes and courtyards: mulberries, apricots and elms on both sides, irregular
@@ -345,7 +429,7 @@ export function buildCell(city, k, data) {
             if (hashStr(Math.round(t * sd), Math.round(ax + az)) < 0.35) continue;
             const off = w + 1.4 + hashStr(Math.round(az), Math.round(t)) * 1.6;
             const x = ax + dx * t - dz * off * sd, z = az + dz * t + dx * off * sd;
-            if (!nearJunction(x, z, 4)) treePts.push([x, z, 1]);
+            if (!nearJunction(x, z, 4)) { const hv2 = hashStr(Math.round(x), Math.round(z)); treePts.push([x, z, hv2 < 0.45 ? 1 : hv2 < 0.75 ? 2 : 3]); }
           }
         }
       }
@@ -378,8 +462,9 @@ export function buildCell(city, k, data) {
       }
     }
   };
-  fixUp(walkP, walkU); fixUp(markP);
+  fixUp(walkP, walkU); fixUp(markP); fixUp(medP);
   addMesh(walkP, mats.walk, { u: walkU });
+  if (medP.length) { const mu = []; for (let i = 0; i < medP.length; i += 3) mu.push(medP[i] / 4, medP[i + 2] / 4); addMesh(medP, mats.land[0], { u: mu }); }
   addMesh(markP, mats.marking);
   if (kerbP.length) {
     // kerb faces: make each quad face away from the carriageway is hard to know here — draw both sides
@@ -395,26 +480,35 @@ export function buildCell(city, k, data) {
     for (const r2 of b.blds) if (x > r2.minX - pad && x < r2.maxX + pad && z > r2.minZ - pad && z < r2.maxZ + pad) return true;
     return false;
   };
-  const pts = treePts.filter(([x, z, fruit]) => !inBuilding(x, z, fruit ? 0.6 : 2)).filter((_, i) => !mobile || i % 2 === 0).slice(0, mobile ? 110 : 280);
-  if (pts.length) {
-    const trunk = new THREE.InstancedMesh(city.treeGeo.trunk, mats.trunk, pts.length);
-    const crown = new THREE.InstancedMesh(city.treeGeo.crown, mats.crown, pts.length);
+  // trees mapped in OSM (single trees, tree rows) are used as they are; generated ones fill the streets where
+  // nothing is mapped. Nothing may stand on a carriageway (that is where the route line runs) or in a building.
+  for (const [x, z, t] of data.t || []) treePts.push([x, z, t === 1 ? 4 : t === 2 ? (hashStr(Math.round(x / 40), Math.round(z / 40)) < 0.6 ? 0 : 3) : (hashStr(Math.round(x), Math.round(z)) < 0.5 ? 0 : 2), true]);
+  const pts = treePts.filter(([x, z, type, mapped]) => !onRoad(x, z, mapped ? 0.2 : 0.9) && !inBuilding(x, z, type === 1 || mapped ? 0.6 : 2))
+    .filter((p2, i) => p2[3] || !mobile || i % 2 === 0).slice(0, mobile ? 140 : 360);
+  cell.trees = [];
+  const geos = treeGeos(city);
+  for (let type = 0; type < geos.length; type++) {
+    const list = pts.filter((p2) => p2[2] === type);
+    if (!list.length) continue;
+    const trunk = new THREE.InstancedMesh(geos[type].trunk, mats.trunk, list.length);
+    const crown = new THREE.InstancedMesh(geos[type].crown, mats.crown, list.length);
     const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tc = new THREE.Color();
-    pts.forEach(([x, z, fruit], i) => {
-      const hv = hashStr(Math.round(x * 3), Math.round(z * 3)), sc = fruit ? 0.55 + hv * 0.25 : 0.8 + hv * 0.55;
+    list.forEach(([x, z], i) => {
+      const hv = hashStr(Math.round(x * 3), Math.round(z * 3)), sc = 0.8 + hv * 0.45;
       tm.compose(new THREE.Vector3(x, 0, z), tq.setFromAxisAngle(UP, hv * 6.28), new THREE.Vector3(sc, sc * (0.9 + hv * 0.25), sc));
       trunk.setMatrixAt(i, tm); crown.setMatrixAt(i, tm);
-      tc.setHSL(fruit ? 0.25 + hv * 0.06 : 0.22 + hv * 0.08, 0.42, 0.28 + hv * 0.1);
+      const [h0, s0, l0] = TREE_HSL[type];
+      tc.setHSL(h0 + hv * 0.05, s0, l0 + hv * 0.08);
       crown.setColorAt(i, tc);
     });
     trunk.castShadow = crown.castShadow = true;
     group.add(trunk, crown);
-    cell.trees = [trunk, crown];
+    cell.trees.push(trunk, crown);
   }
 
   // ---------------- street objects
   const allSegs = runs.flatMap((r) => r.tunnel ? [] : r.pts.slice(0, -1).map((p, i) => ({ ax: p[0], az: p[1], bx: r.pts[i + 1][0], bz: r.pts[i + 1][1], width: r.width, kind: r.kind })));
-  const pp = [], pc = [], lampPos = [], glassG = [], mSigns = [], busSigns = [];
+  const pp = [], pc = [], lampPos = [], glassG = [], mSigns = [], busSigns = [], groundP = {};
   const c3 = new THREE.Color(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   const addBox = (x, z, rot, [px, py, pz, sx, sy, sz, color]) => {
     m4.compose(new THREE.Vector3(px, py, pz).applyAxisAngle(UP, rot).add(new THREE.Vector3(x, 0.02, z)), q.setFromAxisAngle(UP, rot), new THREE.Vector3(sx, sy, sz));
@@ -422,13 +516,70 @@ export function buildCell(city, k, data) {
     c3.set(color);
     for (let i = 0; i < idx.length; i++) { const v = new THREE.Vector3().fromBufferAttribute(pos, idx[i]).applyMatrix4(m4); pp.push(v.x, v.y, v.z); pc.push(c3.r, c3.g, c3.b); }
   };
+  // pedestrian crossing: white bars along the traffic, across the carriageway, and the blue sign on the
+  // kerb to the right of each approach, facing the drivers coming towards it
+  const zebP = [], signG = [];
+  const zebra = ([, kind, x, z, ang, width, oneway]) => {
+    const fx = Math.sin(ang), fz = Math.cos(ang), rx = -fz, rz = fx;   // along the road / across it (to the right)
+    const hw = width / 2, y = 0.075;
+    for (let o2 = -hw + 0.4; o2 < hw - 0.3; o2 += 1.0) {
+      const cx = x + rx * o2, cz = z + rz * o2;
+      pushQuad(zebP, [cx - rx * 0.25 - fx * 2, y, cz - rz * 0.25 - fz * 2], [cx + rx * 0.25 - fx * 2, y, cz + rz * 0.25 - fz * 2], [cx + rx * 0.25 + fx * 2, y, cz + rz * 0.25 + fz * 2], [cx - rx * 0.25 + fx * 2, y, cz - rz * 0.25 + fz * 2]);
+    }
+    if (kind === 'signal') return;                       // signal-controlled: the lights do the job
+    for (const dir of oneway ? [1] : [1, -1]) {
+      // approaching in direction (fx, fz) * dir: the sign stands on the right kerb, 2.5 m before the stripes
+      const ax = fx * dir, az = fz * dir, sx = -az, sz = ax;
+      const px = x - ax * 2.5 + sx * (hw + 0.9), pz = z - az * 2.5 + sz * (hw + 0.9);
+      const rot = Math.atan2(-ax, -az);                  // the sign's face (+z) looks back at the drivers
+      addBox(px, pz, rot, [0, 1.3, 0, 0.07, 2.6, 0.07, '#8a9199']);
+      m4.compose(new THREE.Vector3(0, 2.75, 0.05).applyAxisAngle(UP, rot).add(new THREE.Vector3(px, 0, pz)), q.setFromAxisAngle(UP, rot), new THREE.Vector3(0.6, 0.6, 1));
+      signG.push(new THREE.PlaneGeometry(1, 1).applyMatrix4(m4));
+    }
+  };
+  // courtyard and school gates: painted steel leaves (or a barrier arm), set into the wall opening
+  const GATE_COL = ['#2f6b4f', '#2c5a8a', '#6b3b2a', '#4c5560', '#7a6a2a', '#2e7f7a'];
+  const gate = ([, , x, z, ang, width, lift]) => {
+    const rot = ang + Math.PI / 2, c = GATE_COL[Math.floor(hashStr(x, z) * GATE_COL.length)];
+    if (lift) { addBox(x, z, rot, [-1.6, 0.5, 0, 0.18, 1, 0.18, '#d8d8d8']); addBox(x, z, rot, [0, 0.95, 0, 3.2, 0.09, 0.09, '#d32f2f']); return; }
+    addBox(x, z, rot, [0, 1.15, 0, width - 0.1, 2.3, 0.08, c]);
+    addBox(x, z, rot, [0, 2.36, 0, width, 0.1, 0.14, '#3a3d42']);
+    for (const sx of [-width / 2, width / 2]) addBox(x, z, rot, [sx, 1.25, 0, 0.18, 2.5, 0.18, '#5b5f66']);
+    addBox(x, z, rot, [0, 1.15, 0.05, 0.04, 2.2, 0.02, '#1d1f22']);
+  };
+  // doors on the building outline (OSM entrance nodes), facing out of the nearest wall
+  const door = ([, num, x, z, main]) => {
+    let best = null, bd = 3 * 3;
+    const bx0 = Math.floor(x / BUCKET), bz0 = Math.floor(z / BUCKET);
+    const bk = cell.buckets.get(bx0 * 100003 + bz0);
+    if (!bk) return;
+    for (const e of bk.edges) {
+      const [ax, az, ex, ez, rec] = e;
+      const dx = ex - ax, dz = ez - az, l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2));
+      const qx = ax + dx * t, qz = az + dz * t, d2 = (qx - x) ** 2 + (qz - z) ** 2;
+      if (d2 < bd) { bd = d2; best = { qx, qz, dx, dz, l: Math.sqrt(l2), rec }; }
+    }
+    if (!best) return;
+    let nx = -best.dz / best.l, nz = best.dx / best.l;
+    const ccx = (best.rec.minX + best.rec.maxX) / 2, ccz = (best.rec.minZ + best.rec.maxZ) / 2;
+    if ((best.qx - ccx) * nx + (best.qz - ccz) * nz < 0) { nx = -nx; nz = -nz; }
+    const rot = Math.atan2(nx, nz);
+    addBox(best.qx, best.qz, rot, [0, 1.05, 0.06, 1.15, 2.1, 0.08, main ? '#5a3a22' : '#4a4f57']);
+    addBox(best.qx, best.qz, rot, [0, 2.2, 0.06, 1.35, 0.12, 0.1, '#e8e4dc']);
+    if (main) addBox(best.qx, best.qz, rot, [0, 2.6, 0.55, 1.8, 0.1, 1.1, '#9aa0a6']);
+  };
   const place = (x, z, model) => {
     const g = model.clone().applyMatrix4(m4);
     return g;
   };
   void place;
+  const plates = [];
   for (const o of data.o || []) {
     const [type, name, ox, oz, extra, station] = o;
+    if (type === 'zebra') { zebra(o); continue; }
+    if (type === 'gate') { gate(o); continue; }
+    if (type === 'door') { door(o); continue; }
     if (type === 'signal') {
       const parts = city.models.signal;
       const f = faceRoad(ox, oz, allSegs), x = f.x, z = f.z, rot = f.rot + Math.PI;   // the signal model faces -z
@@ -437,7 +588,9 @@ export function buildCell(city, k, data) {
         if (shape === 'sphere') { lampPos.push([x, z, rot, px, py, pz, color]); continue; }
         addBox(x, z, rot, [px, py, pz, sx, sy, sz, color]);
       }
-      city.signalList.push({ x, z, cell: k, phase: hashStr(Math.round(x), Math.round(z)) * 32 });
+      // all the signal heads of one junction run on one cycle (OSM maps each head as its own node)
+      const mate = city.signalList.find((q2) => Math.abs(q2.x - x) < 50 && Math.abs(q2.z - z) < 50);
+      city.signalList.push({ x, z, cell: k, phase: mate ? mate.phase : hashStr(Math.round(x), Math.round(z)) * 32 });
       continue;
     }
     const { x, z, rot } = faceRoad(ox, oz, allSegs, type === 'bus' ? 1.2 : 2.5);
@@ -486,6 +639,45 @@ export function buildCell(city, k, data) {
     m.castShadow = true; m.receiveShadow = true;
     group.add(m);
   }
+  if (zebP.length) { fixUp(zebP); addMesh(zebP, mats.marking); }
+  if (signG.length) group.add(new THREE.Mesh(mergeGeometries(signG), mats.crossSign));
+  // walls and fences (OSM barrier ways), with the openings for gates already cut in the data
+  const wallP = [], wallC = [], fenceP = [];
+  const wc = new THREE.Color();
+  for (const [kind, h, flat] of data.w || []) {
+    const hv = hashStr(Math.round(flat[0]), Math.round(flat[1]));
+    wc.set(kind ? '#5d646c' : ['#d9cfbd', '#c8a77f', '#e6e1d6', '#bfae96', '#d2b48c'][Math.floor(hv * 5)]);
+    for (let i = 0; i + 3 < flat.length; i += 2) {
+      const ax = flat[i], az = flat[i + 1], bx = flat[i + 2], bz = flat[i + 3];
+      const len = Math.hypot(bx - ax, bz - az); if (len < 0.2) continue;
+      const tx = -(bz - az) / len * 0.13, tz = (bx - ax) / len * 0.13;
+      if (kind === 0) {
+        for (const sd of [1, -1]) pushQuad(wallP, [ax + tx * sd, 0, az + tz * sd], [bx + tx * sd, 0, bz + tz * sd], [bx + tx * sd, h, bz + tz * sd], [ax + tx * sd, h, az + tz * sd]);
+        pushQuad(wallP, [ax + tx, h, az + tz], [bx + tx, h, bz + tz], [bx - tx, h, bz - tz], [ax - tx, h, az - tz]);
+        for (let k2 = 0; k2 < 18; k2++) wallC.push(wc.r, wc.g, wc.b);
+      } else pushQuad(fenceP, [ax, 0, az], [bx, 0, bz], [bx, h, bz], [ax, h, az]);
+      // you can't drive through a wall
+      if (kind === 0 || h > 1.2) {
+        const rec = { h, xs: [ax, bx], zs: [az, bz], minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz), wall: true };
+        const e = [ax, az, bx, bz, rec];
+        for (let x = Math.floor(rec.minX / BUCKET); x <= Math.floor(rec.maxX / BUCKET); x++) for (let z = Math.floor(rec.minZ / BUCKET); z <= Math.floor(rec.maxZ / BUCKET); z++) bucket(x * 100003 + z).edges.push(e);
+      }
+    }
+  }
+  if (wallP.length) { const m = addMesh(wallP, mats.wallPlain, { c: wallC }); if (m) m.castShadow = true; }
+  if (fenceP.length) { const fu = []; for (let i = 0; i < fenceP.length; i += 18) { const L = Math.hypot(fenceP[i + 3] - fenceP[i], fenceP[i + 5] - fenceP[i + 2]); fu.push(0, 0, L / 0.6, 0, L / 0.6, 1, 0, 0, L / 0.6, 1, 0, 1); } addMesh(fenceP, mats.fence, { u: fu }); }
+  // ground cover from OSM land use: parks and lawns, water, industry, markets, cemeteries, fields, building sites, pitches
+  for (const g2 of data.g || []) {
+    const [cls, ext, holes] = g2;
+    const contour = []; for (let i = 0; i < ext.length; i += 2) contour.push(new THREE.Vector2(ext[i], ext[i + 1]));
+    const hs = (holes || []).map((h) => { const a2 = []; for (let i = 0; i < h.length; i += 2) a2.push(new THREE.Vector2(h[i], h[i + 1])); return a2; });
+    let tris; try { tris = THREE.ShapeUtils.triangulateShape(contour, hs); } catch (e) { continue; }
+    const all = contour.concat(...hs);
+    const gp = groundP[cls] || (groundP[cls] = { p: [], u: [] });
+    const y = cls === 4 ? 0.004 : 0.009;
+    for (const [a2, b2, c2] of tris) for (const ix of [a2, c2, b2]) { gp.p.push(all[ix].x, y, all[ix].y); gp.u.push(all[ix].x / 8, all[ix].y / 8); }
+  }
+  for (const cls in groundP) { const gp = groundP[cls]; fixUp(gp.p, gp.u); const m = addMesh(gp.p, mats.land[cls], { u: gp.u }); if (m) m.castShadow = false; }
   if (glassG.length) group.add(new THREE.Mesh(mergeGeometries(glassG.map((g) => g.index ? g.toNonIndexed() : g)), mats.glass));
   if (mSigns.length) group.add(new THREE.Mesh(mergeGeometries(mSigns), mats.metroM));
   if (busSigns.length) group.add(new THREE.Mesh(mergeGeometries(busSigns), mats.busSign));
@@ -497,7 +689,7 @@ export function buildCell(city, k, data) {
       lamps.setColorAt(i, city.lightOff);
     });
     cell.lampMesh = lamps;
-    cell.lampInfo = lampPos.map((l) => ({ x: l[0], z: l[1], color: l[6] }));
+    cell.lampInfo = lampPos.map((l) => { const sg = city.signalList.find((q2) => q2.x === l[0] && q2.z === l[1]); return { x: l[0], z: l[1], color: l[6], phase: sg ? sg.phase : 0 }; });
     group.add(lamps);
   }
 

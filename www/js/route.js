@@ -42,14 +42,20 @@ export class RoadGraph {
     this.nx = new Float32Array(N); this.nz = new Float32Array(N);
     for (let i = 0; i < N; i++) { this.nx[i] = d.nodes[2 * i]; this.nz[i] = d.nodes[2 * i + 1]; }
     // edge e: from u to v, length (m), kind 0..2, flags (1 one-way, 2 bridge, 4 tunnel, 8 roundabout), name, km/h, width, points
-    this.edges = d.edges.map(([u, v, len10, kind, flags, name, speed, mid, width], i) => {
+    this.edges = d.edges.map(([u, v, len10, kind, flags, name, speed, mid, width, way], i) => {
       const pts = [[this.nx[u], this.nz[u]]];
       for (let j = 0; j < mid.length; j += 2) pts.push([mid[j], mid[j + 1]]);
       pts.push([this.nx[v], this.nz[v]]);
       const cum = [0];
       for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
-      return { i, u, v, len: cum[cum.length - 1] || len10 / 10, kind, flags, oneway: !!(flags & 1), name: name >= 0 ? d.names[name] : '', speed, width: width || 6, pts, cum };
+      return { i, u, v, len: cum[cum.length - 1] || len10 / 10, kind, flags, oneway: !!(flags & 1), name: name >= 0 ? d.names[name] : '', speed, width: width || 6, pts, cum, way: way ?? -1 };
     });
+    // turn restrictions at a node: "node|fromWay" -> { no: Set(toWay), only: toWay }
+    this.turns = new Map();
+    for (const [n, from, to, only] of d.turns || []) {
+      const k = n + '|' + from; let t = this.turns.get(k); if (!t) this.turns.set(k, (t = { no: new Set(), only: null }));
+      if (only) t.only = to; else t.no.add(to);
+    }
     this.out = Array.from({ length: N }, () => []);
     for (const e of this.edges) {
       this.out[e.u].push([e.i, 1]);
@@ -114,59 +120,83 @@ export class RoadGraph {
     return out;
   }
 
-  cost(E) { return E.len / (Math.max(12, E.speed) / 3.6 * 0.85); }
+  // travel time; private lanes and driveways only as a last resort
+  cost(E) { return E.len / (Math.max(8, E.speed) / 3.6 * 0.85) * (E.flags & 32 ? 3 : 1); }
 
   // from = { e, s, dir } (dir +1 = travelling u->v, -1 = v->u, 0 = either; reversing costs a U-turn)
   // to   = { e, s, dir } the stop, reached driving in direction dir along its edge
+  // The search runs over (edge, direction) states so a turn can be judged by where you come from:
+  // OSM turn restrictions are obeyed, left turns cost a little more than right turns, U-turns only at dead ends.
   route(from, to) {
-    const N = this.nx.length;
-    const g = new Float64Array(N).fill(Infinity);
-    const prev = new Int32Array(N).fill(-1), prevDir = new Int8Array(N);
+    const E = this.edges, NE = E.length;
+    const g = new Float64Array(NE * 2).fill(Infinity);
+    const prev = new Int32Array(NE * 2).fill(-1);
     const heap = new Heap();
     const tx = this.pointAt(to.e, to.s), vmax = 80 / 3.6;
+    const F = E[from.e], T = E[to.e];
+    if (to.dir < 0 && T.oneway) return null;
+    const speedT = (e) => Math.max(8, e.speed) / 3.6 * 0.85;
+    const sid = (ei, dir) => ei * 2 + (dir > 0 ? 0 : 1);
+    const endNode = (ei, dir) => (dir > 0 ? E[ei].v : E[ei].u);
     const h = (n) => Math.hypot(this.nx[n] - tx.x, this.nz[n] - tx.z) / vmax;
-    const F = this.edges[from.e], T = this.edges[to.e];
     const UTURN = 25;
-    const speedT = (E) => Math.max(12, E.speed) / 3.6 * 0.85;
-    const startOpts = [];
-    if (from.dir >= 0 || !F.oneway) startOpts.push([F.v, (F.len - from.s) / speedT(F) + (from.dir < 0 ? UTURN : 0), 1]);
-    if (!F.oneway) startOpts.push([F.u, from.s / speedT(F) + (from.dir > 0 ? UTURN : 0), -1]);
-    let direct = Infinity;
+    // heading at the end / start of an edge, for turn costs
+    const headOut = (ei, dir) => { const p = E[ei].pts, a = dir > 0 ? p[p.length - 2] : p[1], b = dir > 0 ? p[p.length - 1] : p[0]; return [b[0] - a[0], b[1] - a[1]]; };
+    const headIn = (ei, dir) => { const p = E[ei].pts, a = dir > 0 ? p[0] : p[p.length - 1], b = dir > 0 ? p[1] : p[p.length - 2]; return [b[0] - a[0], b[1] - a[1]]; };
+    const turnCost = (ei, d1, ej, d2) => {
+      const [ax, az] = headOut(ei, d1), [bx, bz] = headIn(ej, d2);
+      const ang = Math.atan2(ax * bz - az * bx, ax * bx + az * bz);      // + = right (x east, z south)
+      if (Math.abs(ang) < 0.5) return 0;
+      return ang > 0 ? 2 : 6;
+    };
+    const allowed = (n, ei, ej) => {
+      const t = this.turns.get(n + '|' + E[ei].way);
+      if (!t) return true;
+      if (t.only !== null && t.only !== undefined) return E[ej].way === t.only;
+      return !t.no.has(E[ej].way);
+    };
+    const push = (st, c, n) => { if (c < g[st]) { g[st] = c; heap.push(c + h(n), st); return true; } return false; };
+    if (from.dir >= 0 || !F.oneway) { const st = sid(from.e, 1); if (push(st, (F.len - from.s) / speedT(F) + (from.dir < 0 ? UTURN : 0), F.v)) prev[st] = -2; }
+    if (!F.oneway) { const st = sid(from.e, -1); if (push(st, from.s / speedT(F) + (from.dir > 0 ? UTURN : 0), F.u)) prev[st] = -2; }
+    let best = Infinity, bestState = -1;
     if (from.e === to.e) {
       const forward = to.s >= from.s;
-      if (to.dir >= 0 && forward && (from.dir >= 0)) direct = (to.s - from.s) / speedT(F);
-      if (to.dir <= 0 && !forward && !F.oneway && from.dir <= 0) direct = (from.s - to.s) / speedT(F);
+      if (to.dir >= 0 && forward && from.dir >= 0) { best = (to.s - from.s) / speedT(F); bestState = -3; }
+      if (to.dir <= 0 && !forward && !F.oneway && from.dir <= 0) { best = (from.s - to.s) / speedT(F); bestState = -3; }
     }
-    for (const [n, c] of startOpts) if (c < g[n]) { g[n] = c; prev[n] = -2; heap.push(c + h(n), n); }
-    // the goal is entered from T.u (dir +1) or T.v (dir -1)
-    const goalNode = to.dir >= 0 ? T.u : T.v, goalAdd = (to.dir >= 0 ? to.s : T.len - to.s) / speedT(T);
-    if (to.dir < 0 && T.oneway) return null;
-    let best = direct, bestVia = direct < Infinity ? 'direct' : null;
+    const goalAdd = (to.dir >= 0 ? to.s : T.len - to.s) / speedT(T);
     while (heap.size) {
-      const n = heap.pop();
-      if (g[n] + h(n) >= best) break;
-      if (n === goalNode && g[n] + goalAdd < best) { best = g[n] + goalAdd; bestVia = 'graph'; }
-      for (const [ei, dir] of this.out[n]) {
-        const E = this.edges[ei];
-        const m = dir > 0 ? E.v : E.u;
-        const c = g[n] + this.cost(E);
-        if (c < g[m]) { g[m] = c; prev[m] = ei; prevDir[m] = dir; heap.push(c + h(m), m); }
+      const st = heap.pop();
+      const ei = st >> 1, dir = st & 1 ? -1 : 1, n = endNode(ei, dir);
+      if (g[st] + h(n) >= best) break;
+      const outs = this.out[n];
+      for (const [ej, d2] of outs) {
+        const uturn = ej === ei && d2 === -dir;
+        if (uturn && outs.length > 1) continue;                    // U-turns only where the street ends
+        if (!allowed(n, ei, ej)) continue;
+        const tc = uturn ? UTURN : turnCost(ei, dir, ej, d2);
+        if (ej === to.e && d2 === (to.dir >= 0 ? 1 : -1)) {
+          const c = g[st] + tc + goalAdd;
+          if (c < best) { best = c; bestState = st; }
+        }
+        const s2 = sid(ej, d2);
+        const c = g[st] + tc + this.cost(E[ej]);
+        if (push(s2, c, endNode(ej, d2))) prev[s2] = st;
       }
     }
-    if (!bestVia) return null;
-    // ---- rebuild the drive as a polyline
+    if (bestState === -1) return null;
     let pts;
-    if (bestVia === 'direct') pts = this.slice(from.e, from.s, to.s);
+    if (bestState === -3) pts = this.slice(from.e, from.s, to.s);
     else {
       const chain = [];
-      let n = goalNode;
-      while (prev[n] >= 0) { const ei = prev[n], dir = prevDir[n]; chain.push([ei, dir]); n = dir > 0 ? this.edges[ei].u : this.edges[ei].v; }
+      let st = bestState;
+      while (st >= 0) { chain.push(st); st = prev[st]; }
       chain.reverse();
-      const startDir = n === F.v ? 1 : -1;
-      pts = this.slice(from.e, from.s, startDir > 0 ? F.len : 0);
-      for (const [ei, dir] of chain) {
-        const E = this.edges[ei];
-        const p = dir > 0 ? E.pts : E.pts.slice().reverse();
+      const first = chain[0], fdir = first & 1 ? -1 : 1;
+      pts = this.slice(from.e, from.s, fdir > 0 ? F.len : 0);
+      for (const st2 of chain.slice(1)) {
+        const ei = st2 >> 1, dir = st2 & 1 ? -1 : 1;
+        const p = dir > 0 ? E[ei].pts : E[ei].pts.slice().reverse();
         for (let j = 1; j < p.length; j++) pts.push(p[j]);
       }
       const tail = to.dir >= 0 ? this.slice(to.e, 0, to.s) : this.slice(to.e, T.len, to.s);

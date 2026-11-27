@@ -90,9 +90,8 @@ node_use = Counter()
 for wid, pts, t in d['ways']:
     hw = t.get('highway')
     if hw not in KIND: continue
-    if hw == 'service' and t.get('service') in ('parking_aisle', 'driveway', 'drive-through', 'emergency_access'): continue
-    if t.get('access') in ('no', 'private') or t.get('motor_vehicle') in ('no', 'private'):
-        if hw not in ('residential', 'living_street'): continue
+    if hw == 'service' and t.get('service') in ('parking_aisle', 'drive-through', 'emergency_access'): continue
+    private = t.get('access') in ('no', 'private') or t.get('motor_vehicle') in ('no', 'private') or t.get('service') == 'driveway'
     if t.get('area') == 'yes': continue
     # keep the way if any part lies in the city (clipped below for rendering; the graph keeps whole ways)
     if not any(CLIP.contains(Point(lon, lat)) for _, lon, lat in pts[:: max(1, len(pts) // 8)] + [pts[-1]]): continue
@@ -103,17 +102,22 @@ for wid, pts, t in d['ways']:
     except ValueError: layer = 0
     bridge = t.get('bridge') not in (None, 'no')
     tunnel = t.get('tunnel') not in (None, 'no') or t.get('covered') == 'yes'
-    try: lanes = int(t.get('lanes', '0'))
-    except ValueError: lanes = 0
+    def ival(k):
+        try: return int(str(t.get(k, '0')).split(';')[0])
+        except ValueError: return 0
+    lanes = ival('lanes'); lf = ival('lanes:forward'); lb = ival('lanes:backward')
+    if oneway and not lanes: lanes = lf
     k = KIND[hw]
     if hw.endswith('_link'): base_w = 6.5
     elif lanes: base_w = lanes * 3.3 + (0 if oneway else 0.5)
     else: base_w = {2: 10.5 if oneway else 15, 1: 7 if oneway else 10, 0: 5.5}[k]
     if hw in ('service', 'living_street') and not lanes: base_w = 4.2
+    if private: base_w = min(base_w, 3.6)
     width = max(3.8, min(24, base_w))
     xy = [P(lon, lat) for _, lon, lat in pts]
     r = {'id': wid, 'hw': hw, 'kind': k, 'name': name_id(nm(t)), 'oneway': oneway, 'layer': layer, 'bridge': bridge,
-         'tunnel': tunnel, 'width': round(width, 1), 'speed': SPEED.get(hw.replace('_link', ''), 30),
+         'tunnel': tunnel, 'width': round(width, 1), 'speed': 8 if private else SPEED.get(hw.replace('_link', ''), 30), 'private': private,
+         'lanes': lanes, 'lanes_f': lf, 'lanes_b': lb, 'median': 0,
          'nodes': [n for n, _, _ in pts], 'xy': xy, 'round': t.get('junction') in ('roundabout', 'circular')}
     roads.append(r)
     for n in r['nodes']: node_use[n] += 1
@@ -138,7 +142,7 @@ for ri, r in enumerate(roads):
                     start = i; continue          # the road network ends where the drawn map ends
                 u, v = gn(ns[start], xy[start]), gn(ns[i], xy[i])
                 mid = [c for p in seg[1:-1] for c in (R(p[0]), R(p[1]))]
-                flags = (1 if r['oneway'] else 0) | (2 if r['bridge'] else 0) | (4 if r['tunnel'] else 0) | (8 if r['round'] else 0)
+                flags = (1 if r['oneway'] else 0) | (2 if r['bridge'] else 0) | (4 if r['tunnel'] else 0) | (8 if r['round'] else 0) | (32 if r['private'] else 0)
                 edges.append([u, v, R(L * 10), r['kind'], flags, r['name'], r['speed'], ri, mid, r['width']])
             start = i
 print('graph nodes', len(gxy), 'edges', len(edges))
@@ -161,7 +165,20 @@ print('main component nodes', len(main), 'of', len(gxy))
 keep_nodes = sorted(main)
 remap = {o: i for i, o in enumerate(keep_nodes)}
 G_nodes = [c for o in keep_nodes for c in gxy[o]]
-G_edges = [[remap[e[0]], remap[e[1]], e[2], e[3], e[4], e[5], e[6], e[8], e[9]] for e in edges if e[0] in main and e[1] in main]
+G_edges = [[remap[e[0]], remap[e[1]], e[2], e[3], e[4], e[5], e[6], e[8], e[9], e[7]] for e in edges if e[0] in main and e[1] in main]
+# ---- turn restrictions (OSM type=restriction): [via graph node, from way, to way, 1 = only / 0 = no]
+way_ix = {r['id']: i for i, r in enumerate(roads)}
+TURNS = []
+for rid, mem, t in d.get('restr', []):
+    kind = t.get('restriction', '')
+    if not kind or t.get('except', '').find('motorcar') >= 0: continue
+    fr = [m[1] for m in mem if m[2] == 'from' and m[0] == 'w']
+    to = [m[1] for m in mem if m[2] == 'to' and m[0] == 'w']
+    via = [m[1] for m in mem if m[2] == 'via' and m[0] == 'n']
+    if len(fr) != 1 or len(to) != 1 or len(via) != 1: continue          # via-way restrictions are not used
+    if fr[0] not in way_ix or to[0] not in way_ix or via[0] not in gnode or gnode[via[0]] not in remap: continue
+    TURNS.append([remap[gnode[via[0]]], way_ix[fr[0]], way_ix[to[0]], 1 if kind.startswith('only_') else 0])
+print('turn restrictions used', len(TURNS))
 in_graph_way = {e[7] for e in edges if e[0] in main}
 
 # ------------------------------------------------------------ buildings
@@ -180,6 +197,12 @@ def colour(v):
     if re.fullmatch(r'#[0-9a-f]{6}', v): return v
     if re.fullmatch(r'#[0-9a-f]{3}', v): return '#' + ''.join(c * 2 for c in v[1:])
     return COLORS.get(v, 0)
+
+def shrink(p, q, d):
+    # point d metres from p towards q
+    L = math.hypot(q[0] - p[0], q[1] - p[1]) or 1
+    t = min(0.5, d / L)
+    return (p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
 
 def num(v):
     if not v: return None
@@ -284,12 +307,17 @@ print('pois', len(pois), Counter(p[0] for p in pois).most_common(8))
 
 # ------------------------------------------------------------ landmarks (positions from the data, never guessed)
 def find(pred, kind='any'):
+    def in_areas():
+        for oid, fw, rings, t in d['areas']:
+            if pred(t):
+                c = Polygon(rings[0][0]).representative_point(); return P(c.x, c.y), ('way' if fw else 'relation') + ' %d' % oid
+        return None, None
+    if kind == 'area':                   # a building outline is a better anchor than a stray point inside it
+        r = in_areas()
+        if r[0]: return r
     for nid, lon, lat, t in d['nodes']:
         if pred(t): return P(lon, lat), 'node %d' % nid
-    for oid, fw, rings, t in d['areas']:
-        if pred(t):
-            c = Polygon(rings[0][0]).representative_point(); return P(c.x, c.y), ('way' if fw else 'relation') + ' %d' % oid
-    return None, None
+    return in_areas()
 def has(t, *ws): s = ' '.join(str(v) for v in t.values()).lower(); return all(w.lower() in s for w in ws)
 LMK = [
     ('tv', 'Toshkent teleminorasi', lambda t: t.get('man_made') in ('tower', 'communications_tower') and (has(t, 'teleminora') or has(t, 'телебашня') or has(t, 'tv tower'))),
@@ -307,7 +335,7 @@ LMK = [
 ]
 landmarks = []
 for key, label, pred in LMK:
-    pos, src = find(pred)
+    pos, src = find(pred, 'area' if key == 'museum' else 'any')
     print('landmark', key, pos and (R(pos[0]), R(pos[1])), src)
     if pos: landmarks.append({'id': key, 'name': label, 'x': R(pos[0]), 'z': R(pos[1]), 'osm': src})
 
@@ -328,8 +356,148 @@ for oid, fw, rings, t in d['areas']:
                 places.append(['mahalla', named, R(x), R(z)])
 print('places', len(places))
 
+# ------------------------------------------------------------ medians: the other carriageway of a divided road
+# a one-way road with an opposite one-way road of the same name 4-45 m to its left has a median on that side
+from shapely.strtree import STRtree as _STR
+ow = [r for r in roads if r['oneway'] and r['kind'] >= 1 and len(r['xy']) >= 2]
+ow_lines = [LineString(r['xy']) for r in ow]
+ow_tree = _STR(ow_lines)
+for i, r in enumerate(ow):
+    xy = r['xy']; j = len(xy) // 2
+    a, b = xy[max(0, j - 1)], xy[min(len(xy) - 1, j)] if len(xy) > 2 else (xy[0], xy[1])
+    if len(xy) == 2: a, b = xy[0], xy[1]
+    dx, dz = b[0] - a[0], b[1] - a[1]; L = math.hypot(dx, dz) or 1; ux, uz = dx / L, dz / L
+    mx, mz = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+    lx, lz = uz, -ux                     # left of travel in x-east / z-south
+    best = None
+    for k in ow_tree.query(Point(mx, mz).buffer(45)):
+        if k == i: continue
+        o = ow[k]
+        if o['name'] != r['name'] or r['name'] < 0: continue
+        p = ow_lines[k].interpolate(ow_lines[k].project(Point(mx, mz)))
+        ox, oz = p.x - mx, p.y - mz
+        side = ox * lx + oz * lz
+        dist = math.hypot(ox, oz)
+        if side <= 0 or dist < 4 or dist > 45: continue
+        if best is None or dist < best: best = dist
+    if best: r['median'] = round(best - (r['width'] / 2) * 2, 1)       # kerb-to-kerb between the carriageways (approx.)
+print('roads with a median', sum(1 for r in roads if r['median'] > 0))
+
+# ------------------------------------------------------------ pedestrian crossings on the carriageway
+node_road = {}
+for r in roads:
+    for j, n in enumerate(r['nodes']):
+        if n not in node_road or r['kind'] > node_road[n][0]['kind']: node_road[n] = (r, j)
+zebras = []
+for nid, lon, lat, t in d['nodes']:
+    if t.get('highway') != 'crossing' or t.get('crossing') in ('no', 'unmarked') or nid not in node_road: continue
+    r, j = node_road[nid]
+    if r['kind'] < 1 and r['width'] < 6: continue
+    a = r['xy'][max(0, j - 1)]; b = r['xy'][min(len(r['xy']) - 1, j + 1)]
+    ang = math.atan2(b[0] - a[0], b[1] - a[1])
+    x, z = P(lon, lat)
+    zebras.append(['zebra', 'signal' if t.get('crossing') == 'traffic_signals' else '', R(x), R(z), round(ang, 3), r['width'], 1 if r['oneway'] else 0])
+print('zebra crossings', len(zebras))
+
+# ------------------------------------------------------------ walls, fences and gates (mahalla courtyards, schools, factories)
+gate_nodes = {nid: (lon, lat, t) for nid, lon, lat, t in d['nodes'] if t.get('barrier') in ('gate', 'lift_gate', 'swing_gate', 'sliding_gate')}
+walls = []
+gates = []
+for wid, pts, t in d['ways']:
+    bt = t.get('barrier')
+    if bt not in ('wall', 'fence', 'retaining_wall'): continue
+    if not CLIP.contains(Point(pts[0][1], pts[0][2])): continue
+    xy = [P(lon, lat) for _, lon, lat in pts]
+    h = num(t.get('height')) or (2.4 if bt == 'wall' else 1.8 if bt == 'fence' else 1.2)
+    # cut a 3.2 m opening at every gate on the wall
+    run = []
+    for j, (n, lon, lat) in enumerate(pts):
+        if n in gate_nodes and 0 < j < len(pts) - 1:
+            a, b = xy[j - 1], xy[j + 1]; ang = math.atan2(b[0] - a[0], b[1] - a[1])
+            gates.append(['gate', '', R(xy[j][0]), R(xy[j][1]), round(ang, 3), 3.2, 1 if gate_nodes[n][2].get('barrier') == 'lift_gate' else 0])
+            if run: walls.append([0 if bt != 'fence' else 1, round(min(h, 4), 1), run + [shrink(xy[j], xy[j - 1], 1.6)]])
+            run = [shrink(xy[j], xy[j + 1], 1.6)]
+        else:
+            run.append(xy[j])
+    if len(run) >= 2: walls.append([0 if bt != 'fence' else 1, round(min(h, 4), 1), run])
+# a drivable road crossing a wall means an opening that OSM didn't mark (no gate node): cut one, as wide
+# as the road plus a metre, so walls never stand across a carriageway
+# bridges too: the ground is flat in the game, so a bridge over a walled road would meet the wall
+road_lines = [(LineString(r['xy']), r['width']) for r in roads if len(r['xy']) >= 2 and not r['tunnel']]
+road_tree = _STR([l for l, _ in road_lines])
+cut_walls, cuts = [], 0
+for w in walls:
+    line = LineString(w[2])
+    if line.length < 0.5: continue
+    gaps = []
+    for k in road_tree.query(line):
+        rl, rw = road_lines[k]
+        x = line.intersection(rl)
+        pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', [])) if x.geom_type == 'MultiPoint' else []
+        for p0 in pts:
+            dpos = line.project(p0)
+            gaps.append((dpos - rw / 2 - 0.5, dpos + rw / 2 + 0.5))
+    if not gaps: cut_walls.append(w); continue
+    gaps.sort(); cuts += len(gaps)
+    pos = 0.0
+    for g0, g1 in gaps + [(line.length + 1, line.length + 1)]:
+        if g0 - pos > 0.6:
+            from shapely.ops import substring
+            piece = substring(line, max(0, pos), min(line.length, g0))
+            if piece.geom_type == 'LineString' and len(piece.coords) >= 2: cut_walls.append([w[0], w[1], list(piece.coords)])
+        pos = max(pos, g1)
+walls = cut_walls
+print('walls', len(walls), 'gates', len(gates), 'openings cut where roads cross walls', cuts)
+
+# ------------------------------------------------------------ doors (entrance nodes on building outlines)
+doors = []
+for nid, lon, lat, t in d['nodes']:
+    if 'entrance' in t and CLIP.contains(Point(lon, lat)):
+        x, z = P(lon, lat); doors.append(['door', t.get('addr:housenumber', ''), R(x * 10) / 10, R(z * 10) / 10, 1 if t.get('entrance') == 'main' else 0])
+print('doors', len(doors))
+
+# ------------------------------------------------------------ mapped trees (single trees and tree rows)
+mtrees = []
+for nid, lon, lat, t in d['nodes']:
+    if t.get('natural') == 'tree' and CLIP.contains(Point(lon, lat)):
+        x, z = P(lon, lat); mtrees.append([R(x * 10) / 10, R(z * 10) / 10, 1 if t.get('leaf_type') == 'needleleaved' else 0])
+for wid, pts, t in d['ways']:
+    if t.get('natural') != 'tree_row' or not CLIP.contains(Point(pts[0][1], pts[0][2])): continue
+    xy = [P(lon, lat) for _, lon, lat in pts]
+    acc = 0
+    for j in range(len(xy) - 1):
+        L = math.hypot(xy[j + 1][0] - xy[j][0], xy[j + 1][1] - xy[j][1]); tpos = (7 - acc) if acc else 0
+        while tpos < L:
+            f = tpos / L if L else 0
+            mtrees.append([R((xy[j][0] + (xy[j + 1][0] - xy[j][0]) * f) * 10) / 10, R((xy[j][1] + (xy[j + 1][1] - xy[j][1]) * f) * 10) / 10, 2])
+            tpos += 7
+        acc = (acc + L) % 7
+print('mapped trees', len(mtrees))
+
+# ------------------------------------------------------------ ground: parks, grass, water, industry, markets, cemeteries
+GROUND = {('leisure', 'park'): 0, ('leisure', 'garden'): 0, ('landuse', 'grass'): 0, ('natural', 'grass'): 0, ('landuse', 'meadow'): 0,
+          ('landuse', 'recreation_ground'): 0, ('landuse', 'village_green'): 0, ('natural', 'scrub'): 0, ('natural', 'wood'): 6, ('landuse', 'forest'): 6,
+          ('landuse', 'industrial'): 2, ('landuse', 'railway'): 2, ('landuse', 'garages'): 2, ('landuse', 'commercial'): 3, ('landuse', 'retail'): 3,
+          ('amenity', 'parking'): 3, ('amenity', 'marketplace'): 3, ('natural', 'water'): 4, ('waterway', 'riverbank'): 4, ('landuse', 'reservoir'): 4,
+          ('landuse', 'cemetery'): 5, ('amenity', 'grave_yard'): 5, ('landuse', 'farmland'): 7, ('landuse', 'orchard'): 7, ('landuse', 'allotments'): 7,
+          ('landuse', 'construction'): 8, ('landuse', 'brownfield'): 8, ('leisure', 'pitch'): 9, ('leisure', 'playground'): 9, ('leisure', 'stadium'): 9}
+ground = []
+for oid, fw, rings, t in d['areas']:
+    if 'building' in t: continue
+    cls = None
+    for k2, v2 in t.items():
+        if (k2, v2) in GROUND: cls = GROUND[(k2, v2)]; break
+    if cls is None: continue
+    try:
+        g = Polygon([P(*p) for p in rings[0][0]], [[P(*p) for p in h] for h in rings[0][1]]).buffer(0)
+    except Exception: continue
+    if g.is_empty or g.area < 30: continue
+    if not CITY_PM.intersects(g): continue
+    ground.append((cls, g))
+print('ground areas', len(ground))
+
 # ------------------------------------------------------------ write cells
-cells = defaultdict(lambda: {'b': [], 'r': [], 'o': [], 'p': []})
+cells = defaultdict(lambda: {'b': [], 'r': [], 'o': [], 'p': [], 'w': [], 't': [], 'g': []})
 def ck(x, z): return f'{math.floor(x / CELL)}_{math.floor(z / CELL)}'
 for b in buildings:
     flat = [R(c) for p in b['xy'] for c in p]
@@ -341,7 +509,7 @@ for ri, r in enumerate(roads):
     run, run_cell = [], None
     def flush():
         if len(run) >= 2:
-            cells[run_cell]['r'].append([r['kind'], r['width'], flags, r['layer'], names[r['name']] if r['name'] >= 0 else '', [R(c * 10) / 10 for p in run for c in p]])
+            cells[run_cell]['r'].append([r['kind'], r['width'], flags | (16 if r['median'] > 0 else 0) | (32 if r['private'] else 0), r['layer'], names[r['name']] if r['name'] >= 0 else '', [R(c * 10) / 10 for p in run for c in p], r['lanes'], r['median']])
     for j in range(len(xy) - 1):
         a, b2 = xy[j], xy[j + 1]
         mx, mz = (a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2
@@ -354,6 +522,30 @@ for ri, r in enumerate(roads):
     flush()
 for o in objects: cells[ck(o[2], o[3])]['o'].append(o[:4] + o[4:5] + ([o[5]] if len(o) > 5 else []))
 for p in pois: cells[ck(p[2], p[3])]['p'].append(p)
+for z in zebras + gates + doors: cells[ck(z[2], z[3])]['o'].append(z)
+for w in walls:
+    pts = w[2]
+    # split long walls by cell so each cell owns its piece
+    run, rc = [pts[0]], ck(*pts[0])
+    for p2 in pts[1:]:
+        c2 = ck((run[-1][0] + p2[0]) / 2, (run[-1][1] + p2[1]) / 2)
+        if c2 != rc and len(run) >= 2:
+            cells[rc]['w'].append([w[0], w[1], [R(c * 10) / 10 for q in run for c in q]]); run = [run[-1]]
+        rc = c2; run.append(p2)
+    if len(run) >= 2: cells[rc]['w'].append([w[0], w[1], [R(c * 10) / 10 for q in run for c in q]])
+for t3 in mtrees: cells[ck(t3[0], t3[1])]['t'].append(t3)
+from shapely.geometry import box as _box
+for cls, g in ground:
+    x0, z0, x1, z1 = g.bounds
+    for cx in range(math.floor(x0 / CELL), math.floor(x1 / CELL) + 1):
+        for cz in range(math.floor(z0 / CELL), math.floor(z1 / CELL) + 1):
+            piece = g.intersection(_box(cx * CELL, cz * CELL, (cx + 1) * CELL, (cz + 1) * CELL))
+            for pg in ([piece] if piece.geom_type == 'Polygon' else list(getattr(piece, 'geoms', []))):
+                if pg.geom_type != 'Polygon' or pg.area < 20: continue
+                pg = pg.simplify(0.6)
+                ext = [R(c * 10) / 10 for q in list(pg.exterior.coords)[:-1] for c in q]
+                holes = [[R(c * 10) / 10 for q in list(h.coords)[:-1] for c in q] for h in pg.interiors if Polygon(h).area > 40]
+                if len(ext) >= 6: cells[f'{cx}_{cz}']['g'].append([cls, ext] + ([holes] if holes else []))
 
 os.makedirs(os.path.join(OUT, 'cells'), exist_ok=True)
 old_cells = set(os.listdir(os.path.join(OUT, 'cells')))
@@ -363,7 +555,7 @@ for k, c in cells.items():
 print('cells written', len(cells))
 
 # ------------------------------------------------------------ graph + search + index
-json.dump({'v': 2, 'nodes': G_nodes, 'edges': G_edges, 'names': names}, open(os.path.join(OUT, 'graph.json'), 'w'), separators=(',', ':'), ensure_ascii=False)
+json.dump({'v': 3, 'nodes': G_nodes, 'edges': G_edges, 'names': names, 'turns': TURNS}, open(os.path.join(OUT, 'graph.json'), 'w'), separators=(',', ':'), ensure_ascii=False)
 
 search = []
 def dname(x, z):

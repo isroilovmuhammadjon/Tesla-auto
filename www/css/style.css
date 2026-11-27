@@ -506,3 +506,6 @@ body.touch-mode .find-box:not([hidden]) { top: 8px; right: 50%; transform: trans
   body.touch-mode #taxiPanel:not([hidden]) { left: 21vw; transform: none; max-width: 34vw; min-width: 0; text-align: left; }
   body.touch-mode.osm-map .fps { display: none; }
 }
+
+/* HUD off (H): the street through the windshield only */
+body.hud-off #hud > *:not(#popups):not(#taxiToast):not(#taxiOffer), body.hud-off .find-btn, body.hud-off .fps, body.hud-off .minimap { visibility: hidden !important; }
