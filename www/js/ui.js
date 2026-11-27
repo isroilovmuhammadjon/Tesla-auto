@@ -46,6 +46,24 @@ export class UI {
     }
   }
 
+  // the speed limit of the road ahead, shown like the sign (0 = not known)
+  setLimit(v) {
+    const el = this.limitEl || (this.limitEl = document.getElementById('hudLimit'));
+    if (!el || this.limitShown === v) return;
+    this.limitShown = v;
+    el.hidden = !v; el.textContent = v || '';
+  }
+
+  // a speed-camera fine (amounts are game values)
+  fine({ kmh, limit, fine, total }) {
+    const el = document.getElementById('fineCard');
+    if (!el) return;
+    const fmt = (n) => n.toLocaleString('ru-RU').replace(/\u00a0/g, ' ');
+    el.innerHTML = `<b>📷 JARIMA</b><span>Tezlik: ${kmh} km/soat · ruxsat ${limit} km/soat (+${kmh - limit})</span><span>Sabab: tezlikni oshirish, radar qayd etdi</span><strong>${fmt(fine)} so'm</strong><small>Jami jarimalar: ${fmt(total)} so'm · o'yin qiymatlari</small>`;
+    el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(this.fineT); this.fineT = setTimeout(() => { el.hidden = true; }, 5000);
+  }
+
   show(name) {
     for (const s of this.screens) s.classList.toggle('active', s.id === name);
   }

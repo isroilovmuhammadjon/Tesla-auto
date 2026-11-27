@@ -117,7 +117,7 @@ for wid, pts, t in d['ways']:
     xy = [P(lon, lat) for _, lon, lat in pts]
     r = {'id': wid, 'hw': hw, 'kind': k, 'name': name_id(nm(t)), 'oneway': oneway, 'layer': layer, 'bridge': bridge,
          'tunnel': tunnel, 'width': round(width, 1), 'speed': 8 if private else SPEED.get(hw.replace('_link', ''), 30), 'private': private,
-         'lanes': lanes, 'lanes_f': lf, 'lanes_b': lb, 'median': 0,
+         'lanes': lanes, 'lanes_f': lf, 'lanes_b': lb, 'median': 0, 'maxspeed': t.get('maxspeed'),
          'nodes': [n for n, _, _ in pts], 'xy': xy, 'round': t.get('junction') in ('roundabout', 'circular')}
     roads.append(r)
     for n in r['nodes']: node_use[n] += 1
@@ -169,6 +169,7 @@ G_edges = [[remap[e[0]], remap[e[1]], e[2], e[3], e[4], e[5], e[6], e[8], e[9], 
 # ---- turn restrictions (OSM type=restriction): [via graph node, from way, to way, 1 = only / 0 = no]
 way_ix = {r['id']: i for i, r in enumerate(roads)}
 TURNS = []
+TURN_SIGNS = []
 for rid, mem, t in d.get('restr', []):
     kind = t.get('restriction', '')
     if not kind or t.get('except', '').find('motorcar') >= 0: continue
@@ -178,6 +179,7 @@ for rid, mem, t in d.get('restr', []):
     if len(fr) != 1 or len(to) != 1 or len(via) != 1: continue          # via-way restrictions are not used
     if fr[0] not in way_ix or to[0] not in way_ix or via[0] not in gnode or gnode[via[0]] not in remap: continue
     TURNS.append([remap[gnode[via[0]]], way_ix[fr[0]], way_ix[to[0]], 1 if kind.startswith('only_') else 0])
+    TURN_SIGNS.append((via[0], way_ix[fr[0]], kind))
 print('turn restrictions used', len(TURNS))
 in_graph_way = {e[7] for e in edges if e[0] in main}
 
@@ -437,6 +439,109 @@ for nid, lon, lat, t in d['nodes']:
     zebras.append(['zebra', 'signal' if t.get('crossing') == 'traffic_signals' else '', R(x), R(z), round(ang, 3), r['width'], 1 if r['oneway'] else 0])
 print('zebra crossings', len(zebras))
 
+# ------------------------------------------------------------ road signs and speed cameras (only where the data says so)
+# A sign stands on the right-hand kerb of the approach it is for, facing the drivers on that approach.
+# 'travel' is the unit direction of the traffic the sign is meant for.
+signs, cameras = [], []
+def kerb_pt(x, z, tx, tz, width): return (x - tz * (width / 2 + 0.9), z + tx * (width / 2 + 0.9))
+def add_sign(kind, value, x, z, tx, tz, width):
+    kx, kz = kerb_pt(x, z, tx, tz, width)
+    signs.append(['sign', kind, R(kx * 10) / 10, R(kz * 10) / 10, round(math.atan2(tx, tz), 3), value])
+def along(r, start_end, dist):
+    # point `dist` metres in from the start (0) or the end (1) of a road, and the travel direction there
+    ln = LineString(r['xy']); L = ln.length
+    sdist = min(dist, L * 0.45) if start_end == 0 else max(L - dist, L * 0.55)
+    p0 = ln.interpolate(sdist); p1 = ln.interpolate(min(L, sdist + 1)) if start_end == 0 else ln.interpolate(max(0, sdist - 1))
+    dx, dz = p1.x - p0.x, p1.y - p0.y; l = math.hypot(dx, dz) or 1
+    return p0.x, p0.y, dx / l, dz / l
+def speed_of(v):
+    if not v: return None
+    v = str(v).strip()
+    if v.isdigit(): return int(v)
+    if v == 'UZ:living_street': return 20
+    return None
+# speed limits: at the start of every main road, and of any street with a limit other than 60 km/h
+for r in roads:
+    sp = speed_of(r['maxspeed'])
+    if not sp or len(r['xy']) < 2 or r['tunnel']: continue
+    L = LineString(r['xy']).length
+    if L < 120 or not (r['kind'] == 2 or sp != 60): continue
+    x, z, tx, tz = along(r, 0, 15); add_sign('speed', sp, x, z, tx, tz, r['width'])
+    if not r['oneway']: x, z, tx, tz = along(r, 1, 15); add_sign('speed', sp, x, z, tx, tz, r['width'])
+# one-way streets: "one way" at the start, "no entry" facing anyone who would come in from the far end
+for r in roads:
+    if not r['oneway'] or r['round'] or r['kind'] > 1 or len(r['xy']) < 2 or r['private'] or r['tunnel']: continue
+    if LineString(r['xy']).length < 40: continue
+    x, z, tx, tz = along(r, 0, 8); add_sign('oneway', 0, x, z, tx, tz, r['width'])
+    x, z, tx, tz = along(r, 1, 4); add_sign('no_entry', 0, x, z, -tx, -tz, r['width'])
+# stop / give way nodes (OSM): for the approach towards the junction the node belongs to
+node_ll = {}
+for nid, lon, lat, t in d['nodes']:
+    hw = t.get('highway')
+    if hw in ('stop', 'give_way') and nid in node_road:
+        r, j = node_road[nid]
+        ns = r['nodes']
+        # towards the nearer end that is a junction
+        fwd = next((k for k in range(j + 1, len(ns)) if node_use[ns[k]] > 1), None)
+        back = next((k for k in range(j - 1, -1, -1) if node_use[ns[k]] > 1), None)
+        x, z = P(lon, lat)
+        if t.get('direction') == 'backward' or (fwd is None and back is not None) or (back is not None and fwd is not None and j - back < fwd - j and t.get('direction') != 'forward'):
+            a2 = r['xy'][min(len(ns) - 1, j + 1)]; b2 = r['xy'][max(0, j - 1)]
+        else:
+            a2 = r['xy'][max(0, j - 1)]; b2 = r['xy'][min(len(ns) - 1, j + 1)]
+        dx, dz = b2[0] - a2[0], b2[1] - a2[1]; l = math.hypot(dx, dz) or 1
+        add_sign('stop' if hw == 'stop' else 'give_way', 0, x, z, dx / l, dz / l, r['width'])
+# turn restrictions: the prohibitory / mandatory sign 12 m before the junction on the street they apply to
+gpos = {nid: (lon, lat) for nid, lon, lat, t in d['nodes']}
+TURN_KIND = {'no_left_turn': 'no_left', 'no_right_turn': 'no_right', 'no_u_turn': 'no_u', 'no_straight_on': 'no_straight',
+             'only_straight_on': 'only_straight', 'only_left_turn': 'only_left', 'only_right_turn': 'only_right'}
+for via, ri, kind in TURN_SIGNS:
+    if kind not in TURN_KIND: continue
+    r = roads[ri]; ns = r['nodes']
+    if via not in ns: continue
+    j = ns.index(via)
+    if j == 0: pts = r['xy'][::-1]
+    elif j == len(ns) - 1: pts = r['xy']
+    else: continue
+    ln = LineString(pts)
+    if ln.length < 20: continue
+    p0 = ln.interpolate(ln.length - 12); p1 = ln.interpolate(ln.length - 11)
+    dx, dz = p1.x - p0.x, p1.y - p0.y; l = math.hypot(dx, dz) or 1
+    add_sign(TURN_KIND[kind], 0, p0.x, p0.y, dx / l, dz / l, r['width'])
+# speed cameras (OSM highway=speed_camera with its maxspeed): the monitored travel direction is the road's
+# direction for direction=forward / backward or on a one-way road, the traffic heading the camera looks at
+# for a compass direction (the camera faces the oncoming cars), and both directions otherwise.
+road_by_line = [r for r in roads if len(r['xy']) >= 2 and not r['tunnel']]
+rl_tree = _STR([LineString(r['xy']) for r in road_by_line])
+cam_n = 0
+for nid, lon, lat, t in d['nodes']:
+    if t.get('highway') != 'speed_camera' or not IN.contains(Point(lon, lat)): continue
+    x, z = P(lon, lat); pt = Point(x, z)
+    cands = rl_tree.query(pt.buffer(35))
+    if not len(cands): continue
+    k = min(cands, key=lambda i: LineString(road_by_line[i]['xy']).distance(pt))
+    r = road_by_line[k]; ln = LineString(r['xy']); sdist = ln.project(pt)
+    q0 = ln.interpolate(max(0, sdist - 1)); q1 = ln.interpolate(min(ln.length, sdist + 1))
+    dx, dz = q1.x - q0.x, q1.y - q0.y; l = math.hypot(dx, dz) or 1; dx, dz = dx / l, dz / l
+    dr = t.get('direction', '')
+    if dr == 'backward': dirs = [(-dx, -dz)]
+    elif dr == 'forward' or r['oneway']: dirs = [(dx, dz)]
+    elif dr.replace('.', '', 1).isdigit():
+        h = math.radians(float(dr)); fx, fz = math.sin(h), -math.cos(h)        # camera faces this way
+        dirs = [(dx, dz)] if (dx * fx + dz * fz) < 0 else [(-dx, -dz)]           # monitored traffic drives towards it
+    else: dirs = [(dx, dz), (-dx, -dz)]
+    lim = speed_of(t.get('maxspeed')) or speed_of(r['maxspeed']) or 60
+    on = ln.interpolate(sdist)
+    cameras.append(['camera', t.get('name', '') or t.get('name:ru', ''), R(on.x * 10) / 10, R(on.y * 10) / 10, [[round(a3, 3), round(b3, 3)] for a3, b3 in dirs], lim, nid, r['width']])
+    cam_n += 1
+    # warning signs 120 m before, on each monitored approach: speed limit + photo-radar sign
+    for (tx, tz) in dirs:
+        back = sdist - 120 if (tx * dx + tz * dz) > 0 else sdist + 120
+        b = ln.interpolate(max(5, min(ln.length - 5, back)))
+        add_sign('speed', lim, b.x, b.y, tx, tz, r['width'])
+        add_sign('camera', lim, b.x + tx * 4, b.y + tz * 4, tx, tz, r['width'])
+print('speed cameras', cam_n, 'signs', len(signs), Counter(sg[1] for sg in signs))
+
 # ------------------------------------------------------------ walls, fences and gates (mahalla courtyards, schools, factories)
 gate_nodes = {nid: (lon, lat, t) for nid, lon, lat, t in d['nodes'] if t.get('barrier') in ('gate', 'lift_gate', 'swing_gate', 'sliding_gate')}
 walls = []
@@ -567,7 +672,7 @@ for ri, r in enumerate(roads):
     run, run_cell = [], None
     def flush():
         if len(run) >= 2:
-            cells[run_cell]['r'].append([r['kind'], r['width'], flags | (16 if r['median'] > 0 else 0) | (32 if r['private'] else 0), r['layer'], names[r['name']] if r['name'] >= 0 else '', [R(c * 10) / 10 for p in run for c in p], r['lanes'], r['median']])
+            cells[run_cell]['r'].append([r['kind'], r['width'], flags | (16 if r['median'] > 0 else 0) | (32 if r['private'] else 0), r['layer'], names[r['name']] if r['name'] >= 0 else '', [R(c * 10) / 10 for p in run for c in p], r['lanes'], r['median'], speed_of(r['maxspeed']) or 0])
     for j in range(len(xy) - 1):
         a, b2 = xy[j], xy[j + 1]
         mx, mz = (a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2
@@ -580,7 +685,7 @@ for ri, r in enumerate(roads):
     flush()
 for o in objects: cells[ck(o[2], o[3])]['o'].append(o[:4] + o[4:5] + ([o[5]] if len(o) > 5 else []))
 for p in pois: cells[ck(p[2], p[3])]['p'].append(p)
-for z in zebras + gates + doors: cells[ck(z[2], z[3])]['o'].append(z)
+for z in zebras + gates + doors + signs + cameras: cells[ck(z[2], z[3])]['o'].append(z)
 for w in walls:
     pts = w[2]
     # split long walls by cell so each cell owns its piece

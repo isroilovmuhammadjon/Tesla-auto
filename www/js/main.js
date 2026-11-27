@@ -86,6 +86,7 @@ const traffic = new Traffic(scene);
 const rival = new Rival(scene);
 // open-city free roam (TOSHKENT SHAHAR)
 const cityDeps = {
+  taxiActive: () => taxi.active && !!taxi.def,
   getPlayer: () => player,
   get pt() { return pt; },
   input, tilt, camera, moon, hemi, renderer,

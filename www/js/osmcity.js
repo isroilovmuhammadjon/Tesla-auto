@@ -6,6 +6,7 @@
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
 import { SkidMarks } from './vehicle.js';
 import { People, windSway } from './life.js';
+import { storageGet, storageSet } from './config.js';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CityMode, SUN_DIR } from './city.js';
@@ -17,7 +18,7 @@ import { busStopParts } from './cityday.js';
 
 const CELL = 500;
 const BASE = 'map/';
-export const MAP_VER = '20261128d';          // bump with every map rebuild: cells are cached by the browser
+export const MAP_VER = '20261128e';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads
@@ -923,6 +924,52 @@ export class OsmCity extends CityMode {
     }
     this.everLoaded = true;
     super.update(dt);
+    this.updateCameras(dt);
+  }
+
+  // ------------------------------------------------------------ speed cameras
+  // A camera checks the cars that cross its line in a monitored direction. Above the limit: one fine for
+  // that pass (amounts are game values, not the legal ones). The limit of the road you are on is shown next
+  // to the speedometer whenever the map knows it.
+  updateCameras(dt) {
+    const s = this.state; if (!s) return;
+    this.camState = this.camState || new Map();
+    const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), kmh = Math.round(Math.abs(s.v) * 3.6);
+    let lim = this.roadHere && this.roadHere.limit ? this.roadHere.limit : 0;
+    for (const cell of this.cells.values()) {
+      if (!cell || !cell.cameras) continue;
+      for (const cam of cell.cameras) {
+        const rx = s.x - cam.x, rz = s.z - cam.z;
+        if (Math.abs(rx) > 160 || Math.abs(rz) > 160) continue;
+        cam.dirs.forEach(([tx, tz], di) => {
+          const key = cam.id + ':' + di, along = rx * tx + rz * tz, lat = Math.abs(rx * tz - rz * tx);
+          if (along > -150 && along < 5 && lat < cam.width / 2 + 4 && fx * tx + fz * tz > 0.5) lim = cam.limit;   // approaching it
+          const st = this.camState.get(key) || { prev: along, last: -1e9 };
+          const now = this.d.time();
+          if (st.prev < 0 && along >= 0 && lat < cam.width / 2 + 4 && fx * tx + fz * tz > 0.5 && s.v > 0.5 && now - st.last > 8) {
+            st.last = now;
+            this.cameraPass(cam, kmh);
+          }
+          st.prev = along;
+          this.camState.set(key, st);
+        });
+      }
+    }
+    this.d.ui.setLimit && this.d.ui.setLimit(lim);
+  }
+
+  cameraPass(cam, kmh) {
+    const over = kmh - cam.limit;
+    this.camLog = this.camLog || [];
+    this.camLog.push({ id: cam.id, kmh, limit: cam.limit, fined: over > 0 });
+    if (over <= 0) return;
+    const fine = over <= 20 ? 250000 : over <= 40 ? 500000 : 1000000;
+    const fines = Number(storageGet('sr3d_fines', 0)) || 0;
+    storageSet('sr3d_fines', fines + fine);
+    // a taxi driver pays out of the day's takings
+    const bal = Number(storageGet('sr3d_taxi_balance', 0)) || 0;
+    if (this.d.taxiActive && this.d.taxiActive()) storageSet('sr3d_taxi_balance', Math.max(0, bal - fine));
+    this.d.ui.fine && this.d.ui.fine({ kmh, limit: cam.limit, fine, total: fines + fine });
   }
 
   // a sidewalk for a pedestrian: beside a collector or main road 30-130 m away, mid-sidewalk
@@ -956,7 +1003,8 @@ export class OsmCity extends CityMode {
         if (d2 < rd) { rd = d2; road = sg; }
       }
     }
-    if (road) return road.name;
+    this.roadHere = road;
+    if (road && road.name) return road.name;
     let best = null, bd = 150 * 150;
     for (const cell of this.cells.values()) {
       if (!cell) continue;
