@@ -1,5 +1,5 @@
 // DOM user interface: screens, HUD, garage, popups.
-import { CARS } from './config.js?v=f72d9a3a';
+import { CARS } from './config.js?v=d2f79ac5';
 
 const $ = (id) => document.getElementById(id);
 const ARC_LEN = 395.84;   // 0.75 * 2π * 84
@@ -24,12 +24,21 @@ export class UI {
     this.buildTicks();
   }
 
+  // the dial runs to 360 km/h for the sports cars; an everyday Tashkent car gets a 200 (or 140) km/h dial
+  setSpeedoMax(max = SPEEDO_MAX) {
+    if (this.speedoMax === max) return;
+    this.speedoMax = max; this.last.arc = null;
+    $('speedoTicks').innerHTML = '';
+    this.buildTicks();
+  }
+
   buildTicks() {
     const g = $('speedoTicks');
     const ns = 'http://www.w3.org/2000/svg';
-    for (let v = 0; v <= SPEEDO_MAX; v += 20) {
-      const major = v % 60 === 0;
-      const a = ((135 + (v / SPEEDO_MAX) * 270) * Math.PI) / 180;
+    const MAX = this.speedoMax || SPEEDO_MAX, step = MAX > 250 ? 20 : 10, majorEvery = MAX > 250 ? 60 : MAX > 150 ? 40 : 20;
+    for (let v = 0; v <= MAX; v += step) {
+      const major = v % majorEvery === 0;
+      const a = ((135 + (v / MAX) * 270) * Math.PI) / 180;
       const r1 = 72, r2 = major ? 62 : 66;
       const line = document.createElementNS(ns, 'line');
       line.setAttribute('x1', 100 + Math.cos(a) * r1); line.setAttribute('y1', 100 + Math.sin(a) * r1);
@@ -97,7 +106,7 @@ export class UI {
     this.setText('dist', e.dist, (distance / 1000).toFixed(2) + ' KM');
     this.setText('best', e.best, fmt(best));
     // only touch the DOM when a value actually changes
-    const f = Math.min(1, speedKmh / SPEEDO_MAX);
+    const f = Math.min(1, speedKmh / (this.speedoMax || SPEEDO_MAX));
     const arc = `${(ARC_LEN * f).toFixed(0)} ${CIRC}`;
     if (this.last.arc !== arc) { this.last.arc = arc; e.arc.style.strokeDasharray = arc; }
     const nw = (nitro * 100).toFixed(0) + '%';
@@ -146,9 +155,10 @@ export class UI {
     this.els.altRow.classList.toggle('hidden', m === null);
     document.body.classList.toggle('can-fly', m !== null);
     if (m !== null) this.setText('alt', this.els.alt, `${Math.max(0, m).toFixed(1)} M`);
-    this.els.hint.textContent = m === null
-      ? 'W / ↑ accelerate · A D / ← → steer · SPACE nitro'
-      : 'W accelerate · A D steer · E / Q fly up / down · SPACE nitro';
+    const hint = m !== null ? 'W accelerate · A D steer · E / Q fly up / down · SPACE nitro'
+      : document.body.classList.contains('uz-drive') ? "W / ↑ gaz · S / ↓ tormoz, orqaga · A D / ← → rul · H interfeys · C kamera"
+      : 'W / ↑ accelerate · A D / ← → steer · SPACE nitro';
+    if (this.last.hint !== hint) { this.last.hint = hint; this.els.hint.textContent = hint; }
   }
 
   // lead > 0: the AI rival is ahead of you by `lead` metres
