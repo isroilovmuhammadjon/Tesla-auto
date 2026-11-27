@@ -10,7 +10,7 @@ const fmt = (n) => Math.floor(n).toLocaleString('en-US');
 
 export class UI {
   constructor() {
-    this.screens = ['loading', 'menu', 'garage', 'pause', 'gameover', 'mp', 'mpResults', 'settings'].map($);
+    this.screens = ['loading', 'menu', 'garage', 'pause', 'gameover', 'mp', 'mpResults', 'settings', 'taxiGarage'].map($);
     this.hud = $('hud');
     this.els = {
       score: $('hudScore'), dist: $('hudDist'), best: $('hudBest'),

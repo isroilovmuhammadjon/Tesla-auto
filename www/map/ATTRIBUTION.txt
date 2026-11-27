@@ -1,7 +1,11 @@
 Toshkent map data
-- Roads, buildings, bus stops, metro stations/entrances and traffic signals:
+- Roads, street names, one-way streets, bridges/tunnels, buildings, bus stops, metro stations and
+  entrances, traffic signals, shops, mahalla and district names:
   © OpenStreetMap contributors, https://www.openstreetmap.org/copyright
-  Available under the Open Database License (ODbL) 1.0. If you share or redistribute
-  this database (the files in map/cells), keep this attribution and the ODbL terms.
-  Signals and entrances from the Geofabrik Uzbekistan extract of 2026-11-25.
-Facade heights are partly estimated; the ground is flat; bridges and interiors are not modelled.
+  Available under the Open Database License (ODbL) 1.0. If you share or redistribute this database
+  (the files in map/: cells, graph.json, search.json, index.json), keep this attribution and the ODbL terms.
+- Source: Geofabrik Uzbekistan extract, 2026-11-27 (file timestamp 2026-11-27 03:55 UTC).
+- Scope: Tashkent city inside OSM relation 2216724 (Toshkent shahri) plus a 150 m margin.
+- Built with scripts/tashkent-map/extract.py and build.py.
+Building heights are estimated where OSM has no height or levels (about 91% of buildings);
+the ground is flat, so bridges and tunnels are drawn at street level (the road network keeps them apart).

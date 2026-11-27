@@ -92,6 +92,47 @@ function glassShape(m) {
   return s;
 }
 
+// ---------------------------------------------------------------- taxi trim (shared textures)
+let taxiTex = null, checkerTex = null;
+function taxiTextures() {
+  if (taxiTex) return;
+  const mk = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  taxiTex = mk(256, 96, (g, w, h) => {
+    g.fillStyle = '#ffc61a'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#111'; g.font = 'bold 64px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('TAKSI', w / 2, h / 2 + 4);
+  });
+  checkerTex = mk(128, 32, (g, w, h) => {
+    for (let x = 0; x < w / 16; x++) for (let y = 0; y < 2; y++) { g.fillStyle = (x + y) % 2 ? '#111' : '#ffc61a'; g.fillRect(x * 16, y * 16, 16, 16); }
+  });
+  checkerTex.wrapS = THREE.RepeatWrapping;
+}
+function taxiTrim(g, m, type) {
+  taxiTextures();
+  const parts = [];
+  const top = Math.max(...m.glass.map((p) => p[1]));
+  const roofMid = -((m.glass[1][0] + m.glass[m.glass.length - 2][0]) / 2);
+  const signMat = new THREE.MeshStandardMaterial({ map: taxiTex, emissive: 0xffc61a, emissiveIntensity: 0.25, emissiveMap: taxiTex, roughness: 0.4 });
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.26), [new THREE.MeshStandardMaterial({ color: 0xffc61a }), new THREE.MeshStandardMaterial({ color: 0xffc61a }), new THREE.MeshStandardMaterial({ color: 0xffd34d }), new THREE.MeshStandardMaterial({ color: 0xffc61a }), signMat, signMat]);
+  sign.rotation.y = Math.PI / 2;
+  sign.position.set(0, top + 0.1, roofMid);
+  sign.castShadow = true;
+  g.add(sign); parts.push(sign);
+  // chequered band along both sides at door-handle height
+  const belt = m.glass[0][1] - 0.12;
+  const x0 = m.glass[1][0] + 0.1, x1 = m.glass[m.glass.length - 2][0] - 0.05;
+  const len = Math.max(0.6, x0 - x1);
+  const band = new THREE.MeshStandardMaterial({ map: checkerTex.clone(), roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -2 });
+  band.map.needsUpdate = true; band.map.repeat.set(len / 0.5, 1);
+  for (const sd of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.1), band);
+    p.rotation.y = sd * Math.PI / 2;
+    p.position.set(sd * (m.W / 2 + 0.004), belt, -(x0 + x1) / 2);
+    g.add(p); parts.push(p);
+  }
+  void type;
+  return parts;
+}
+
 export const UZ_TYPES = Object.fromEntries(Object.entries(MODELS).map(([k, m]) => [k, { w: m.W, l: m.L, h: m.H, mass: k === 'damas' ? 1.1 : 1.2, weight: m.weight }]));
 
 export function pickUzType() {
@@ -149,9 +190,11 @@ export function createUzCar(type) {
   // wheels
   const tg = cg(`t${m.R}`, () => new THREE.CylinderGeometry(m.R, m.R, 0.2, 20).rotateZ(Math.PI / 2));
   const hg = cg(`h${m.R}`, () => new THREE.CylinderGeometry(m.R * 0.62, m.R * 0.62, 0.21, 16).rotateZ(Math.PI / 2));
+  const wheels = [];
   for (const wx of m.wheels) for (const s of [-1, 1]) {
     const t = new THREE.Mesh(tg, tire()); t.position.set(s * (m.W / 2 - 0.12), m.R, -wx); t.castShadow = true; g.add(t);
     const hb = new THREE.Mesh(hg, hub()); hb.position.copy(t.position); detail.add(hb);
+    wheels.push({ tire: t, hub: hb, front: wx > 0, side: s });
   }
   // body-colour door pillars break the glass into windows (B-pillar; the Damas gets two)
   const gl = m.glass, belt = gl[0][1], top = Math.max(...gl.map((p) => p[1]));
@@ -169,7 +212,12 @@ export function createUzCar(type) {
   const bodyMeshes = [body, roof, ...pillars];
   const palette = type === 'spark' ? SPARK_COLORS : COLORS;
   return {
-    type, mesh: g, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,
+    type, mesh: g, model: m, wheels, bodyMeshes, glassMesh: cab, detail, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,
+    // a Tashkent taxi: the lit roof sign and the chequered band on the doors
+    setTaxi(on) {
+      if (on && !this.taxiParts) this.taxiParts = taxiTrim(g, m, type);
+      if (this.taxiParts) for (const o of this.taxiParts) o.visible = on;
+    },
     setBrake(on) { tailMat.emissiveIntensity = on ? 2.6 : 0.5; },
     setBlink(on) { blinkMat.color.setRGB(on ? 4 : 0.3, on ? 1.6 : 0.14, on ? 0 : 0.02); },
     setColor() {

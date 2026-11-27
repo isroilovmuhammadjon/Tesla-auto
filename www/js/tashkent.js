@@ -288,6 +288,54 @@ function humoArena() {
   return g;
 }
 
+
+// Hazrati Imom (Hast Imom) complex: a wide portal mosque with two tall minarets and two
+// turquoise domes on drums, sand-coloured brick. Front (portal side) faces -x.
+export function hazratiImam() {
+  const g = new THREE.Group();
+  const brick = std(0xd8c2a0), tile = std(0x2aa6bd, { roughness: 0.4 }), dark = std(0x5a4632);
+  mesh(new THREE.BoxGeometry(30, 12, 60), brick, 0, 6, 0, g);
+  // portal (pishtaq) in the middle of the facade, with its arch in deep blue tilework
+  mesh(new THREE.BoxGeometry(4, 22, 22), brick, -16, 11, 0, g);
+  mesh(new THREE.BoxGeometry(0.4, 15, 11), std(0x1d4f8f), -18.1, 8.5, 0, g);
+  mesh(new THREE.BoxGeometry(0.5, 11, 7), dark, -18.3, 6.5, 0, g);
+  // gallery of arches along the front
+  for (let z = -26; z <= 26; z += 5.2) if (Math.abs(z) > 12) mesh(new THREE.BoxGeometry(0.4, 6, 3.4), dark, -15.2, 4.5, z, g);
+  // two domes on drums
+  for (const z of [-15, 15]) {
+    mesh(new THREE.CylinderGeometry(7, 7, 4, 24), brick, 2, 14, z, g);
+    mesh(domeGeo(7.3, 1.25), tile, 2, 16, z, g);
+  }
+  // two minarets either side of the portal (about 50 m)
+  for (const z of [-13.5, 13.5]) {
+    mesh(new THREE.CylinderGeometry(1.8, 2.6, 48, 14), brick, -16, 24, z, g);
+    mesh(new THREE.CylinderGeometry(3.0, 2.4, 3, 14), brick, -16, 46, z, g);
+    mesh(domeGeo(1.9, 1.6, 12), tile, -16, 47.5, z, g);
+  }
+  g.userData = { name: 'Hazrati Imom majmuasi', width: 64, setback: 30 };
+  return g;
+}
+
+// Amir Temur monument: a stepped granite base and a bronze rider (abstracted); front faces -x
+export function temurStatue() {
+  const g = new THREE.Group();
+  const granite = std(0x7d7470, { roughness: 0.6 }), bronze = std(0x6b4a2b, { metalness: 0.6, roughness: 0.45 });
+  mesh(new THREE.CylinderGeometry(9, 10, 0.8, 32), std(0xb9b2a6), 0, 0.4, 0, g);
+  mesh(new THREE.BoxGeometry(6, 5, 3.2), granite, 0, 3.3, 0, g);
+  mesh(new THREE.BoxGeometry(7, 0.6, 4), granite, 0, 6, 0, g);
+  // horse
+  mesh(new THREE.BoxGeometry(3.6, 1.5, 1.2), bronze, 0, 7.9, 0, g);
+  for (const x of [-1.3, 1.3]) for (const z of [-0.4, 0.4]) mesh(new THREE.CylinderGeometry(0.16, 0.13, 1.8, 6), bronze, x, 6.9 + (x < 0 ? 0.3 : 0), z, g);
+  const neck = mesh(new THREE.BoxGeometry(1.3, 1.8, 0.8), bronze, -1.9, 9.0, 0, g); neck.rotation.z = 0.6;
+  mesh(new THREE.BoxGeometry(1.2, 0.6, 0.6), bronze, -2.7, 9.7, 0, g);
+  // rider with a raised hand
+  mesh(new THREE.BoxGeometry(0.9, 1.7, 0.9), bronze, 0.2, 9.4, 0, g);
+  mesh(new THREE.SphereGeometry(0.38, 12, 8), bronze, 0.1, 10.5, 0, g);
+  const arm = mesh(new THREE.BoxGeometry(0.25, 1.3, 0.25), bronze, -0.4, 10.4, 0.5, g); arm.rotation.z = 0.9;
+  g.userData = { name: 'Amir Temur haykali', width: 20, setback: 10 };
+  return g;
+}
+
 export const LANDMARK_BUILDERS = [tvTower, minorMosque, ezgulikArch, madrasa, tashkentCity, chorsu, temurMuseum, hotelUzbekistan, humoArena];
 
 // Uzbek road-sign texts for the overhead gantries

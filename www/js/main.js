@@ -22,6 +22,7 @@ import { LocalRoom } from './lanroom.js';
 import { hostOnline, joinOnline, cleanCode } from './online.js';
 import { CityMode } from './city.js';
 import { TaxiShift } from './taxi.js';
+import { createUzPlayer, UZ_CARS } from './uzplayer.js';
 import { OsmCity } from './osmcity.js';
 import { setTrafficPalette } from './carModels.js';
 import { scanRooms, getPlugin, canHostOnThisDevice, nativePlatform, LAN_PORT } from './lan.js';
@@ -199,13 +200,15 @@ function buildEnvMap(r) {
 }
 
 // ---------------------------------------------------------------- player car
-function setPlayerCar(index) {
+function setPlayerCar(index) { setPlayerDef(CARS[index]); }
+// any player car: a racing / city car from CARS, or an Uzbek taxi from uzplayer.js
+function setPlayerDef(def) {
   if (player) {
     scene.remove(player.group);
     player.dispose();
   }
-  player = createSportsCar(CARS[index]);
-  pt = new Powertrain(CARS[index]);
+  player = def.uz ? createUzPlayer(def) : createSportsCar(def);
+  pt = new Powertrain(def);
   // physical falloff (decay 2): the road just ahead stays lit, but a truck far ahead no longer glows white
   headlight = new THREE.SpotLight(0xe6efff, 900, 50, 0.38, 0.5, 2);
   headlight.position.set(0, 0.8, -2.0);
@@ -342,10 +345,10 @@ window.addEventListener('orientationchange', () => setTimeout(onResize, 400));
 renderFsButtons();
 
 // TOSHKENT SHAHAR is driven in the black sedan, whatever is picked for racing
-function startCity(which = 'osm') {
+function startCity(which = 'osm', def = CARS[SEDAN_INDEX], opts = {}) {
   taxi.stop();
   city = which === 'classic' ? classicCity : osmCity;
-  if (player.def !== CARS[SEDAN_INDEX]) setPlayerCar(SEDAN_INDEX);
+  if (player.def !== def) setPlayerDef(def);
   G.mp = null;
   resetInput();
   traffic.clear();
@@ -360,12 +363,78 @@ function startCity(which = 'osm') {
   G.inCity = true;
   G.mode = 'city';
   G.shake = 0;
-  city.enter(CARS[SEDAN_INDEX]);
+  city.enter(def, opts);
   document.body.classList.toggle('touch-mode', TOUCH);
   document.getElementById('touch').classList.toggle('hidden', !TOUCH);
   audio.setMusicLevel(0.22);
-  ui.popup(which === 'classic' ? 'KLASSIK SHAHAR' : 'TOSHKENT SHAHAR');
+  ui.popup(opts.taxi ? 'TOSHKENT TAKSI' : which === 'classic' ? 'KLASSIK SHAHAR' : 'TOSHKENT SHAHAR');
   if (TOUCH) enterFullscreen();
+}
+
+// ---------------------------------------------------------------- TOSHKENT TAKSI
+function taxiEntry(id) { return UZ_CARS.find((c) => c.id === id) || UZ_CARS[0]; }
+function taxiCarDef(entry) { return entry.sedan ? CARS[SEDAN_INDEX] : entry; }
+function openTaxiGarage() {
+  G.mode = 'taxigarage';
+  const box = $id('taxiCars');
+  if (!box.children.length) {
+    for (const c of UZ_CARS) {
+      const b = document.createElement('button');
+      b.className = 'taxi-car'; b.dataset.action = 'taxiCar'; b.dataset.car = c.id;
+      b.innerHTML = `<b>${c.name}</b><small>${c.cls.toUpperCase()}</small>`;
+      box.appendChild(b);
+    }
+  }
+  const bal = Number(storageGet('sr3d_taxi_balance', 0)) || 0;
+  $id('taxiGarageBal').textContent = Math.round(bal).toLocaleString('ru-RU').replace(/\u00a0/g, ' ') + " so'm";
+  $id('taxiGarageTrips').textContent = storageGet('sr3d_taxi_trips', '0');
+  pickTaxiCar(storageGet('sr3d_taxi_car', 'cobalt'));
+  ui.show('taxiGarage');
+}
+function pickTaxiCar(id) {
+  const e = taxiEntry(id);
+  G.taxiCar = e.id;
+  storageSet('sr3d_taxi_car', e.id);
+  document.querySelectorAll('.taxi-car').forEach((b) => b.classList.toggle('on', b.dataset.car === e.id));
+  const fmt = (n) => n.toLocaleString('ru-RU').replace(/\u00a0/g, ' ');
+  $id('taxiCarInfo').textContent = `${e.tagline}. Tarif: ${fmt(e.fare[0])} so'm + ${fmt(e.fare[1])} so'm/km` + (e.maxSpeed ? ` · maks. ${e.maxSpeed} km/soat` : '');
+  const def = taxiCarDef(e);
+  if (player.def !== def) setPlayerDef(def);      // the menu showcase shows the chosen car
+}
+function startTaxiShift() {
+  const e = taxiEntry(G.taxiCar || 'cobalt');
+  startCity('osm', taxiCarDef(e), { taxi: true });
+  taxi.start(e);
+}
+
+// search: streets, mahallas, districts, bus stops, metro stations and entrances, landmarks (map/search.json)
+function openFind(on) {
+  const box = $id('findBox');
+  box.hidden = !on;
+  if (on) {
+    taxi.ensureData().then(() => { const inp = $id('findInput'); inp.value = ''; renderFind(''); inp.focus(); });
+  }
+}
+function renderFind(q) {
+  const list = $id('findList');
+  list.innerHTML = '';
+  if (taxi.phase === 'nav') {
+    const li = document.createElement('li');
+    li.tabIndex = 0;
+    li.innerHTML = "<b>✕ Navigatsiyani to'xtatish</b>";
+    li.addEventListener('click', () => { taxi.clearNav(); openFind(false); });
+    list.appendChild(li);
+  }
+  for (const e of taxi.find(q)) {
+    const li = document.createElement('li');
+    li.tabIndex = 0;
+    li.innerHTML = `<b></b><small></small>`;
+    li.firstChild.textContent = e[1];
+    li.lastChild.textContent = `${e[0]}${e[4] ? ' · ' + e[4] : ''}`;
+    li.addEventListener('click', () => { if (taxi.navigateTo(e)) openFind(false); });
+    li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && taxi.navigateTo(e)) openFind(false); });
+    list.appendChild(li);
+  }
 }
 
 function leaveCity() {
@@ -948,6 +1017,13 @@ function toggleMute() {
 
 function onKey(e) {
   audio.init();
+  if (G.mode === 'city' && !$id('findBox').hidden) { if (e.code === 'Escape') openFind(false); return; }
+  if (G.mode === 'city' && taxi.active && taxi.key(e.code)) return;
+  if (G.mode === 'taxigarage') {
+    if (e.code === 'Enter') startTaxiShift();
+    else if (e.code === 'Escape') actions.taxiBack();
+    return;
+  }
   switch (e.code) {
     case 'KeyP':
     case 'Escape':
@@ -979,10 +1055,22 @@ const actions = {
   resume: resumeGame,
   restart: () => {
     if (G.mp) { resumeGame(); respawnMp(); }
-    else if (G.inCity) { G.mode = 'city'; ui.show(null); city.enter(CARS[SEDAN_INDEX]); }
+    else if (G.inCity) {
+      G.mode = 'city'; ui.show(null);
+      const shift = taxi.active && taxi.def;
+      city.enter(player.def, { taxi: !!shift });
+      if (shift) taxi.start(taxi.def);
+    }
     else startRun();
   },
-  taxi: () => { startCity('osm'); taxi.start(); },
+  taxi: () => openTaxiGarage(),
+  taxiCar: (btn) => pickTaxiCar(btn.dataset.car),
+  taxiStart: () => startTaxiShift(),
+  taxiBack: () => { setPlayerCar(G.carIndex); toMenu(); },
+  taxiAccept: () => taxi.accept(),
+  taxiSkip: () => taxi.decline(),
+  findOpen: () => openFind(true),
+  findClose: () => openFind(false),
   city: () => startCity('osm'),
   cityClassic: () => startCity('classic'),
   fullscreen: () => goFullscreen(),
@@ -1219,6 +1307,7 @@ G.mp = null;
 G.mpFinishers = [];
 
 const $id = (id) => document.getElementById(id);
+$id('findInput').addEventListener('input', (e) => renderFind(e.target.value));
 const mpDefaultAddr = () => {
   const saved = storageGet('sr3d_mp_addr', '');
   if (saved) return saved;
@@ -1763,6 +1852,7 @@ function step(dt) {
   G.time += dt;
   switch (G.mode) {
     case 'menu':
+    case 'taxigarage':
     case 'garage':
     case 'mplobby': updateShowcase(dt); break;
     case 'city': city.update(dt); taxi.update(dt); world.followCamera(camera); break;
@@ -1814,9 +1904,20 @@ function boot() {
 
 // expose a small debug handle for testing in the console
 window.__sr3d = {
-  G, P, traffic, rival, world, get city() { return city; }, startRun, startCity, toMenu,
+  G, P, traffic, rival, world, get city() { return city; }, startRun, startCity, toMenu, taxi, get pt() { return pt; },
   Q, setQuality, camera, scene, composer, getPlayer: () => player,
   step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) step(dt); composer.render(); },
+  // testing: put the car somewhere in the open city, standing still, and wait for the map there
+  async teleport(x, z, yaw = 0) {
+    window.__sr3dNoAutoPause = true;
+    if (G.mode !== 'city') startCity('osm');
+    const c = city;
+    const set = () => Object.assign(c.state, { x, z, yaw, v: 0, latV: 0, r: 0, ax: 0, steer: 0, spin: 0 });
+    set(); c.camReset = true; c.focus = null;
+    for (let i = 0; i < 120; i++) { await new Promise((r) => setTimeout(r, 100)); set(); if (i > 15 && !(c.pending && c.pending.size)) break; }
+    for (let i = 0; i < 6; i++) { set(); await new Promise((r) => setTimeout(r, 150)); }
+    return { cells: c.cells.size, pending: c.pending ? c.pending.size : 0 };
+  },
 };
 
 boot();

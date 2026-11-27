@@ -251,7 +251,28 @@
         <div class="nitro-bar"><i id="hudNitro"></i></div>
       </div>
     </div>
-    <aside id="taxiPanel" hidden><small>TAKSI · <b id="taxiWallet"></b></small><strong id="taxiTrip"></strong><span id="taxiHelp"></span></aside>
+    <aside id="taxiPanel" hidden>
+      <small><span id="taxiCls">TAKSI</span> · <b id="taxiWallet"></b></small>
+      <strong id="taxiTrip"></strong>
+      <span id="taxiHelp"></span>
+      <em id="taxiTurn"></em>
+    </aside>
+    <div id="taxiOffer" class="taxi-offer" hidden>
+      <div class="tx-head"><span id="txKind">Buyurtma</span><b id="txFare">0 so'm</b></div>
+      <div class="tx-row"><i class="tx-dot pick"></i><div><small>OLISH JOYI · <span id="txPick"></span></small><p id="txFrom"></p></div></div>
+      <div class="tx-row"><i class="tx-dot drop"></i><div><small>MANZIL</small><p id="txTo"></p></div></div>
+      <div class="tx-foot"><span id="txDist"></span></div>
+      <div class="tx-btns">
+        <button class="btn primary" data-action="taxiAccept"><span>QABUL QILISH</span></button>
+        <button class="btn" data-action="taxiSkip"><span>BOSHQASI</span></button>
+      </div>
+    </div>
+    <div id="taxiToast" class="taxi-toast" hidden></div>
+    <button id="findBtn" class="find-btn" data-action="findOpen" aria-label="Qidiruv">⌕ QIDIRUV</button>
+    <div id="findBox" class="find-box" hidden>
+      <div class="find-top"><input id="findInput" type="search" placeholder="Ko'cha, mahalla, bekat, metro…" autocomplete="off"><button class="btn small" data-action="findClose"><span>✕</span></button></div>
+      <ul id="findList"></ul>
+    </div>
     <div id="hudHint" class="hud-hint">W / ↑ accelerate · A D / ← → steer · SPACE nitro</div>
   </div>
 
@@ -266,6 +287,18 @@
     <button id="pauseBtn" class="icon-btn hidden" data-action="pause" aria-label="Pause">❚❚</button>
     <button id="muteBtn" class="icon-btn" data-action="mute" aria-label="Toggle sound">♪</button>
   </div>
+
+  <!-- TOSHKENT TAKSI: choose the car, start the shift -->
+  <section id="taxiGarage" class="screen dim">
+    <div class="card taxi-card">
+      <h2 class="screen-title">TOSHKENT TAKSI</h2>
+      <p class="muted">Mashinani tanlang. Balans: <b id="taxiGarageBal">0 so'm</b> · <span id="taxiGarageTrips">0</span> ta safar</p>
+      <div id="taxiCars" class="taxi-cars"></div>
+      <p id="taxiCarInfo" class="muted taxi-info"></p>
+      <button class="btn primary wide" data-action="taxiStart"><span>SMENANI BOSHLASH</span></button>
+      <button class="btn ghost wide" data-action="taxiBack"><span>← ORQAGA</span></button>
+    </div>
+  </section>
 
   <!-- Pause -->
   <section id="pause" class="screen dim">

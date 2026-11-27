@@ -428,7 +428,6 @@ export function createSportsCar(def) {
       if (hoverMat) hoverMat.dispose();
       if (custom) custom.ownMats.forEach((m) => m.dispose());
       cockpit.dispose();
-      cluster.tex.dispose(); centre.tex.dispose();
     },
   };
 }

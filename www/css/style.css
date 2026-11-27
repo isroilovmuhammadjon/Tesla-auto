@@ -451,8 +451,58 @@ body.touch-mode .minimap.round { top: calc(max(16px, env(safe-area-inset-top)) +
 .map-credit { display: none; position: absolute; left: 50%; transform: translateX(-50%); bottom: 4px; font-size: 10px; color: rgba(255,255,255,0.75); text-shadow: 0 1px 2px rgba(0,0,0,0.8); pointer-events: none; white-space: nowrap; }
 body.osm-map .map-credit { display: block; }
 
-#taxiPanel:not([hidden]) { display:grid; gap:3px; position:absolute; left:50%; top:max(10px,env(safe-area-inset-top)); transform:translateX(-50%); padding:8px 16px; background:#102025eb; color:#fff; border-bottom:2px solid #f9bf57; border-radius:8px; text-align:center; pointer-events:none; font-family:system-ui,sans-serif; }
-#taxiPanel small {color:#ffd58b;font-size:10px;letter-spacing:.06em}
-#taxiPanel strong {font-size:15px}
-#taxiPanel span {font-size:12px}
-@media(max-width:560px) and (orientation:portrait){#taxiPanel:not([hidden]) {top:32%;left:10px;transform:none;padding:6px 10px;text-align:left}}
+/* ---------------- TOSHKENT TAKSI */
+#taxiPanel:not([hidden]) { display: grid; gap: 2px; position: absolute; left: 50%; top: max(10px, env(safe-area-inset-top)); transform: translateX(-50%); min-width: 260px; max-width: min(520px, 60vw); padding: 8px 16px; background: rgba(16, 32, 37, 0.92); color: #fff; border-bottom: 3px solid #ffc61a; border-radius: 10px; text-align: center; pointer-events: none; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+#taxiPanel small { color: #ffd58b; font-size: 11px; letter-spacing: .06em; }
+#taxiPanel strong { font-size: 15px; line-height: 1.25; }
+#taxiPanel span { font-size: 13px; color: #e8f1f2; }
+#taxiPanel em { font-style: normal; font-size: 11px; color: #9fc5c9; }
+.taxi-offer:not([hidden]) { position: absolute; left: 50%; top: calc(max(10px, env(safe-area-inset-top)) + 96px); transform: translateX(-50%); width: min(420px, 92vw); padding: 12px 14px; border-radius: 12px; background: rgba(14, 24, 30, 0.95); color: #fff; border: 1px solid rgba(255, 198, 26, 0.55); pointer-events: auto; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.45); display: grid; gap: 8px; z-index: 13; }
+.tx-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 14px; color: #ffd58b; text-transform: uppercase; letter-spacing: .04em; }
+.tx-head b { font-size: 22px; color: #fff; letter-spacing: 0; text-transform: none; }
+.tx-row { display: grid; grid-template-columns: 14px 1fr; gap: 8px; align-items: start; }
+.tx-row small { font-size: 10px; color: #9fb2b8; letter-spacing: .05em; }
+.tx-row p { margin: 1px 0 0; font-size: 14px; font-weight: 600; line-height: 1.25; }
+.tx-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; }
+.tx-dot.pick { background: #ffb300; } .tx-dot.drop { background: #20c997; }
+.tx-foot { font-size: 13px; color: #d7e4e7; font-weight: 600; }
+.tx-btns { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.tx-btns .btn { min-height: 44px; }
+.taxi-toast:not([hidden]) { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); padding: 10px 18px; border-radius: 22px; background: rgba(20, 24, 28, 0.88); color: #fff; font: 700 16px system-ui, sans-serif; pointer-events: none; z-index: 14; }
+.taxi-toast.show { animation: txToast 2.6s ease forwards; }
+@keyframes txToast { 0% { opacity: 0; transform: translate(-50%, 8px); } 10%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
+.find-btn { display: none; position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); right: max(16px, env(safe-area-inset-right)); pointer-events: auto; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(12, 20, 30, 0.75); color: #fff; font: 700 13px system-ui, sans-serif; letter-spacing: .04em; }
+body.osm-map .find-btn { display: block; }
+.find-box:not([hidden]) { position: absolute; top: calc(max(16px, env(safe-area-inset-top)) + 54px); right: max(16px, env(safe-area-inset-right)); width: min(380px, 92vw); max-height: 60vh; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: rgba(250, 250, 247, 0.97); color: #1a2226; pointer-events: auto; z-index: 16; box-shadow: 0 10px 30px rgba(0,0,0,0.4); font-family: system-ui, sans-serif; }
+.find-top { display: flex; gap: 6px; }
+.find-top input { flex: 1; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid #c9d1d4; }
+#findList { list-style: none; margin: 0; padding: 0; overflow: auto; }
+#findList li { padding: 8px 6px; border-bottom: 1px solid #e3e7e8; cursor: pointer; }
+#findList li:hover, #findList li:focus { background: #fff6dc; }
+#findList li b { display: block; font-size: 14px; }
+#findList li small { color: #6c7a80; font-size: 11px; }
+.taxi-card { max-width: min(760px, 96vw); }
+.taxi-cars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.taxi-car { padding: 10px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: #fff; text-align: left; cursor: pointer; font-family: var(--display); }
+.taxi-car b { display: block; font-size: 16px; }
+.taxi-car small { color: #ffd58b; font-size: 11px; letter-spacing: .05em; }
+.taxi-car.on { border-color: #ffc61a; background: rgba(255,198,26,0.14); }
+.taxi-info { min-height: 2.6em; }
+@media (max-width: 640px) { .taxi-cars { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) and (orientation: portrait) {
+  #taxiPanel:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 150px); max-width: 92vw; }
+  .taxi-offer:not([hidden]) { top: auto; bottom: 150px; }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  #taxiPanel:not([hidden]) { top: max(6px, env(safe-area-inset-top)); padding: 5px 12px; max-width: 46vw; }
+  #taxiPanel strong { font-size: 13px; } #taxiPanel span { font-size: 12px; }
+  .taxi-offer:not([hidden]) { top: 64px; width: min(380px, 52vw); padding: 8px 10px; gap: 5px; }
+  .tx-row p { font-size: 12px; } .tx-head b { font-size: 18px; }
+}
+/* phones: keep the taxi panel clear of the top buttons and the search button clear of the speedometer */
+body.touch-mode .find-btn { top: auto; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 26px); right: auto; left: 50%; transform: translateX(-50%); }
+body.touch-mode .find-box:not([hidden]) { top: 8px; right: 50%; transform: translateX(50%); max-height: 70vh; }
+@media (max-height: 480px) and (orientation: landscape) {
+  body.touch-mode #taxiPanel:not([hidden]) { left: 21vw; transform: none; max-width: 34vw; min-width: 0; text-align: left; }
+  body.touch-mode.osm-map .fps { display: none; }
+}

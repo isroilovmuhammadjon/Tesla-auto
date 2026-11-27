@@ -11,10 +11,13 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { CityMode, SUN_DIR } from './city.js';
 import { createUzCar, pickUzType } from './uzcars.js';
 import { daySky, facadeTexture } from './cityday.js';
-import { LANDMARK_BUILDERS } from './tashkent.js';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue } from './tashkent.js';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js';
+import { busStopParts } from './cityday.js';
 
 const CELL = 500;
 const BASE = 'map/';
+export const MAP_VER = '20261127b';          // bump with every map rebuild: cells are cached by the browser
 const ROAD_W = [5, 9, 14];               // small streets, collector roads, main roads (m)
 const ROAD_Y = [0.03, 0.04, 0.05];
 const WALK = 3.2;                        // sidewalk on each side of collector and main roads
@@ -73,7 +76,7 @@ function labelSprite(text, color) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false }));
-  s.scale.set(w / 56 * 0.9, 0.9, 1);
+  s.scale.set(w / 56 * 0.55, 0.55, 1);
   return s;
 }
 
@@ -103,7 +106,7 @@ export class OsmCity extends CityMode {
       }
       throw new Error('map unavailable');
     };
-    this.ready = Promise.all([get(BASE + 'index.json'), get(BASE + 'street-models.json')])
+    this.ready = Promise.all([get(BASE + 'index.json?v=' + MAP_VER), get(BASE + 'street-models.json')])
       .then(([index, models]) => { this.index = index; this.have = new Set(index.cells); this.models = models; return true; })
       .catch(() => { this.ready = null; return false; });
     return this.ready;
@@ -118,7 +121,7 @@ export class OsmCity extends CityMode {
     facade.anisotropy = 8;
     const styleTex = [['panel', '#e6e0d2'], ['panel', '#d5dadf'], ['brick', '#c98a5f'], ['brick', '#e0c08c'], ['band', '#eceae4'], ['arch', '#eee3cc']]
       .map(([st, c], i) => { const t = facadeTexture(st, c, i + 3); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; });
-    this.mats = {
+    this.mats0 = {
       wall: new THREE.MeshLambertMaterial({ map: facade, vertexColors: true }),
       walls: styleTex.map((t) => new THREE.MeshLambertMaterial({ map: t, vertexColors: true })),
       roof: new THREE.MeshLambertMaterial({ vertexColors: true }),
@@ -130,6 +133,16 @@ export class OsmCity extends CityMode {
       trunk: windSway(new THREE.MeshLambertMaterial({ color: 0xb8ab92 }), 0.5),
       crown: windSway(new THREE.MeshLambertMaterial({ color: 0xffffff }), 1),
     };
+    // v2 map: materials shared by every cell (osmbuild.js)
+    this.busParts = busStopParts();
+    this.mats = { ...makeMaterials(), lamp: this.mats0.lamp, ground: this.mats0.ground, trunk: this.mats0.trunk, crown: this.mats0.crown };
+    this.mats.busSign = new THREE.MeshBasicMaterial({ map: this.busParts.signTexture, side: THREE.DoubleSide });
+    this.mats.tin.side = THREE.DoubleSide;
+    this.mats.kerb.side = THREE.DoubleSide;
+    this.unitBox = new THREE.BoxGeometry(1, 1, 1);
+    this.lampGeo = new THREE.SphereGeometry(0.5, 10, 6);
+    this.lightOff = LIGHT.off;
+    this.labelSprite = labelSprite;
     // one light street-tree shape shared by every cell (chinar-like: two lumps on a pale trunk)
     const lump = (r, x, y, z) => new THREE.IcosahedronGeometry(r, 1).translate(x, y, z);
     this.treeGeo = {
@@ -148,13 +161,7 @@ export class OsmCity extends CityMode {
     this.groundLoader = new THREE.TextureLoader();
     this.sky = daySky(SUN_DIR);
     this.root.add(this.sky);
-    // the TV tower at its real place, visible across the city
-    const tv = LANDMARK_BUILDERS[0]();
-    tv.position.set(TV_TOWER[0], 0, TV_TOWER[1]);
-    tv.userData.blinkers = [];
-    tv.traverse((o) => { if (o.userData && o.userData.blink) tv.userData.blinkers.push(o); });
-    this.root.add(tv);
-    this.landmarks.push({ obj: tv });
+    this.landmarkSkip = [];
     this.maxAlt = 260;
     // the round minimap is drawn live from the loaded streets
     const el = document.getElementById('minimap');
@@ -162,8 +169,33 @@ export class OsmCity extends CityMode {
     if (el) { el.width = 256; el.height = 256; }
   }
 
+
+  // landmarks at their real places (positions from OSM, see map/index.json); the footprints under
+  // them are left out so the model and the map's own building don't overlap
+  placeLandmarks() {
+    if (this.landmarksPlaced || !this.index || !this.built) return;
+    this.landmarksPlaced = true;
+    const BUILD = { tv: LANDMARK_BUILDERS[0], minor: LANDMARK_BUILDERS[1], mustaqillik: LANDMARK_BUILDERS[2], kokaldosh: LANDMARK_BUILDERS[3],
+      tcity: LANDMARK_BUILDERS[4], chorsu: LANDMARK_BUILDERS[5], museum: LANDMARK_BUILDERS[6], hotel: LANDMARK_BUILDERS[7], humo: LANDMARK_BUILDERS[8],
+      hazrati: hazratiImam, temur_statue: temurStatue };
+    this.landmarkSkip = [];
+    for (const l of (this.index && this.index.landmarks) || []) {
+      const make = BUILD[l.id];
+      if (!make) continue;
+      const obj = make();
+      obj.position.set(l.x, 0, l.z);
+      obj.rotation.y = l.rot || 0;
+      obj.userData.blinkers = [];
+      obj.traverse((o) => { if (o.userData && o.userData.blink) obj.userData.blinkers.push(o); });
+      this.root.add(obj);
+      this.landmarks.push({ obj, id: l.id, name: l.name, x: l.x, z: l.z });
+      const r = (obj.userData.width || 30) * 0.75;
+      this.landmarkSkip.push({ x: l.x, z: l.z, r2: r * r });
+    }
+  }
+
   // ------------------------------------------------------------ enter / exit
-  enter(def) {
+  enter(def, opts = {}) {
     this.build();
     this.root.visible = true;
     this.d.world.setVisible(false);
@@ -173,9 +205,10 @@ export class OsmCity extends CityMode {
     if (player.setDaylight) player.setDaylight(true);
     document.body.classList.remove('cockpit');
     document.body.classList.add('osm-map');
-    const sp = (this.index && this.index.spawn) || [-2.5, 6, 7, 2];
+    // a taxi shift starts in O'rikzor by the bazaar; the free city at the centre
+    const sp = (this.index && (opts.taxi ? this.index.taxiSpawn || this.index.spawn : this.index.spawn)) || [-2.5, 6, 7, 2];
     this.state = {
-      x: sp[0], z: sp[1], yaw: Math.atan2(-sp[2], -sp[3]), v: 0, steer: 0, nitro: 1, nitroOn: false, dist: 0, latV: 0,
+      x: sp[0], z: sp[1], yaw: Math.atan2(-sp[2], -sp[3]), v: 0, steer: 0, nitro: def.nitro ? 1 : 0, nitroOn: false, dist: 0, latV: 0,
       pitch: 0, pitchV: 0, roll: 0, rollV: 0, bumpCd: 0, spin: 0, def, y: 0, vy: 0, altT: 0, fly: 0,
     };
     this.camPos = new THREE.Vector3(sp[0], 3, sp[1] + 8);
@@ -210,6 +243,7 @@ export class OsmCity extends CityMode {
   updateCells() {
     const s = this.state;
     if (!this.have) { this.load(); return; }
+    this.placeLandmarks();
     const cx = Math.floor(s.x / CELL), cz = Math.floor(s.z / CELL);
     const f = `${cx}_${cz}`;
     if (f !== this.focus) {
@@ -227,7 +261,7 @@ export class OsmCity extends CityMode {
         if (this.cells.has(k) || this.pending.has(k)) continue;
         if (!this.have || !this.have.has(k)) { this.cells.set(k, null); continue; }
         this.pending.set(k, 'loading');
-        const tryLoad = (attempt) => fetch(`${BASE}cells/${k}.json`, { cache: attempt ? 'reload' : 'default' })
+        const tryLoad = (attempt) => fetch(`${BASE}cells/${k}.json?v=${MAP_VER}`, { cache: attempt ? 'reload' : 'default' })
           .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
           .then((data) => { if (this.pending.get(k) === 'loading') this.pending.set(k, data); })
           .catch(() => {
@@ -282,10 +316,11 @@ export class OsmCity extends CityMode {
     if (!cell) return;
     this.root.remove(cell.group);
     cell.group.traverse((o) => {
-      if (o.geometry && o.geometry !== this.treeGeo.trunk && o.geometry !== this.treeGeo.crown) o.geometry.dispose();
+      if (o.geometry && o.geometry !== this.treeGeo.trunk && o.geometry !== this.treeGeo.crown && o.geometry !== this.lampGeo) o.geometry.dispose();
       if (o.isSprite) { o.material.map.dispose(); o.material.dispose(); }
     });
     if (cell.lampMesh) cell.lampMesh.dispose();
+    if (cell.signMat) { cell.signMat.map.dispose(); cell.signMat.dispose(); }
     for (const r of cell.roads) for (const end of [0, 1]) {
       const list = this.nodes.get(r.keys[end]);
       if (!list) continue;
@@ -297,6 +332,12 @@ export class OsmCity extends CityMode {
   }
 
   buildCell(k, data) {
+    if (!Array.isArray(data)) {
+      const cell = buildCell(this, k, data);
+      this.root.add(cell.group);
+      this.cells.set(k, cell);
+      return;
+    }
     const [buildings, small, collector, main, objects = []] = data;
     const group = new THREE.Group();
     const cell = { group, buildings: [], buckets: new Map(), roads: [], objects: [], lampMesh: null };
@@ -661,7 +702,8 @@ export class OsmCity extends CityMode {
           s.x += pushX * worst; s.z += pushZ * worst;
           const into = -(fwdX * pushX + fwdZ * pushZ) * Math.sign(s.v || 1);
           const impact = Math.abs(s.v) * Math.max(0.2, into);
-          s.v *= into > 0.7 ? 0.35 : 0.9;
+          // head-on: most speed gone; scraping along: some; wedged in a corner the pushes add up and it stops
+          s.v *= into > 0.7 ? 0.35 : into > 0.25 ? 0.75 : 0.95;
           hit(hx, hz, impact);
         }
       }
@@ -706,7 +748,7 @@ export class OsmCity extends CityMode {
     // labels only close up
     for (const cell of this.cells.values()) {
       if (!cell) continue;
-      for (const o of cell.objects) o.sprite.visible = Math.abs(o.x - s.x) + Math.abs(o.z - s.z) < 110;
+      for (const o of cell.objects) { const d1 = Math.abs(o.x - s.x) + Math.abs(o.z - s.z); o.sprite.visible = d1 > 9 && d1 < 110; }
     }
   }
 
@@ -725,7 +767,11 @@ export class OsmCity extends CityMode {
     return out;
   }
 
-  laneOffset(seg) { return seg.kind === 2 ? 3.2 : 2.0; }
+  // right-hand traffic: the outer lane of a one-way carriageway, the middle of the right half of a two-way road
+  laneOffset(seg) {
+    if (seg.width) return seg.oneway ? Math.max(0, seg.width / 2 - 1.8) : Math.max(1.6, seg.width / 4);
+    return seg.kind === 2 ? 3.2 : 2.0;
+  }
 
   placeOnSeg(c, seg, fromEnd, t) {
     c.seg = seg; c.rev = fromEnd === 1; c.t = t;
@@ -756,10 +802,11 @@ export class OsmCity extends CityMode {
         const c = this.pool && this.pool.length ? this.pool.pop() : createUzCar(pickUzType());
         if (!c.mesh.parent) this.root.add(c.mesh);
         c.setColor();
+        if (c.setTaxi) c.setTaxi(c.type !== 'damas' && Math.random() < 0.18);   // about one car in six is a taxi
         c.mesh.visible = true;
         c.baseSpeed = seg.kind === 2 ? 10 + Math.random() * 5 : 7 + Math.random() * 4;
         c.speed = c.baseSpeed;
-        this.placeOnSeg(c, seg, Math.random() < 0.5 ? 0 : 1, Math.random() * seg.len);
+        this.placeOnSeg(c, seg, seg.oneway || Math.random() < 0.5 ? 0 : 1, Math.random() * seg.len);
         if (this.cars.some((o) => Math.hypot(o.x - c.x, o.z - c.z) < 12)) { (this.pool || (this.pool = [])).push(c); c.mesh.visible = false; continue; }
         c.yaw = c.yawT;
         this.cars.push(c);
@@ -792,7 +839,8 @@ export class OsmCity extends CityMode {
       // end of the segment: carry on along a connected road (mostly straight on)
       if (c.t >= c.seg.len) {
         const endKey = c.seg.keys[c.rev ? 0 : 1];
-        const options = (this.nodes.get(endKey) || []).filter((e) => e.seg !== c.seg);
+        // never into a one-way street against its direction
+        const options = (this.nodes.get(endKey) || []).filter((e) => e.seg !== c.seg && !(e.seg.oneway && e.end === 1));
         if (!options.length) { this.removeCar(i); continue; }
         let best = options[0], bestScore = -Infinity;
         for (const e of options) {
@@ -831,11 +879,12 @@ export class OsmCity extends CityMode {
     if (!this.cells.has(ck)) {
       // the first cells are still downloading: hold the car, keep the picture alive
       if (!this.loadingShown) { this.loadingShown = true; this.d.ui.popup('TOSHKENT XARITASI YUKLANMOQDA…'); }
-      if (performance.now() - this.startedAt > 15000 && this.d.fallbackCity) { this.d.fallbackCity(); return; }
+      if (!this.everLoaded && performance.now() - this.startedAt > 15000 && this.d.fallbackCity) { this.d.fallbackCity(); return; }
       this.updateCamera(dt, -Math.sin(this.state.yaw), -Math.cos(this.state.yaw));
       this.sky.position.copy(this.d.camera.position);
       return;
     }
+    this.everLoaded = true;
     super.update(dt);
   }
 
@@ -851,12 +900,25 @@ export class OsmCity extends CityMode {
     }
     if (!near.length) return null;
     const r = near[Math.floor(Math.random() * near.length)];
-    const off = (ROAD_W[r.kind] / 2 + WALK * 0.5) * (Math.random() < 0.5 ? -1 : 1);
+    const off = ((r.width || ROAD_W[r.kind]) / 2 + WALK * 0.5) * (Math.random() < 0.5 ? -1 : 1);
     const nx = -(r.bz - r.az) / r.len * off, nz = (r.bx - r.ax) / r.len * off;
     return { ax: r.ax + nx, az: r.az + nz, bx: r.bx + nx, bz: r.bz + nz };
   }
 
   streetName(x, z) {
+    // the street the car is on (OSM name), else the nearest named stop
+    let road = null, rd = 30 * 30;
+    for (const cell of this.cells.values()) {
+      if (!cell || !cell.named) continue;
+      for (const sg of cell.named) {
+        if (Math.abs(sg.ax - x) > sg.len + 40 || Math.abs(sg.az - z) > sg.len + 40) continue;
+        const dx = sg.bx - sg.ax, dz = sg.bz - sg.az, l2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((x - sg.ax) * dx + (z - sg.az) * dz) / l2));
+        const d2 = (sg.ax + dx * t - x) ** 2 + (sg.az + dz * t - z) ** 2;
+        if (d2 < rd) { rd = d2; road = sg; }
+      }
+    }
+    if (road) return road.name;
     let best = null, bd = 150 * 150;
     for (const cell of this.cells.values()) {
       if (!cell) continue;
@@ -901,10 +963,18 @@ export class OsmCity extends CityMode {
         g.beginPath(); g.arc(o.x, o.z, 6, 0, Math.PI * 2); g.fill();
       }
     }
+    // the taxi / navigation route ahead of the car
+    if (this.taxiRoute) {
+      const r = this.taxiRoute, P = r.pts;
+      g.strokeStyle = r.color; g.lineWidth = 9; g.lineJoin = 'round';
+      g.beginPath();
+      for (let j = Math.max(0, r.from); j < P.length; j++) { if (j === Math.max(0, r.from)) g.moveTo(s.x, s.z); g.lineTo(P[j][0], P[j][1]); }
+      g.stroke();
+    }
     if (this.taxiTarget) {
       const dx = this.taxiTarget.x - s.x, dz = this.taxiTarget.z - s.z;
       const clamp = Math.min(1, (view - 22) / (Math.hypot(dx, dz) || 1));
-      g.fillStyle = '#39e2ae'; g.strokeStyle = '#162c32'; g.lineWidth = 4;
+      g.fillStyle = '#' + (this.taxiTarget.color || 0x39e2ae).toString(16).padStart(6, '0'); g.strokeStyle = '#162c32'; g.lineWidth = 4;
       g.beginPath(); g.arc(s.x + dx * clamp, s.z + dz * clamp, 10, 0, Math.PI * 2); g.fill(); g.stroke();
     }
     g.fillStyle = '#ffffff';

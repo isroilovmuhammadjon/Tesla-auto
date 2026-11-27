@@ -105,12 +105,14 @@ export class AudioEngine {
   }
 
   // Continuous sounds, called every frame
-  update({ rpm = 900, load = 0, engine = 0, wind = 0, nitro = false, scrape = false, electric = false, hover = 0, squeal = 0 }) {
+  update({ rpm = 900, load = 0, engine = 0, wind = 0, nitro = false, scrape = false, electric = false, hover = 0, squeal = 0, voice = null }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const f = 26 + (rpm / 60) * 1.5;
+    // voice: each car's engine note (pitch: firing frequency, tone: brightness)
+    const pitch = voice ? voice.pitch : 1, tone = voice ? voice.tone : 1;
+    const f = (26 + (rpm / 60) * 1.5) * pitch;
     for (const { o, mul } of this.eOsc) o.frequency.setTargetAtTime(f * mul, t, 0.04);
-    this.eFilter.frequency.setTargetAtTime(260 + rpm * 0.2 + load * 1500, t, 0.05);
+    this.eFilter.frequency.setTargetAtTime((260 + rpm * 0.2 + load * 1500) * tone, t, 0.05);
     // electric car: no combustion growl, a rising motor whine instead
     this.eOut.gain.setTargetAtTime(electric ? 0 : engine * (0.1 + load * 0.15), t, 0.06);
     this.humA.frequency.setTargetAtTime(120 + rpm * 0.12, t, 0.05);

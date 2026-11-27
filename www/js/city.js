@@ -1013,7 +1013,7 @@ export class CityMode {
       s.fly += ((s.y > 0.12 || s.altT > 0.05 ? 1 : 0) - s.fly) * Math.min(1, dt * 3);
     }
     // ---- chassis: tyre forces, weight transfer, slides (vehicle.js); a car in the air just glides
-    if (s.r === undefined) { s.r = 0; s.latV = 0; s.ax = 0; }
+    for (const k2 of ['r', 'latV', 'ax']) if (!Number.isFinite(s[k2])) s[k2] = 0;
     let slide = 0, ay;
     const airborne = def.flying && s.fly > 0.5;
     if (airborne) {
@@ -1097,7 +1097,7 @@ export class CityMode {
     d.hud({ speedKmh: kmh, gear: s.v < -0.1 ? 'R' : s.v < 0.5 && !input.up ? 'N' : pt.gear, nitro: s.nitro, nitroActive: s.nitroOn, distance: s.dist, rpm: pt.rpm });
     d.ui.setInfo('KO\'CHA', this.streetName(s.x, s.z), 'win');
     d.ui.setAltitude(def.flying ? s.y : null);
-    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90 + s.y * 0.004, nitro: s.nitroOn, electric: !!def.flying, hover: s.fly, squeal: s.slide });
+    d.audio.update({ rpm: pt.rpm, load: input.up || s.nitroOn ? 1 : 0.05, engine: 1, wind: Math.abs(s.v) / 90 + s.y * 0.004, nitro: s.nitroOn, electric: !!def.flying, hover: s.fly, squeal: s.slide, voice: def.voice });
     this.drawMinimap();
   }
 

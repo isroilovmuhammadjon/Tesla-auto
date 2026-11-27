@@ -18,6 +18,15 @@ import * as THREE from 'three';
 const G = 9.81;
 
 export function chassisFor(def) {
+  // Uzbek taxis (uzplayer.js) carry their own mass and axle positions; all but the Damas drive the front wheels
+  if (def.chassis) {
+    const c = def.chassis, L = c.a + c.b;
+    return {
+      m: c.m, a: c.a, b: c.b, L, Iz: c.m * c.a * c.b * 1.05, h: c.h,
+      mu: 0.95 * (0.9 + 0.1 * def.handling), Cf: 125000 * (c.m / 1200) * (0.85 + 0.15 * def.handling), Cr: 140000 * (c.m / 1200) * (0.85 + 0.15 * def.handling),
+      esc: 1, muF: 0.94, muR: 1.06, drive: c.rear ? 'rear' : 'front', maxWheel: 0.62,
+    };
+  }
   const sedan = def.style === 'malibu';
   const m = sedan ? 1540 : 1450;
   const a = sedan ? 1.18 : 1.3;          // centre of mass to front axle (m); front-heavy sedan
