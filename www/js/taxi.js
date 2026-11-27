@@ -487,7 +487,7 @@ export class TaxiShift {
     if (!this.search || !q || q.length < 2) return [];
     const norm = (t) => t.toLowerCase().replace(/[ʻʼ‘’`']/g, "'").replace(/o'/g, 'o').replace(/g'/g, 'g');
     const nq = norm(q);
-    const s = this.city.state;
+    const s = this.city.state || { x: 0, z: 0 };       // before the first drive: rank from the city centre
     const out = [];
     for (const e of this.search) {
       const n = norm(e[1]);

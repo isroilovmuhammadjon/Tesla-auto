@@ -830,7 +830,9 @@ export class OsmCity extends CityMode {
         // A driver who has waited a long time edges through (ghost) so junctions never lock up.
         const same = o.player || (o.dirX * c.dirX + o.dirZ * c.dirZ) > 0.5;
         if (!o.player && c.ghost > 0) continue;
-        if (same ? ahead > 0 && ahead < 20 && lat < 2.6 : ahead > 0 && ahead < 6 && lat < 1.8) limit = Math.min(limit, Math.max(0, (ahead - (same ? 7 : 3.5)) * 0.8));
+        // two cars at exactly the same spot would never see each other: the later one in the list follows
+        const behind = ahead > 0 || (!o.player && same && Math.abs(ahead) < 0.5 && lat < 1 && this.cars.indexOf(o) < i);
+        if (same ? behind && ahead > -0.5 && ahead < 20 && lat < 2.6 : ahead > 0 && ahead < 6 && lat < 1.8) limit = Math.min(limit, Math.max(0, (Math.max(0, ahead) - (same ? 7 : 3.5)) * 0.8));
         // the player's car crossing in front at a junction: stop dead, don't creep into it
         if (o.player && !(c.goFirst > 0) && ahead > -1 && ahead < 8 && lat < 4.5 && Math.abs(c.dirX * -Math.sin(s.yaw) + c.dirZ * -Math.cos(s.yaw)) < 0.85) limit = 0;
       }
@@ -859,7 +861,10 @@ export class OsmCity extends CityMode {
       // leaves the street, but only when the player isn't looking at it
       const pd = Math.hypot(c.x - s.x, c.z - s.z);
       c.blockedT = c.speed < 0.8 && pd < 9 ? (c.blockedT || 0) + dt : 0;
-      // both waiting for each other: the other driver goes first
+      // head-on with the player in its lane for a while: that driver backs off out of the street
+      const pdot = c.dirX * -Math.sin(s.yaw) + c.dirZ * -Math.cos(s.yaw);
+      if (c.blockedT > 3 && pdot < -0.5) { this.removeCar(i); continue; }
+      // both waiting for each other at a junction: the other driver goes first
       if (c.blockedT > 3 && Math.abs(s.v) < 0.5) { c.goFirst = 4; c.blockedT = 0; }
       if (c.goFirst > 0) c.goFirst -= dt;
       if (c.blockedT > 4) {

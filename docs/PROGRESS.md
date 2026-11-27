@@ -1,57 +1,46 @@
 # Toshkent 1:1 — ish holati (keyingi sessiya shu yerdan davom etadi)
 
-Branch: `feature/toshkent-1to1` (main'ga hali qo'shilmagan).
+Branch: `feature/toshkent-1to1` (main'ga qo'shilmagan, foydalanuvchi tasdig'ini kutadi).
+Preview: https://isroilovmuhammadjon.github.io/Tesla-auto/preview/feature-toshkent-1to1/ (`.github/workflows/preview.yml` har push'da yangilaydi).
+To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 ## Bajarildi
-- Audit skripti: `scripts/tashkent-map/audit.py` (tumanlar bo'yicha: yo'llar, ulanish, uzilgan kesishmalar, binolar, bekatlar, metro, devorlar, daraxtlar).
-- OSM qayta ajratildi (`extract.py`): qatorlar, burilish taqiqlari, devor/panjara, darvoza, eshik, daraxt, yerdan foydalanish.
-- Xarita (`build.py`):
-  - xususiy yo'laklar grafga qo'shildi (ulanmagan tugunlar 1 443 → 1 170);
-  - 371 burilish taqiqi, 3 711 mediana, 3 595 zebra;
-  - 5 146 devor qismi, 1 507 darvoza, 4 430 eshik, 16 457 haqiqiy daraxt, 12 728 zamin maydoni;
-  - yo'l yoki ko'prik kesib o'tgan joyda devorda ochiq joy (478 ta).
-- Renderer (`osmbuild.js`):
-  - qatorlar soni, mediana (maysa va teraklar), 5 xil daraxt, daraxt yo'l ustida emas;
-  - devor, panjara, darvoza, eshik, zebra va piyodalar belgisi, zamin turlari, 20 xil fasad.
-- Marshrut (`route.js`): yo'l+yo'nalish bo'yicha qidiruv, OSM burilish taqiqlari, chap/U-burilish narxi.
-- Oqim: qatorlar, chorrahada tiqilib qolmaslik, bitta chorrahada bitta svetofor fazasi.
-- Mashinalar: yumaloq burun va orqa, torayuvchi oyna, haqiqiy shina va disklar.
-- HUD o'chirish (H), test haydovlari (`?test`, `www/js/devtest.js`), `__viewAt` orqali surat joyidan ko'rinish.
+1. **Geometriya** (`check_geometry.py`):
 
-## Shahar bo'yicha tekshiruv (suratsiz)
-- **Marshrut:** 13×13 tuman juftligi, 338/338 marshrut topildi. Yo'l to'g'ri chiziqdan mediana bo'yicha 1,33, 95% holatda 1,87 barobar uzun.
-- **Burilish taqiqlari:** 208 tasi sinaldi, 0 ta buzilish.
-- **Uzluksiz haydov (HUD o'chiq):** Sergeli-5 → Chilonzor-13, 10,5 km, 4 tuman; yetib bordi, 0 marta tiqildi, yo'ldan chiqish 4/570.
-- **Geometriya** (`scripts/tashkent-map/check_geometry.py`, natija `docs/geom-check.json`):
-  - 3 468 bino yo'l ustida (OSM kontur yoki yo'l kengligi taxmini);
-  - 270 devor yo'l ustida;
-  - 998 darvoza yo'l ustida (darvoza modeli yo'lakni to'sadi);
-  - 1 528 bekat xom nuqtasi yo'l ustida (renderer ularni bordyurga suradi, buni alohida tekshirish kerak);
-  - taksi bordyurlari: 88 802 nuqtadan 1 465 tasi bino ichida.
+   | Tekshiruv | Oldin | Keyin |
+   |---|---|---|
+   | Yo'l ustidagi binolar | 3 468 | 581 |
+   | Devorlar | 270 | 0 |
+   | Darvozalar | 998 | 0 |
+   | Bino ichidagi bordyurlar | 1 465 | 284 |
 
-## Qolgan ishlar (navbat bilan)
-0. **BIRINCHI TUGALLANMAGAN VAZIFA:** `docs/geom-check.json` asosida tuzatish:
-   - yo'l ustidagi binolar uchun yo'l kengligini qisqartirish yoki binoni yo'lga tegmaydigan qilish;
-   - yo'l ustidagi devorlarni kesish;
-   - darvozani yo'l kesgan joyda chizmaslik (yo'l darvozadan o'tadi);
-   - taksi to'xtash joyini bino ichidagi bordyurdan surish (`stopNear`'ga kerb tekshiruvi);
-   - keyin `check_geometry.py`'ni qayta ishga tushirish.
-1. Qolgan test haydovlari: Bektemir → Chorsu, Yunusobod → Olmazor, Yangi Toshkent → Mirobod, O'rikzor → Tinchlik. Natijalar `docs/TOSHKENT-1TO1.md` ga yoziladi.
-2. Haqiqiy va o'yin ko'rinishlari: Commons suratlari (`~/street-racing-3d-data/refs`, refs.json) → `__viewAt(lat, lon, heading)`.
-3. Mapillary tokeni bo'lsa: har tumandan suratlar, fasad, do'kon va belgilarni moslashtirish.
-4. Audit "keyin" holati + tumanlar bo'yicha qamrov yozuvlari (ko'cha ko'rinishi tasdiqlangan km = suratli segmentlar).
-5. Taksi smenasi to'liq sinovi, telefon ko'rinishi, poyga/garaj regressiyasi; keyin main'ga chiqarish.
+2. **Haqiqiy va o'yin ko'rinishlari:** 3 ta Commons surati (Sayilgoh, kurantlar, Amir Temur xiyoboni) uchun oldin/keyin rasmlari `docs/matched/`'da.
+   - Qo'shildi: Forumlar saroyi va kurantlar modellari, OSM material va tom shakli, daraxtlar konturga qarab qoldiriladi.
+   - `PHOTO-NEEDS.csv`: 9 413 ko'rinish nuqtasi, 3 tasida surat bor.
+3. **Mashinalar:** har model uchun orqa chiroqlar, orqaga yurish chiroqlari, xrom chiziq, raqam belgisi; kuzov shakli, shina va disklar.
+4. **Uzluksiz haydovlar va smena:**
+   - 5 ta HUD o'chiq haydov, hammasi manzilga yetdi, tiqilish 0.
+   - To'liq taksi safari: Enter bilan qabul, to'g'ri bordyur, noto'g'ri burilish va qayta hisoblash, bir marta to'lov, sahifa yangilangandan keyin balans saqlangan.
+5. **Oqim tuzatishlari:**
+   - bitta chorrahada bitta svetofor fazasi;
+   - kesishuvchi mashinalarning o'zaro kutishi yo'q;
+   - to'planish va "boshma-bosh" qulf yo'q;
+   - parallel yo'lda marshrut qayta hisoblanadi.
+6. **Test vositalari** (faqat `?test` bilan): `__testDrive`, `__testShift`, `__viewAt`.
 
-## Ma'lumot manbalari
-- **OSM:** Geofabrik Uzbekistan, 2026-11-27; xom ma'lumot `~/street-racing-3d-data/raw2.pkl` faylida.
-- **Ko'cha suratlari:**
-  - KartaView API bu tarmoqdan javob bermadi;
-  - Mapillary token talab qiladi (foydalanuvchidan so'ralishi kerak);
-  - Commons: kam surat, ro'yxati refs.json'da.
+## BIRINCHI TUGALLANMAGAN VAZIFA
+- Ikki tomonlama yo'llarning mediana tomonida qolgan 23 bekatni o'ng bordyurga o'tkazish. Ro'yxat `docs/geom-check.json` → `objects_on_carriageway_list`. `faceRoad` bekatni yo'nalish bo'yicha o'ng tomondagi trotuarga qo'yishi kerak.
+- So'ng qolgan 581 bino kesishmasini ko'rib chiqish (`buildings_on_carriageway`).
 
-## Suratsiz ko'chalar ro'yxati
-Hali tuzilmagan, keyingi qadam:
-- har tumanning nomli asosiy ko'chalari bo'yicha har 300 m'da nuqta (kenglik, uzunlik, harakat yo'nalishidagi kompas burchagi);
-- natija `docs/PHOTO-NEEDS.csv` fayliga, "surat yo'q" holati bilan.
+## Keyingi navbat
+1. Tor mahalla ko'chalarida taksi: `__testShift` tiqilishlarini kamaytirish (burilish radiusi, yo'lak kengligi).
+2. Kabina ichida kameraning bekat shisha devoridan o'tishini to'xtatish (Yangi Toshkentda ko'rilgan kulrang parda).
+3. Kurantlar: arkali derazalar, atrofdagi katta daraxtlar.
+4. Old chiroqlar va kabinalar har model uchun alohida.
+5. **Suratlar:** Mapillary client token kerak (foydalanuvchidan; tokenni repoga yoki brauzer kodiga yozmaslik, faqat lokal skriptda ishlatish). `PHOTO-NEEDS.csv` bo'yicha tumanlarda surat yig'ish va fasad, do'kon, belgilarni moslash.
+6. Foydalanuvchi tasdiqlagach: `main`'ga birlashtirish (main'dagi `pages.yml` preview'larni saqlaydigan qilib yangilangan).
 
-Commons'dagi 3 ta mos surat (Amir Temur xiyoboni, kurantlar, yuridik institut) `refs.json`'da.
+## Ma'lumot
+- OSM: Geofabrik Uzbekistan 2026-11-27. Xom ma'lumot `~/street-racing-3d-data/raw2.pkl` (`extract.py`), xarita `build.py` bilan quriladi.
+- Map versiyasi `osmcity.js` → `MAP_VER` (har qayta qurishda oshiriladi).
+- Mos suratlar: `~/street-racing-3d-data/refs/refs.json`.

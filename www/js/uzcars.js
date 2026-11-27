@@ -253,7 +253,7 @@ export function createUzCar(type) {
     const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
     B(m.tail.w, m.tail.h, 0.08, tailMat, tx, m.tail.y, zR + 0.05, g);
     B(m.tail.w * 0.42, m.tail.h * 0.28, 0.085, revMat(), tx - s * m.tail.w * 0.22, m.tail.y - m.tail.h * 0.28, zR + 0.056, g);
-    B(0.06, m.tail.h * 0.9, 0.14, tailMat, s * (halfRear + 0.03), m.tail.y, zR - 0.02, g);         // wraps round onto the flank
+    B(0.05, m.tail.h * 0.9, 0.12, tailMat, s * (halfRear + 0.005), m.tail.y, zR + 0.0, g);         // wraps round onto the flank
     B(0.1, 0.06, 0.04, blinkMat, s * (m.tail.x + m.tail.w / 2 + 0.06), m.tail.y, zR - 0.01);
     // mirrors
     B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
