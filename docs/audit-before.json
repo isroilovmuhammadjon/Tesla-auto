@@ -1,0 +1,984 @@
+{
+ "source": "OpenStreetMap (ODbL), Geofabrik Uzbekistan 2026-11-27",
+ "districts": [
+  {
+   "district": "Bektemir Tumani",
+   "roads": {
+    "osm_drivable_km": 390.2,
+    "routable_km": 375.0,
+    "major_km": 76.9,
+    "major_with_lane_count_pct": 18,
+    "with_turn_lanes_km": 0.3,
+    "oneway_km": 64.2,
+    "bridge_km": 2.94,
+    "tunnel_km": 0.14,
+    "unnamed_km": 270.9
+   },
+   "connectivity": {
+    "isolated_groups": 8,
+    "isolated_nodes": 39,
+    "crossings_without_junction": 2,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 16503,
+    "height_or_levels": 458,
+    "addressed": 3551,
+    "material_or_colour": 0,
+    "roof_shape": 0
+   },
+   "street": {
+    "bus_stops_named": 48,
+    "bus_stops_unnamed": 4,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 1,
+    "signals": 23,
+    "pedestrian_crossings": 75,
+    "traffic_signs": 4,
+    "walls_fences_km": 35.2,
+    "gates": 50,
+    "entrances": 86,
+    "single_trees": 126,
+    "tree_rows_km": 1.8,
+    "landuse_areas": 410,
+    "shops_amenities": 240
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Chilonzor Tumani",
+   "roads": {
+    "osm_drivable_km": 646.7,
+    "routable_km": 634.9,
+    "major_km": 165.4,
+    "major_with_lane_count_pct": 41,
+    "with_turn_lanes_km": 1.0,
+    "oneway_km": 160.3,
+    "bridge_km": 4.66,
+    "tunnel_km": 0.32,
+    "unnamed_km": 370.5
+   },
+   "connectivity": {
+    "isolated_groups": 16,
+    "isolated_nodes": 95,
+    "crossings_without_junction": 4,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 15906,
+    "height_or_levels": 2880,
+    "addressed": 11149,
+    "material_or_colour": 36,
+    "roof_shape": 26
+   },
+   "street": {
+    "bus_stops_named": 187,
+    "bus_stops_unnamed": 11,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 39,
+    "signals": 200,
+    "pedestrian_crossings": 517,
+    "traffic_signs": 104,
+    "walls_fences_km": 86.3,
+    "gates": 387,
+    "entrances": 1004,
+    "single_trees": 617,
+    "tree_rows_km": 17.0,
+    "landuse_areas": 1490,
+    "shops_amenities": 2077
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Mirobod Tumani",
+   "roads": {
+    "osm_drivable_km": 364.4,
+    "routable_km": 356.8,
+    "major_km": 104.1,
+    "major_with_lane_count_pct": 39,
+    "with_turn_lanes_km": 3.0,
+    "oneway_km": 93.2,
+    "bridge_km": 2.48,
+    "tunnel_km": 0.91,
+    "unnamed_km": 174.3
+   },
+   "connectivity": {
+    "isolated_groups": 24,
+    "isolated_nodes": 114,
+    "crossings_without_junction": 3,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 12833,
+    "height_or_levels": 1732,
+    "addressed": 9001,
+    "material_or_colour": 33,
+    "roof_shape": 117
+   },
+   "street": {
+    "bus_stops_named": 120,
+    "bus_stops_unnamed": 17,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 16,
+    "signals": 177,
+    "pedestrian_crossings": 399,
+    "traffic_signs": 33,
+    "walls_fences_km": 58.9,
+    "gates": 211,
+    "entrances": 620,
+    "single_trees": 249,
+    "tree_rows_km": 1.9,
+    "landuse_areas": 478,
+    "shops_amenities": 1430
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Mirzo Ulug‘bek Tumani",
+   "roads": {
+    "osm_drivable_km": 686.0,
+    "routable_km": 644.9,
+    "major_km": 160.9,
+    "major_with_lane_count_pct": 64,
+    "with_turn_lanes_km": 9.5,
+    "oneway_km": 141.3,
+    "bridge_km": 2.55,
+    "tunnel_km": 0.32,
+    "unnamed_km": 364.5
+   },
+   "connectivity": {
+    "isolated_groups": 21,
+    "isolated_nodes": 807,
+    "crossings_without_junction": 4,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 19678,
+    "height_or_levels": 2919,
+    "addressed": 12578,
+    "material_or_colour": 12,
+    "roof_shape": 68
+   },
+   "street": {
+    "bus_stops_named": 218,
+    "bus_stops_unnamed": 12,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 19,
+    "signals": 210,
+    "pedestrian_crossings": 600,
+    "traffic_signs": 54,
+    "walls_fences_km": 66.2,
+    "gates": 222,
+    "entrances": 129,
+    "single_trees": 442,
+    "tree_rows_km": 3.8,
+    "landuse_areas": 784,
+    "shops_amenities": 1853
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Olmazor Tumani",
+   "roads": {
+    "osm_drivable_km": 673.5,
+    "routable_km": 670.2,
+    "major_km": 148.7,
+    "major_with_lane_count_pct": 26,
+    "with_turn_lanes_km": 3.7,
+    "oneway_km": 141.9,
+    "bridge_km": 2.66,
+    "tunnel_km": 1.0,
+    "unnamed_km": 328.5
+   },
+   "connectivity": {
+    "isolated_groups": 22,
+    "isolated_nodes": 117,
+    "crossings_without_junction": 4,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 24705,
+    "height_or_levels": 2134,
+    "addressed": 16614,
+    "material_or_colour": 1,
+    "roof_shape": 2
+   },
+   "street": {
+    "bus_stops_named": 164,
+    "bus_stops_unnamed": 24,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 4,
+    "signals": 198,
+    "pedestrian_crossings": 447,
+    "traffic_signs": 26,
+    "walls_fences_km": 44.1,
+    "gates": 246,
+    "entrances": 90,
+    "single_trees": 777,
+    "tree_rows_km": 3.2,
+    "landuse_areas": 1050,
+    "shops_amenities": 1085
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Sergeli tumani",
+   "roads": {
+    "osm_drivable_km": 777.8,
+    "routable_km": 719.2,
+    "major_km": 130.7,
+    "major_with_lane_count_pct": 15,
+    "with_turn_lanes_km": 0.1,
+    "oneway_km": 131.2,
+    "bridge_km": 5.0,
+    "tunnel_km": 0.13,
+    "unnamed_km": 568.8
+   },
+   "connectivity": {
+    "isolated_groups": 14,
+    "isolated_nodes": 113,
+    "crossings_without_junction": 1,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 28726,
+    "height_or_levels": 1862,
+    "addressed": 8441,
+    "material_or_colour": 0,
+    "roof_shape": 15
+   },
+   "street": {
+    "bus_stops_named": 112,
+    "bus_stops_unnamed": 4,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 5,
+    "signals": 78,
+    "pedestrian_crossings": 283,
+    "traffic_signs": 28,
+    "walls_fences_km": 72.7,
+    "gates": 146,
+    "entrances": 455,
+    "single_trees": 49,
+    "tree_rows_km": 1.5,
+    "landuse_areas": 858,
+    "shops_amenities": 549
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "roads": {
+    "osm_drivable_km": 571.9,
+    "routable_km": 569.7,
+    "major_km": 134.3,
+    "major_with_lane_count_pct": 41,
+    "with_turn_lanes_km": 7.0,
+    "oneway_km": 120.9,
+    "bridge_km": 1.47,
+    "tunnel_km": 1.58,
+    "unnamed_km": 258.1
+   },
+   "connectivity": {
+    "isolated_groups": 43,
+    "isolated_nodes": 186,
+    "crossings_without_junction": 6,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 24295,
+    "height_or_levels": 3074,
+    "addressed": 13434,
+    "material_or_colour": 7,
+    "roof_shape": 72
+   },
+   "street": {
+    "bus_stops_named": 140,
+    "bus_stops_unnamed": 28,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 20,
+    "signals": 178,
+    "pedestrian_crossings": 526,
+    "traffic_signs": 49,
+    "walls_fences_km": 47.0,
+    "gates": 380,
+    "entrances": 1379,
+    "single_trees": 1925,
+    "tree_rows_km": 3.5,
+    "landuse_areas": 1224,
+    "shops_amenities": 1507
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Uchtepa Tumani",
+   "roads": {
+    "osm_drivable_km": 566.0,
+    "routable_km": 562.4,
+    "major_km": 112.9,
+    "major_with_lane_count_pct": 26,
+    "with_turn_lanes_km": 0.1,
+    "oneway_km": 85.3,
+    "bridge_km": 0.81,
+    "tunnel_km": 0.07,
+    "unnamed_km": 249.1
+   },
+   "connectivity": {
+    "isolated_groups": 6,
+    "isolated_nodes": 24,
+    "crossings_without_junction": 1,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 26468,
+    "height_or_levels": 1533,
+    "addressed": 16139,
+    "material_or_colour": 1,
+    "roof_shape": 9
+   },
+   "street": {
+    "bus_stops_named": 172,
+    "bus_stops_unnamed": 2,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 0,
+    "signals": 131,
+    "pedestrian_crossings": 248,
+    "traffic_signs": 15,
+    "walls_fences_km": 17.0,
+    "gates": 119,
+    "entrances": 28,
+    "single_trees": 1,
+    "tree_rows_km": 0.3,
+    "landuse_areas": 460,
+    "shops_amenities": 819
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Yakkasaroy Tumani",
+   "roads": {
+    "osm_drivable_km": 293.8,
+    "routable_km": 292.0,
+    "major_km": 81.6,
+    "major_with_lane_count_pct": 66,
+    "with_turn_lanes_km": 2.6,
+    "oneway_km": 78.9,
+    "bridge_km": 5.19,
+    "tunnel_km": 0.13,
+    "unnamed_km": 141.9
+   },
+   "connectivity": {
+    "isolated_groups": 6,
+    "isolated_nodes": 29,
+    "crossings_without_junction": 1,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 10120,
+    "height_or_levels": 1635,
+    "addressed": 6675,
+    "material_or_colour": 5,
+    "roof_shape": 51
+   },
+   "street": {
+    "bus_stops_named": 82,
+    "bus_stops_unnamed": 8,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 3,
+    "signals": 129,
+    "pedestrian_crossings": 400,
+    "traffic_signs": 37,
+    "walls_fences_km": 34.8,
+    "gates": 170,
+    "entrances": 110,
+    "single_trees": 206,
+    "tree_rows_km": 8.5,
+    "landuse_areas": 614,
+    "shops_amenities": 1213
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Yangi Toshkent Tumani",
+   "roads": {
+    "osm_drivable_km": 865.5,
+    "routable_km": 860.2,
+    "major_km": 171.4,
+    "major_with_lane_count_pct": 43,
+    "with_turn_lanes_km": 2.2,
+    "oneway_km": 91.2,
+    "bridge_km": 3.07,
+    "tunnel_km": 0.12,
+    "unnamed_km": 763.7
+   },
+   "connectivity": {
+    "isolated_groups": 14,
+    "isolated_nodes": 200,
+    "crossings_without_junction": 2,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 32227,
+    "height_or_levels": 298,
+    "addressed": 103,
+    "material_or_colour": 0,
+    "roof_shape": 0
+   },
+   "street": {
+    "bus_stops_named": 1,
+    "bus_stops_unnamed": 18,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 0,
+    "signals": 13,
+    "pedestrian_crossings": 79,
+    "traffic_signs": 60,
+    "walls_fences_km": 23.0,
+    "gates": 42,
+    "entrances": 5,
+    "single_trees": 0,
+    "tree_rows_km": 5.2,
+    "landuse_areas": 976,
+    "shops_amenities": 90
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Yangi hayot tumani",
+   "roads": {
+    "osm_drivable_km": 552.6,
+    "routable_km": 547.9,
+    "major_km": 122.6,
+    "major_with_lane_count_pct": 5,
+    "with_turn_lanes_km": 0.1,
+    "oneway_km": 98.4,
+    "bridge_km": 2.83,
+    "tunnel_km": 0.1,
+    "unnamed_km": 395.8
+   },
+   "connectivity": {
+    "isolated_groups": 9,
+    "isolated_nodes": 65,
+    "crossings_without_junction": 1,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 16494,
+    "height_or_levels": 1503,
+    "addressed": 4259,
+    "material_or_colour": 0,
+    "roof_shape": 17
+   },
+   "street": {
+    "bus_stops_named": 84,
+    "bus_stops_unnamed": 21,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 1,
+    "signals": 34,
+    "pedestrian_crossings": 170,
+    "traffic_signs": 15,
+    "walls_fences_km": 39.0,
+    "gates": 117,
+    "entrances": 58,
+    "single_trees": 0,
+    "tree_rows_km": 0.0,
+    "landuse_areas": 409,
+    "shops_amenities": 292
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Yashnobod Tumani",
+   "roads": {
+    "osm_drivable_km": 1070.3,
+    "routable_km": 1013.6,
+    "major_km": 224.7,
+    "major_with_lane_count_pct": 44,
+    "with_turn_lanes_km": 3.2,
+    "oneway_km": 156.7,
+    "bridge_km": 3.27,
+    "tunnel_km": 0.27,
+    "unnamed_km": 681.3
+   },
+   "connectivity": {
+    "isolated_groups": 37,
+    "isolated_nodes": 388,
+    "crossings_without_junction": 4,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 34782,
+    "height_or_levels": 2891,
+    "addressed": 13447,
+    "material_or_colour": 26,
+    "roof_shape": 49
+   },
+   "street": {
+    "bus_stops_named": 199,
+    "bus_stops_unnamed": 44,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 7,
+    "signals": 174,
+    "pedestrian_crossings": 512,
+    "traffic_signs": 64,
+    "walls_fences_km": 151.2,
+    "gates": 316,
+    "entrances": 247,
+    "single_trees": 771,
+    "tree_rows_km": 13.5,
+    "landuse_areas": 1681,
+    "shops_amenities": 1525
+   },
+   "street_level_appearance_verified_km": 0
+  },
+  {
+   "district": "Yunusobod Tumani",
+   "roads": {
+    "osm_drivable_km": 820.4,
+    "routable_km": 804.3,
+    "major_km": 174.1,
+    "major_with_lane_count_pct": 39,
+    "with_turn_lanes_km": 7.2,
+    "oneway_km": 148.3,
+    "bridge_km": 5.58,
+    "tunnel_km": 0.76,
+    "unnamed_km": 408.3
+   },
+   "connectivity": {
+    "isolated_groups": 22,
+    "isolated_nodes": 137,
+    "crossings_without_junction": 3,
+    "major_crossings_without_junction": 0
+   },
+   "buildings": {
+    "mapped": 26548,
+    "height_or_levels": 2618,
+    "addressed": 19339,
+    "material_or_colour": 6,
+    "roof_shape": 12
+   },
+   "street": {
+    "bus_stops_named": 218,
+    "bus_stops_unnamed": 20,
+    "metro_entrances_with_number": 0,
+    "metro_entrances_without_number": 29,
+    "signals": 224,
+    "pedestrian_crossings": 518,
+    "traffic_signs": 25,
+    "walls_fences_km": 73.9,
+    "gates": 277,
+    "entrances": 179,
+    "single_trees": 1804,
+    "tree_rows_km": 3.7,
+    "landuse_areas": 1219,
+    "shops_amenities": 2070
+   },
+   "street_level_appearance_verified_km": 0
+  }
+ ],
+ "turn_restrictions_in_extract": 1277,
+ "largest_isolated_groups": [
+  {
+   "nodes": 660,
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.4069,
+   "lon": 69.45666
+  },
+  {
+   "nodes": 56,
+   "district": "Yashnobod Tumani",
+   "lat": 41.32462,
+   "lon": 69.42952
+  },
+  {
+   "nodes": 52,
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.28801,
+   "lon": 69.48429
+  },
+  {
+   "nodes": 48,
+   "district": "Yashnobod Tumani",
+   "lat": 41.30517,
+   "lon": 69.30184
+  },
+  {
+   "nodes": 43,
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.17072,
+   "lon": 69.46768
+  },
+  {
+   "nodes": 42,
+   "district": "Yashnobod Tumani",
+   "lat": 41.3042,
+   "lon": 69.33942
+  },
+  {
+   "nodes": 37,
+   "district": "Sergeli tumani",
+   "lat": 41.23067,
+   "lon": 69.2154
+  },
+  {
+   "nodes": 36,
+   "district": "Chilonzor Tumani",
+   "lat": 41.25671,
+   "lon": 69.21334
+  },
+  {
+   "nodes": 31,
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.35438,
+   "lon": 69.38725
+  },
+  {
+   "nodes": 29,
+   "district": "Yunusobod Tumani",
+   "lat": 41.38186,
+   "lon": 69.28847
+  },
+  {
+   "nodes": 28,
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.16277,
+   "lon": 69.44665
+  },
+  {
+   "nodes": 25,
+   "district": "Yashnobod Tumani",
+   "lat": 41.28488,
+   "lon": 69.3152
+  },
+  {
+   "nodes": 24,
+   "district": "Shayhontohur Tumani",
+   "lat": 41.31604,
+   "lon": 69.24352
+  },
+  {
+   "nodes": 23,
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.29736,
+   "lon": 69.43889
+  },
+  {
+   "nodes": 22,
+   "district": "Yunusobod Tumani",
+   "lat": 41.32463,
+   "lon": 69.27108
+  },
+  {
+   "nodes": 19,
+   "district": "Olmazor Tumani",
+   "lat": 41.36936,
+   "lon": 69.21969
+  },
+  {
+   "nodes": 18,
+   "district": "Sergeli tumani",
+   "lat": 41.24646,
+   "lon": 69.24893
+  },
+  {
+   "nodes": 17,
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.28654,
+   "lon": 69.48051
+  },
+  {
+   "nodes": 16,
+   "district": "Yashnobod Tumani",
+   "lat": 41.32043,
+   "lon": 69.37659
+  },
+  {
+   "nodes": 16,
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.34498,
+   "lon": 69.40497
+  },
+  {
+   "nodes": 15,
+   "district": "Yashnobod Tumani",
+   "lat": 41.30253,
+   "lon": 69.35958
+  },
+  {
+   "nodes": 15,
+   "district": "Mirobod Tumani",
+   "lat": 41.27845,
+   "lon": 69.30679
+  },
+  {
+   "nodes": 14,
+   "district": "Yunusobod Tumani",
+   "lat": 41.37256,
+   "lon": 69.31068
+  },
+  {
+   "nodes": 14,
+   "district": "Yashnobod Tumani",
+   "lat": 41.31534,
+   "lon": 69.35945
+  },
+  {
+   "nodes": 14,
+   "district": "Yashnobod Tumani",
+   "lat": 41.30366,
+   "lon": 69.32259
+  }
+ ],
+ "major_crossings_without_junction": [
+  {
+   "district": "Olmazor Tumani",
+   "lat": 41.35001,
+   "lon": 69.17882,
+   "a": "Zarbdor 1-o'tish ko'chasi",
+   "b": "Zarbdor 2-o'tish ko'chasi"
+  },
+  {
+   "district": "Olmazor Tumani",
+   "lat": 41.35001,
+   "lon": 69.17904,
+   "a": "Zarbdor 1-o'tish ko'chasi",
+   "b": "Shifokor ​ko'cha"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.34916,
+   "lon": 69.17893,
+   "a": "Zarbdor 2-o'tish ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.3493,
+   "lon": 69.17891,
+   "a": "Zarbdor 2-o'tish ko'chasi",
+   "b": "Farobiy ko'chasi"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.34937,
+   "lon": 69.1789,
+   "a": "Zarbdor 2-o'tish ko'chasi",
+   "b": "Farobiy ko'chasi"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.34919,
+   "lon": 69.17944,
+   "a": "Zarbdor 2-o'tish ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Olmazor Tumani",
+   "lat": 41.34938,
+   "lon": 69.17976,
+   "a": "Zarbdor 2-o'tish ko'chasi",
+   "b": "Farobiy ko'chasi"
+  },
+  {
+   "district": "Yangi hayot tumani",
+   "lat": 41.1939,
+   "lon": 69.22011,
+   "a": "living_street",
+   "b": "service"
+  },
+  {
+   "district": "Sergeli tumani",
+   "lat": 41.23007,
+   "lon": 69.27574,
+   "a": "Beruniy koʻchasi",
+   "b": "living_street"
+  },
+  {
+   "district": "Bektemir Tumani",
+   "lat": 41.23169,
+   "lon": 69.35564,
+   "a": "unclassified",
+   "b": "residential"
+  },
+  {
+   "district": "Chilonzor Tumani",
+   "lat": 41.28699,
+   "lon": 69.20497,
+   "a": "Cho'ponota ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Chilonzor Tumani",
+   "lat": 41.29751,
+   "lon": 69.2111,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Chilonzor Tumani",
+   "lat": 41.2681,
+   "lon": 69.20212,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yashnobod Tumani",
+   "lat": 41.29386,
+   "lon": 69.36772,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Uchtepa Tumani",
+   "lat": 41.30047,
+   "lon": 69.19213,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yunusobod Tumani",
+   "lat": 41.36757,
+   "lon": 69.27164,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Chilonzor Tumani",
+   "lat": 41.26215,
+   "lon": 69.21035,
+   "a": "Serquyosh 1-o'tish ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.34916,
+   "lon": 69.17898,
+   "a": "service",
+   "b": "Shifokor ​ko'cha"
+  },
+  {
+   "district": "Shayhontohur Tumani",
+   "lat": 41.3493,
+   "lon": 69.17899,
+   "a": "Shifokor ​ko'cha",
+   "b": "Farobiy ko'chasi"
+  },
+  {
+   "district": "Olmazor Tumani",
+   "lat": 41.34937,
+   "lon": 69.17899,
+   "a": "Shifokor ​ko'cha",
+   "b": "Farobiy ko'chasi"
+  },
+  {
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.31581,
+   "lon": 69.30945,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yakkasaroy Tumani",
+   "lat": 41.27723,
+   "lon": 69.23184,
+   "a": "Jambul ko'chasi",
+   "b": "Sa'di Sirojiddinov ko'chasi"
+  },
+  {
+   "district": "Yashnobod Tumani",
+   "lat": 41.28012,
+   "lon": 69.35576,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.3186,
+   "lon": 69.30796,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Mirobod Tumani",
+   "lat": 41.24008,
+   "lon": 69.32178,
+   "a": "Qo'yliq ota ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Mirobod Tumani",
+   "lat": 41.24018,
+   "lon": 69.32127,
+   "a": "Qo'yliq ota ko'chasi",
+   "b": "service"
+  },
+  {
+   "district": "Yunusobod Tumani",
+   "lat": 41.35822,
+   "lon": 69.32744,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Mirobod Tumani",
+   "lat": 41.278,
+   "lon": 69.28067,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yunusobod Tumani",
+   "lat": 41.35348,
+   "lon": 69.33629,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.35012,
+   "lon": 69.33691,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Mirzo Ulug‘bek Tumani",
+   "lat": 41.34982,
+   "lon": 69.33661,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.18705,
+   "lon": 69.44103,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yangi Toshkent Tumani",
+   "lat": 41.25375,
+   "lon": 69.44258,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yashnobod Tumani",
+   "lat": 41.29361,
+   "lon": 69.36722,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Yashnobod Tumani",
+   "lat": 41.29223,
+   "lon": 69.33223,
+   "a": "service",
+   "b": "service"
+  },
+  {
+   "district": "Bektemir Tumani",
+   "lat": 41.25132,
+   "lon": 69.35688,
+   "a": "service",
+   "b": "service"
+  }
+ ]
+}
