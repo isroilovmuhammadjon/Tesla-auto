@@ -4,43 +4,75 @@ Branch: `feature/toshkent-1to1` (main'ga qo'shilmagan, foydalanuvchi tasdig'ini 
 Preview: https://isroilovmuhammadjon.github.io/Tesla-auto/preview/feature-toshkent-1to1/ (`.github/workflows/preview.yml` har push'da yangilaydi).
 To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
-## Bajarildi
-1. **Geometriya** (`check_geometry.py`):
+Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
-   | Tekshiruv | Oldin | Keyin |
-   |---|---|---|
-   | Yo'l ustidagi binolar | 3 468 | 581 |
-   | Devorlar | 270 | 0 |
-   | Darvozalar | 998 | 0 |
-   | Bino ichidagi bordyurlar | 1 465 | 284 |
+## 2026-11-28 tungi ish
 
-2. **Haqiqiy va o'yin ko'rinishlari:** 3 ta Commons surati (Sayilgoh, kurantlar, Amir Temur xiyoboni) uchun oldin/keyin rasmlari `docs/matched/`'da.
-   - Qo'shildi: Forumlar saroyi va kurantlar modellari, OSM material va tom shakli, daraxtlar konturga qarab qoldiriladi.
-   - `PHOTO-NEEDS.csv`: 9 413 ko'rinish nuqtasi, 3 tasida surat bor.
-3. **Mashinalar:** har model uchun orqa chiroqlar, orqaga yurish chiroqlari, xrom chiziq, raqam belgisi; kuzov shakli, shina va disklar.
-4. **Uzluksiz haydovlar va smena:**
-   - 5 ta HUD o'chiq haydov, hammasi manzilga yetdi, tiqilish 0.
-   - To'liq taksi safari: Enter bilan qabul, to'g'ri bordyur, noto'g'ri burilish va qayta hisoblash, bir marta to'lov, sahifa yangilangandan keyin balans saqlangan.
-5. **Oqim tuzatishlari:**
-   - bitta chorrahada bitta svetofor fazasi;
-   - kesishuvchi mashinalarning o'zaro kutishi yo'q;
-   - to'planish va "boshma-bosh" qulf yo'q;
-   - parallel yo'lda marshrut qayta hisoblanadi.
-6. **Test vositalari** (faqat `?test` bilan): `__testDrive`, `__testShift`, `__viewAt`.
+### 1. Rul va fizika (`city.js`, `vehicle.js`, `uzplayer.js`)
+- **Sabab:**
+  - Avval A/D bosilganda g'ildirak 70 ms ichida tezlik chegarasigacha burilardi: "hammasi yoki hech narsa". 90 km/soatda qisqa bosish 1.8 m sakrash berardi.
+  - Old shina to'yinib, burilish sekinlashardi.
+  - Kamera burilishdan ~0.3 s orqada qolardi.
+- **Tuzatildi:**
+  - virtual rul `wheelU`: A/D uni sekin aylantiradi, qarshi tomonga tezroq; qo'yib yuborilganda o'rtaga qaytadi;
+  - old shina sirpanish cheklovchisi;
+  - yonlama sirpanishga qarshi ESC;
+  - EBD va rulga bog'liq ABS;
+  - orqaga yurish chegarasi; g'ildiraklar orqaga ham aylanadi;
+  - kamera tezlikda tezroq ergashadi.
+- **O'lchovlar** (Cobalt, real vaqt, klaviatura hodisalari):
+  - qisqa bosish: 90 km/soatda 0.9° / 0.4 m (avval 5.7° / 1.8 m);
+  - kirishdan burilishgacha kechikish 20–80 ms.
+- **Burilish testi:** Seul ko'chasi, graph edge 66172, 40-metrdan, R≈310 m, 75°.
 
-## BIRINCHI TUGALLANMAGAN VAZIFA
-- Ikki tomonlama yo'llarning mediana tomonida qolgan 23 bekatni o'ng bordyurga o'tkazish. Ro'yxat `docs/geom-check.json` → `objects_on_carriageway_list`. `faceRoad` bekatni yo'nalish bo'yicha o'ng tomondagi trotuarga qo'yishi kerak.
-- So'ng qolgan 581 bino kesishmasini ko'rib chiqish (`buildings_on_carriageway`).
+  | km/soat | rms yangi | rms eski | tugma almashishi yangi | eski |
+  |---|---|---|---|---|
+  | 30 | 0.45 m | 0.46 m | 51 | 56 |
+  | 60 | 0.55 m | 0.42 m | 27 | 38 |
+  | 90 | 0.59 m | 0.34 m | 17 | 31 |
 
-## Keyingi navbat
-1. Tor mahalla ko'chalarida taksi: `__testShift` tiqilishlarini kamaytirish (burilish radiusi, yo'lak kengligi).
-2. Kabina ichida kameraning bekat shisha devoridan o'tishini to'xtatish (Yangi Toshkentda ko'rilgan kulrang parda).
-3. Kurantlar: arkali derazalar, atrofdagi katta daraxtlar.
-4. Old chiroqlar va kabinalar har model uchun alohida.
-5. **Suratlar:** Mapillary client token kerak (foydalanuvchidan; tokenni repoga yoki brauzer kodiga yozmaslik, faqat lokal skriptda ishlatish). `PHOTO-NEEDS.csv` bo'yicha tumanlarda surat yig'ish va fasad, do'kon, belgilarni moslash.
-6. Foydalanuvchi tasdiqlagach: `main`'ga birlashtirish (main'dagi `pages.yml` preview'larni saqlaydigan qilib yangilangan).
+- **Burilishda tormoz:** 60 va 90 km/soatda teskari aylanish yo'q; to'xtash 16.8 m va 37.2 m.
+- **Mashinalar:**
 
-## Ma'lumot
-- OSM: Geofabrik Uzbekistan 2026-11-27. Xom ma'lumot `~/street-racing-3d-data/raw2.pkl` (`extract.py`), xarita `build.py` bilan quriladi.
-- Map versiyasi `osmcity.js` → `MAP_VER` (har qayta qurishda oshiriladi).
-- Mos suratlar: `~/street-racing-3d-data/refs/refs.json`.
+  | Mashina | Lateral g | Burilish doirasi (taxmin) |
+  |---|---|---|
+  | Cobalt | 0.84 | 13.6 m |
+  | Spark | 0.82 | 11.6 m |
+  | Damas | 0.80 | 9.6 m |
+
+  Damas'ning ko'tarilgan og'irlik markazi va kalta bazasi uni boshqacha his qildiradi.
+
+### 2. Belgilar va radarlar (`build.py`, `osmbuild.js`, `osmcity.js`, `ui.js`)
+- **10 258 belgi:**
+  - tezlik, bir tomonlama, kirish taqiqlangan;
+  - STOP va yo'l bering (OSM tugunlari);
+  - burilish cheklovlari.
+- Belgilar yaqinlashish tomoniga qaragan va o'ng bordyurda turadi.
+- Boshqa qatnov qismiga tushib qoladiganlari siljitiladi; 101 tasi uchun joy topilmadi va qo'yilmadi.
+- **133 OSM radar.** Yo'nalish: forward/backward, bir tomonlama, kompas burchagi yoki ikki tomon. 120 m oldin tezlik va radar belgisi turadi.
+- **Jarima:** o'zbekcha karta; ballar 250 000 / 500 000 / 1 000 000 so'm (o'yin qiymatlari). Taksi balansidan yechiladi.
+- **Sinov** (radar 304264511, 60 km/soat):
+
+  | Holat | Natija |
+  |---|---|
+  | 50 va 60 km/soat | jarima yo'q |
+  | 75 km/soat | 250 000 |
+  | 110 km/soat | 1 000 000 |
+  | Teskari yo'nalish 80 km/soat | o'tish hisoblanmadi |
+  | Radar oldida to'xtash | jarima yo'q |
+  | Har o'tishda | bitta jarima (8 s cooldown) |
+
+### 3. Yo'llar va taksi (`taxi.js`, `route.js`, `faceRoad`)
+- **Mahalla tiqilishining sababi:** yo'lovchini olgandan keyin marshrut 5.5 m ko'chada orqaga qayrilishni talab qilardi.
+- **Tuzatildi:**
+  - yo'lovchi ko'chaning qaysi tomonidan olinishi endi yo'lovchigacha va manzilgacha bo'lgan umumiy vaqt bo'yicha tanlanadi;
+  - joyida qayrilish narxi ko'cha kengligiga bog'liq: 25 / 60 / 150 s.
+- **Qatnov qismidagi obyektlar** (`check_geometry.py`):
+
+  | Obyekt | Oldin | Keyin |
+  |---|---|---|
+  | Bekatlar | 23 | 3 |
+  | Belgilar | 1 206 | 11 |
+  | Radar ustunlari | 93 | 8 |
+
+- **Smena testi** (`__testShift`): real chorrahada noto'g'ri burilish, uch nuqtali qayrilish, tiqilish joylari jurnalga yoziladi. Natijalar pastda.

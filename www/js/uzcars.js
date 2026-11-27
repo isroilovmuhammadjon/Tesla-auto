@@ -234,27 +234,39 @@ export function createUzCar(type) {
   const B = (w, h, d, mat, x, y, z, parent = detail) => { const o = new THREE.Mesh(cg(`bx${w}_${h}_${d}`, () => new THREE.BoxGeometry(w, h, d)), mat); o.position.set(x, y, z); parent.add(o); return o; };
   const zF = -m.L / 2, zR = m.L / 2;
   // bumpers + grille + plates
-  B(m.W * 0.96, 0.18, 0.12, black(), 0, m.lower.y - 0.02, zF + 0.04);
-  B(m.lower.w, m.lower.h, 0.06, black(), 0, m.lower.y, zF + 0.01);
-  B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, zF + 0.02);
-  B(m.grille.w * 0.9, 0.02, 0.055, chrome(), 0, m.grille.y + m.grille.h * 0.15, zF + 0.02);
-  B(0.52, 0.11, 0.02, plateMat(), 0, m.lower.y + 0.01, zF - 0.02);
-  B(m.W * 0.96, 0.2, 0.12, black(), 0, m.lower.y - 0.02, zR - 0.04);
-  { const pl = B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.y - (type === 'damas' ? 0.22 : 0.33), zR + 0.08); void pl; }
-  if (m.tail.bar) B(m.W * 0.45, 0.035, 0.03, chrome(), 0, m.tail.y + m.tail.h * 0.1, zR + 0.07, detail);   // chrome strip on the boot lid
+  // bumpers: body colour with a black lower insert (the Damas keeps its plain black ones)
+  const bumperMat = type === 'damas' ? black() : body.material;
+  const bumpers = [];
+  const fF = zF - 0.095, fR = zR + 0.095;          // real front / rear faces of the bevelled body
+  bumpers.push(B(m.W * 0.94, 0.2, 0.12, bumperMat, 0, m.lower.y - 0.01, fF + 0.035, g));
+  B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.1, fF + 0.03);
+  B(m.lower.w, m.lower.h, 0.04, black(), 0, m.lower.y, fF - 0.03);
+  B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, fF + 0.012);
+  B(m.grille.w * 0.9, 0.02, 0.05, chrome(), 0, m.grille.y + m.grille.h * 0.15, fF + 0.008);
+  B(0.52, 0.11, 0.02, plateMat(), 0, m.lower.y + 0.01, fF - 0.04);
+  bumpers.push(B(m.W * 0.94, 0.22, 0.12, bumperMat, 0, m.lower.y - 0.01, fR - 0.035, g));
+  B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.11, fR - 0.03);
+  { const pl = B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.y - (type === 'damas' ? 0.22 : 0.33), fR + 0.008); void pl; }
+  if (m.tail.bar) B(m.W * 0.45, 0.035, 0.03, chrome(), 0, m.tail.y + m.tail.h * 0.1, fR + 0.004, detail);   // chrome strip on the boot lid
   // lights
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
-    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * m.head.x, m.head.y, -m.head.z, g);
+    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * m.head.x, m.head.y, -m.head.z - 0.085, g);   // on the bevelled nose surface
     h.rotation.x = -m.head.tilt;
     // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
     const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 0.87);
     const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
-    B(m.tail.w, m.tail.h, 0.08, tailMat, tx, m.tail.y, zR + 0.05, g);
-    B(m.tail.w * 0.42, m.tail.h * 0.28, 0.085, revMat(), tx - s * m.tail.w * 0.22, m.tail.y - m.tail.h * 0.28, zR + 0.056, g);
-    B(0.05, m.tail.h * 0.9, 0.12, tailMat, s * (halfRear + 0.005), m.tail.y, zR + 0.0, g);         // wraps round onto the flank
-    B(0.1, 0.06, 0.04, blinkMat, s * (m.tail.x + m.tail.w / 2 + 0.06), m.tail.y, zR - 0.01);
+    // the rear face of the extruded body (bevel included) is ~9 cm behind zR: lamps sit 1 cm proud of it;
+    // a sedan's lamps stop just under the edge of the boot lid
+    const face = zR + 0.095;
+    const deck = m.tail.bar ? m.top[m.top.length - 2][1] + 0.14 - 0.05 : Infinity;
+    const tTop = Math.min(m.tail.y + m.tail.h / 2, deck), tBot = m.tail.y - m.tail.h / 2;
+    const th = Math.max(0.12, tTop - tBot), ty = tTop - th / 2;
+    B(m.tail.w, th, 0.04, tailMat, tx, ty, face - 0.01, g);
+    B(m.tail.w * 0.38, th * 0.26, 0.04, revMat(), tx - s * m.tail.w * 0.24, ty - th * 0.26, face - 0.006, g);
+    B(m.tail.w * 0.3, th * 0.22, 0.04, blinkMat, tx + s * m.tail.w * 0.28, ty + th * 0.24, face - 0.006);   // amber indicator in the cluster
+    B(0.03, th * 0.85, 0.09, tailMat, s * (halfRear - 0.012), ty, face - 0.06, g);         // wraps round onto the flank
     // mirrors
     B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
   }
@@ -281,7 +293,7 @@ export function createUzCar(type) {
       g.add(p); pillars.push(p);
     }
   }
-  const bodyMeshes = [body, roof, ...pillars];
+  const bodyMeshes = [body, roof, ...pillars, ...(type === 'damas' ? [] : bumpers)];
   const palette = type === 'spark' ? SPARK_COLORS : COLORS;
   return {
     type, mesh: g, model: m, wheels, bodyMeshes, glassMesh: cab, detail, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,

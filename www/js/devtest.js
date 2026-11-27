@@ -1,7 +1,7 @@
 // Test drives for development (loaded only with ?test in the URL): drives the car along a navigation
 // route to a search result, faster than real time, with the HUD off, and reports what went wrong:
 // collisions (with what), time stuck, samples off the drawn carriageway, cells still loading, districts crossed.
-window.__testDrive = async (fromName, toName, { maxV = 14, budget = 900, shots = null } = {}) => {
+window.__testDrive = async (fromName, toName, { maxV = 14, budget = 900, shots = null, realtime = false } = {}) => {
   const S = window.__sr3d, T = S.taxi; await T.ensureData();
   const find = (q) => T.search.find((e) => e[1] === q) || T.find(q)[0];
   const A = find(fromName), B = find(toName);
@@ -46,7 +46,9 @@ window.__testDrive = async (fromName, toName, { maxV = 14, budget = 900, shots =
       stuckT = Math.abs(s.v) < 0.6 && left > 12 && !queued ? stuckT + 0.13 : 0;
       if (stuckT > 2) { stuckT = 0; rev = 2.4; out.stuck++; }
     }
-    S.step(4, 1 / 30); simT += 4 / 30;
+    // realtime: the game's own frame loop drives (for recording); otherwise 4 fixed steps per decision
+    if (realtime) { const t1 = performance.now(); await new Promise((r) => setTimeout(r, 130)); simT += (performance.now() - t1) / 1000; }
+    else { S.step(4, 1 / 30); simT += 4 / 30; }
     if (c.lastHit && c.lastHit !== lastHit) {
       lastHit = c.lastHit;
       if (lastHit.what === 'car' && (out.carHits || (out.carHits = [])).length < 15) {
@@ -131,7 +133,8 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   await new Promise((r) => setTimeout(r, 200));
   const c = S.city, s = c.state, inp = c.d.input;
   T.lastTrip = null;
-  let simT = 0, rev = 0, stuckT = 0, detourAt = null, lastPhase = '', detour = null;
+  let simT = 0, rev = 0, stuckT = 0, detourAt = null, lastPhase = '', detour = null, kturn = null;
+  const hitsNow = () => Object.values(c.hitCount || {}).reduce((a, b) => a + b, 0);
   // a real wrong turn: at the next junction ahead take a street the route does not use, and keep
   // driving along it until the game plans again
   const G = T.graph, nodeAt = new Map();
@@ -174,6 +177,7 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
       for (let k = j + 1; k < P.length; k++) if (C[k] - here > look) { tgt = P[k]; break; }
       const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = tgt[0] - s.x, dz = tgt[1] - s.z;
       const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+      const rAng = () => { const a = P[Math.min(P.length - 2, j)], b = P[Math.min(P.length - 1, j + 1)], rx = b[0] - a[0], rz = b[1] - a[1]; return Math.atan2(fx * rz - fz * rx, fx * rx + fz * rz); };
       inp.up = inp.down = inp.left = inp.right = false;
       if (T.phase === 'toDrop' && simT > detourAt && !log.wrongTurn) {
         detour = planDetour(r, here);
@@ -192,6 +196,22 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
         const want2 = Math.abs(a2) > 0.45 ? 4 : 9;
         if (s.v < want2 - 0.4) inp.up = true; else if (s.v > want2 + 0.8) inp.down = true;
       } else if (rev > 0) { rev -= 0.13; inp.down = true; if (ang < 0) inp.right = true; else inp.left = true; }
+      else if (kturn || (Math.abs(rAng()) > 1.9 && Math.abs(s.v) < 4 && left > 12 && (log.kturns || 0) < 25)) {
+        // three-point turn on a narrow street: forward on full lock towards the route, back on the
+        // opposite lock, until the car points along the route
+        if (!kturn) { kturn = { fwd: true, t: 0, hits: hitsNow(), n: 0 }; log.kturns = (log.kturns || 0) + 1; (log.kturnAt = log.kturnAt || []).push([Math.round(simT), Math.round(s.x), Math.round(s.z), +rAng().toFixed(2)]); }
+        kturn.t += 0.13;
+        if (Math.abs(rAng()) < 0.6) kturn = null;
+        else if (kturn.fwd) {
+          if (ang > 0) inp.right = true; else inp.left = true;
+          if (s.v < 2) inp.up = true;
+          if (kturn.t > 2.6 || hitsNow() > kturn.hits) { kturn.fwd = false; kturn.t = 0; kturn.hits = hitsNow(); }
+        } else {
+          if (ang > 0) inp.left = true; else inp.right = true;
+          if (s.v > -2) inp.down = true;
+          if (kturn.t > 2.2 || hitsNow() > kturn.hits) { kturn.fwd = true; kturn.t = 0; kturn.hits = hitsNow(); if (++kturn.n > 6) kturn = null; }
+        }
+      }
       else {
         if (ang > 0.05) inp.right = true; else if (ang < -0.05) inp.left = true;
         let want = Math.abs(ang) > 0.45 ? 4 : 13;
@@ -214,6 +234,7 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   }
   inp.up = inp.down = inp.left = inp.right = false;
   log.simMin = +(simT / 60).toFixed(1);
+  log.kturns = log.kturns || 0;
   log.paid = !!(T.lastTrip && T.lastTrip.paid) && log.phases.some((p) => p[0] === 'paid'); log.fare = T.lastTrip && T.lastTrip.fare; log.reroutes = T.lastTrip ? T.lastTrip.reroutes : T.reroutes;
   log.savedBalance = localStorage.getItem('sr3d_taxi_balance'); log.savedTrips = localStorage.getItem('sr3d_taxi_trips');
   log.nextOrderOffered = T.phase === 'offer' || T.phase === 'paid' || T.phase === 'search';
@@ -392,3 +413,66 @@ window.__bendSim = ({ edge = 66172, from = 40, kmh = 60, legacy = false, reactMs
   c.legacySteer = false; c.updateTraffic = trf; S.G.mode = mode;
   return { edge, kmh, legacy, fps, reactMs, seconds: +(frames / fps).toFixed(1), maxErrM: +maxErr.toFixed(2), rmsErrM: +Math.sqrt(sum / Math.max(1, n)).toFixed(2), keyChanges: presses, maxYawRate: +maxYaw.toFixed(2), hits: { ...(c.hitCount || {}) }, path };
 };
+
+// Records the game canvas with a caption, speed and the A/D keys drawn on, as WebM, and posts it to a
+// receiver on this machine (http://127.0.0.1:8766/<name>) — used for the before/after clips.
+window.__record = async (name, run, { caption = '', fps = 30 } = {}) => {
+  const S = window.__sr3d, c = S.city, src = document.getElementById('game') || document.querySelector('canvas');
+  const W = 960, H = Math.round(W * src.height / src.width);
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const g = out.getContext('2d');
+  let alive = true;
+  const draw = () => {
+    if (!alive) return;
+    g.drawImage(src, 0, 0, W, H);
+    const s = c.state, kmh = Math.round(Math.abs(s.v) * 3.6), inp = c.d.input;
+    g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, H - 64, W, 64); g.fillRect(0, 0, W, 36);
+    g.fillStyle = '#fff'; g.font = 'bold 22px Arial'; g.fillText(caption, 14, 25);
+    g.font = 'bold 40px Arial'; g.fillText(`${kmh} km/soat`, 14, H - 18);
+    g.font = 'bold 26px Arial';
+    g.fillStyle = inp.left ? '#ffd24a' : '#666'; g.fillText('A', W - 150, H - 22);
+    g.fillStyle = inp.up ? '#ffd24a' : '#666'; g.fillText('W', W - 110, H - 22);
+    g.fillStyle = inp.right ? '#ffd24a' : '#666'; g.fillText('D', W - 70, H - 22);
+    g.fillStyle = '#fff'; g.font = '18px Arial'; g.fillText(`g'ildirak ${(-(s.steer || 0) * 57.3).toFixed(1)}°`, 260, H - 22);
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+  const rec = new MediaRecorder(out.captureStream(fps), { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 3_000_000 });
+  const chunks = []; rec.ondataavailable = (e) => chunks.push(e.data);
+  rec.start(500);
+  const result = await run();
+  rec.stop(); alive = false;
+  await new Promise((r) => { rec.onstop = r; });
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  const res = await fetch('http://127.0.0.1:8766/' + name, { method: 'POST', body: blob });
+  return { name, bytes: blob.size, posted: res.ok, result };
+};
+
+// Car sheet: every Uzbek car model side by side in a small studio scene, from the rear three-quarter
+// ('rear'), front ('front') or side ('side'), drawn on an overlay canvas for screenshots.
+window.__carSheet = async (view = 'rear', { taxi = false } = {}) => {
+  const THREE = await import('three');
+  const { createUzCar } = await import('./uzcars.js');
+  let cv = document.getElementById('carSheet');
+  if (!cv) { cv = document.createElement('canvas'); cv.id = 'carSheet'; cv.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:99999;background:#cfd6dc'; document.body.appendChild(cv); }
+  cv.hidden = false;
+  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  r.setSize(innerWidth, innerHeight, false); r.setPixelRatio(Math.min(2, devicePixelRatio));
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xcfd6dc);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x667766, 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-6, 10, 8); sc.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
+  const types = ['cobalt', 'gentra', 'nexia', 'spark', 'damas'];
+  types.forEach((t, i) => {
+    const c = createUzCar(t); c.setColor(); c.setTaxi(taxi);
+    const g = c.mesh; g.position.x = (i - 2) * 2.6;
+    sc.add(g);
+  });
+  const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 200);
+  if (view === 'rear') cam.position.set(-9, 4, 24); else if (view === 'front') cam.position.set(8, 2.4, -24); else cam.position.set(30, 2, 0);
+  cam.lookAt(0, 0.7, 0);
+  r.render(sc, cam);
+  return 'drawn';
+};
+window.__carSheetOff = () => { const cv = document.getElementById('carSheet'); if (cv) cv.hidden = true; };

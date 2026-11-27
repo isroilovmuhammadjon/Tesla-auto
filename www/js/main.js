@@ -350,6 +350,10 @@ function startCity(which = 'osm', def = CARS[SEDAN_INDEX], opts = {}) {
   taxi.stop();
   city = which === 'classic' ? classicCity : osmCity;
   if (player.def !== def) setPlayerDef(def);
+  // an everyday Uzbek car: no score / best / nitro panels, a dial that fits the car, its own key hint
+  const uzDrive = !!(def && def.uz);
+  document.body.classList.toggle('uz-drive', uzDrive);
+  ui.setSpeedoMax(uzDrive ? (def.maxSpeed > 150 ? 200 : 140) : undefined);
   G.mp = null;
   resetInput();
   traffic.clear();
@@ -451,6 +455,8 @@ function leaveCity() {
   taxi.stop();
   city.exit();
   G.inCity = false;
+  document.body.classList.remove('uz-drive');
+  ui.setSpeedoMax();
   moon.position.set(-30, 60, 25);
   moon.target.position.set(0, 0, -15);
   setTrafficPalette(G.map);
