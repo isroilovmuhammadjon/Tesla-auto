@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05070f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Racing 3D">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <title>Street Racing 3D</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%2305070f%22/%3E%3Cpath d=%22M16 56 28 10M48 56 36 10%22 stroke=%22%2300d4ff%22 stroke-width=%225%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M22 42l10-8 10 8%22 stroke=%22%23ff2bd6%22 stroke-width=%226%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/style.css?v=ab17f3c4">
+  <!-- Polyfill: lets iOS < 16.4 (no native import maps) run the ES modules. No-op elsewhere. -->
+  <script async src="lib/es-module-shims.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./lib/three/build/three.module.js",
+      "three/addons/": "./lib/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Screen-space overlays -->
+  <div id="vignette"></div>
+  <div id="speedlines"></div>
+  <div id="flash"></div>
+
+  <!-- Loading -->
+  <section id="loading" class="screen active">
+    <div class="logo small">
+      <span class="logo-top">STREET RACING</span><span class="logo-chip">3D</span>
+    </div>
+    <div class="loader"><div class="loader-bar"></div></div>
+    <p id="loadingText" class="loading-text">LOADING ENGINE…</p>
+  </section>
+
+  <!-- Main menu -->
+  <section id="menu" class="screen">
+    <div class="menu-shade"></div>
+    <div class="menu-panel">
+      <div class="logo">
+        <span class="logo-top">STREET RACING</span><span class="logo-chip">3D</span>
+      </div>
+      <p class="tagline">NIGHT CITY · ENDLESS HIGHWAY</p>
+      <nav class="menu-buttons">
+        <button class="btn primary" data-action="play"><span>PLAY</span></button>
+        <button class="btn primary" data-action="taxi"><span>TOSHKENT TAKSI</span></button>
+        <button class="btn primary" data-action="city"><span>TOSHKENT SHAHAR</span></button>
+        <button class="btn" data-action="garage"><span>GARAGE</span></button>
+        <button class="btn" data-action="mpOpen"><span>MULTIPLAYER</span></button>
+        <button class="btn" data-action="settings"><span>SETTINGS</span></button>
+        <button class="btn fs-btn fs-only" data-action="fullscreen"><span>⛶ FULL SCREEN</span></button>
+      </nav>
+      <div class="menu-info">
+        <div class="info-chip"><span class="label">BEST SCORE</span><span id="menuBest">0</span></div>
+        <div class="info-chip"><span class="label">CAR</span><span id="menuCar">VOLT GT</span></div>
+        <button class="btn small ghost map-toggle" data-action="map"><span>MAP: TOSHKENT</span></button>
+        <button class="btn small ghost traffic-toggle" data-action="trafficCycle"><span>TRAFFIC: NORMAL</span></button>
+        <button class="btn small ghost" data-action="cityClassic"><span>KLASSIK SHAHAR</span></button>
+        <button class="btn small ghost touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
+      </div>
+      <div class="controls-help">
+        <div><kbd>W</kbd><kbd>↑</kbd> Accelerate</div>
+        <div><kbd>S</kbd><kbd>↓</kbd> Brake</div>
+        <div><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd> Steer</div>
+        <div><kbd>SPACE</kbd> Nitro</div>
+        <div><kbd>E</kbd><kbd>Q</kbd> Fly up / down (AERO ION)</div>
+        <div><kbd>C</kbd> Cockpit / chase camera</div>
+        <div><kbd>B</kbd> (hold) Look back</div>
+        <div><kbd>P</kbd> Pause · <kbd>M</kbd> Mute</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Garage -->
+  <section id="garage" class="screen">
+    <div class="garage-top">
+      <button class="btn ghost small" data-action="back"><span>← BACK</span></button>
+      <h2 class="screen-title">GARAGE</h2>
+      <span id="garageCount" class="garage-count">1 / 3</span>
+    </div>
+    <button class="arrow-btn left" data-action="prev" aria-label="Previous car">‹</button>
+    <button class="arrow-btn right" data-action="next" aria-label="Next car">›</button>
+    <div class="garage-panel">
+      <div class="garage-head">
+        <div>
+          <h3 id="garageName">VOLT GT</h3>
+          <p id="garageTag" class="muted">Balanced electric grand tourer</p>
+        </div>
+        <span id="garageBadge" class="badge">EQUIPPED</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="label">TOP SPEED</span><div class="stat-bar"><i id="statSpeed"></i></div><span id="statSpeedVal" class="stat-val">290</span></div>
+        <div class="stat"><span class="label">ACCELERATION</span><div class="stat-bar"><i id="statAccel"></i></div><span id="statAccelVal" class="stat-val">8</span></div>
+        <div class="stat"><span class="label">HANDLING</span><div class="stat-bar"><i id="statHandling"></i></div><span id="statHandlingVal" class="stat-val">8</span></div>
+        <div class="stat"><span class="label">NITRO</span><div class="stat-bar"><i id="statNitro"></i></div><span id="statNitroVal" class="stat-val">8</span></div>
+      </div>
+      <button id="selectBtn" class="btn primary wide" data-action="select"><span>SELECT CAR</span></button>
+      <p class="muted hint-drag">Drag to rotate the camera · ← → to switch</p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="settings" class="screen dim">
+    <div class="card settings-card">
+      <h2 class="screen-title">SETTINGS</h2>
+      <div class="set-row"><span class="label">GRAPHICS</span>
+        <div class="seg">
+          <button data-action="set" data-key="quality" data-val="low">LOW</button>
+          <button data-action="set" data-key="quality" data-val="medium">MED</button>
+          <button data-action="set" data-key="quality" data-val="high">HIGH</button>
+          <button data-action="set" data-key="quality" data-val="ultra">ULTRA</button>
+          <button data-action="set" data-key="quality" data-val="auto">AUTO</button>
+        </div></div>
+      <p id="gfxInfo" class="muted set-info"></p>
+      <div class="set-row"><span class="label">RESOLUTION</span>
+        <div class="seg">
+          <button data-action="set" data-key="res" data-val="preset">BY PRESET</button>
+          <button data-action="set" data-key="res" data-val="0.5">50%</button>
+          <button data-action="set" data-key="res" data-val="0.75">75%</button>
+          <button data-action="set" data-key="res" data-val="1">100%</button>
+          <button data-action="set" data-key="res" data-val="4k">4K</button>
+        </div></div>
+      <div class="set-row"><span class="label">FPS LIMIT</span>
+        <div class="seg">
+          <button data-action="set" data-key="fps" data-val="30">30</button>
+          <button data-action="set" data-key="fps" data-val="60">60</button>
+          <button data-action="set" data-key="fps" data-val="90">90</button>
+          <button data-action="set" data-key="fps" data-val="120">120</button>
+          <button data-action="set" data-key="fps" data-val="0">MAX</button>
+        </div></div>
+      <div class="set-row"><span class="label">TRAFFIC</span>
+        <div class="seg">
+          <button data-action="set" data-key="traffic" data-val="low">LOW</button>
+          <button data-action="set" data-key="traffic" data-val="normal">NORMAL</button>
+          <button data-action="set" data-key="traffic" data-val="high">HIGH</button>
+        </div></div>
+      <div class="set-row"><span class="label">SHOW FPS</span>
+        <div class="seg">
+          <button data-action="set" data-key="showFps" data-val="true">ON</button>
+          <button data-action="set" data-key="showFps" data-val="false">OFF</button>
+        </div></div>
+      <p class="muted set-info">Higher settings look better but use more battery. If the game stutters, lower GRAPHICS or RESOLUTION.</p>
+      <button class="btn primary wide" data-action="settingsBack"><span>DONE</span></button>
+    </div>
+  </section>
+
+  <!-- Multiplayer: connect + lobby -->
+  <section id="mp" class="screen dim">
+    <div class="card mp-card">
+      <h2 class="screen-title">MULTIPLAYER</h2>
+      <div id="mpConnect" class="mp-section">
+        <label class="field"><span class="label">YOUR NAME</span><input id="mpName" maxlength="16" autocomplete="off" spellcheck="false"></label>
+        <div class="mp-online">
+          <span class="label">ONLINE — PLAY OVER THE INTERNET, ANY NETWORK</span>
+          <button class="btn primary wide" data-action="onlineHost"><span>CREATE ONLINE ROOM</span></button>
+          <div class="mp-manual-row">
+            <input id="mpCode" placeholder="ROOM CODE · 12345" maxlength="5" autocomplete="off" inputmode="numeric" pattern="[0-9]*">
+            <button class="btn small" data-action="onlineJoin"><span>JOIN</span></button>
+          </div>
+          <p id="mpOnlineStatus" class="mp-status"></p>
+        </div>
+        <div id="mpWifi">
+        <div class="mp-row"><span class="label">ROOMS ON YOUR WI-FI</span>
+          <button class="btn small ghost" data-action="mpScan"><span>↻ SCAN</span></button></div>
+        <ul id="mpRooms" class="mp-rooms"></ul>
+        <p id="mpStatus" class="mp-status"></p>
+        <button id="mpHostBtn" class="btn primary wide" data-action="mpHost"><span>HOST A ROOM ON THIS PHONE</span></button>
+        <p id="mpHostHint" class="muted mp-help hidden"></p>
+        <details class="mp-manual">
+          <summary class="label">ENTER ADDRESS MANUALLY</summary>
+          <div class="mp-manual-row">
+            <input id="mpAddr" placeholder="192.168.1.5:8080" autocomplete="off" spellcheck="false" inputmode="url">
+            <button class="btn small" data-action="mpConnect"><span>JOIN</span></button>
+          </div>
+        </details>
+        </div>
+        <button class="btn ghost wide" data-action="mpBack"><span>BACK</span></button>
+      </div>
+      <div id="mpLobby" class="mp-section hidden">
+        <div class="mp-row"><span class="label">ROOM</span><span id="mpRoomAddr" class="mp-addr"></span></div>
+        <div id="mpShareRow" class="mp-row hidden"><span class="muted">Send this link to friends — they tap it and join</span>
+          <button class="btn small" data-action="onlineShare"><span>SHARE LINK</span></button></div>
+        <ul id="mpPlayers" class="mp-players"></ul>
+        <div class="mp-row"><span class="label">MODE</span>
+          <div class="seg"><button data-action="mpMode" data-mode="free">FREE DRIVE</button><button data-action="mpMode" data-mode="race">RACE</button></div></div>
+        <div id="mpDistRow" class="mp-row"><span class="label">DISTANCE</span>
+          <div class="seg"><button data-action="mpDist" data-dist="2000">2 KM</button><button data-action="mpDist" data-dist="5000">5 KM</button><button data-action="mpDist" data-dist="10000">10 KM</button></div></div>
+        <div class="mp-row"><span class="label">TRAFFIC</span>
+          <div class="seg"><button data-action="mpTraffic" data-val="low">LOW</button><button data-action="mpTraffic" data-val="normal">NORMAL</button><button data-action="mpTraffic" data-val="high">HIGH</button></div></div>
+        <p id="mpLobbyHint" class="mp-status"></p>
+        <button id="mpStartBtn" class="btn primary wide" data-action="mpStart"><span>START</span></button>
+        <button class="btn ghost wide" data-action="mpLeave"><span>LEAVE ROOM</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Multiplayer results -->
+  <section id="mpResults" class="screen dim">
+    <div class="card">
+      <p class="eyebrow">RACE RESULTS</p>
+      <h2 id="mpResultTitle" class="screen-title big">FINISHED</h2>
+      <ol id="mpResultList" class="mp-results"></ol>
+      <p id="mpResultNote" class="mp-status"></p>
+      <button class="btn primary wide" data-action="mpToLobby"><span>BACK TO ROOM</span></button>
+    </div>
+  </section>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl panel">
+      <span class="label">SCORE</span>
+      <div id="hudScore" class="hud-score">0</div>
+      <div class="hud-row"><span class="label">DISTANCE</span><span id="hudDist">0.00 KM</span></div>
+      <div class="hud-row"><span class="label">BEST</span><span id="hudBest">0</span></div>
+      <div id="altRow" class="hud-row hidden"><span class="label">ALTITUDE</span><span id="hudAlt">0 M</span></div>
+      <div id="rivalRow" class="hud-row rival-row hidden"><span class="label">AI RIVAL</span><span id="hudRival">0 M</span></div>
+    </div>
+    <div id="mapCredit" class="map-credit">© OpenStreetMap contributors (ODbL)</div>
+    <canvas id="minimap" class="minimap hidden" width="160" height="160" aria-label="Map"></canvas>
+    <div id="combo" class="combo"></div>
+    <div id="popups"></div>
+    <div class="speedo">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <linearGradient id="spdGrad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3d7bff"/>
+            <stop offset="70%" stop-color="#00d4ff"/>
+            <stop offset="100%" stop-color="#ff2bd6"/>
+          </linearGradient>
+        </defs>
+        <g id="speedoTicks"></g>
+        <circle class="spd-track" cx="100" cy="100" r="84"/>
+        <circle id="spdArc" class="spd-arc" cx="100" cy="100" r="84"/>
+      </svg>
+      <div class="speed-readout">
+        <div id="hudSpeed" class="hud-speed">0</div>
+        <div class="unit">KM/H</div>
+        <div class="gear">GEAR <b id="hudGear">N</b></div>
+      </div>
+      <div class="nitro">
+        <span class="label">NITRO</span>
+        <div class="nitro-bar"><i id="hudNitro"></i></div>
+      </div>
+    </div>
+    <aside id="taxiPanel" hidden>
+      <small><span id="taxiCls">TAKSI</span> · <b id="taxiWallet"></b></small>
+      <strong id="taxiTrip"></strong>
+      <span id="taxiHelp"></span>
+      <em id="taxiTurn"></em>
+    </aside>
+    <div id="taxiOffer" class="taxi-offer" hidden>
+      <div class="tx-head"><span id="txKind">Buyurtma</span><b id="txFare">0 so'm</b></div>
+      <div class="tx-row"><i class="tx-dot pick"></i><div><small>OLISH JOYI · <span id="txPick"></span></small><p id="txFrom"></p></div></div>
+      <div class="tx-row"><i class="tx-dot drop"></i><div><small>MANZIL</small><p id="txTo"></p></div></div>
+      <div class="tx-foot"><span id="txDist"></span></div>
+      <div class="tx-btns">
+        <button class="btn primary" data-action="taxiAccept"><span>QABUL QILISH</span></button>
+        <button class="btn" data-action="taxiSkip"><span>BOSHQASI</span></button>
+      </div>
+    </div>
+    <div id="taxiToast" class="taxi-toast" hidden></div>
+    <button id="findBtn" class="find-btn" data-action="findOpen" aria-label="Qidiruv">⌕ QIDIRUV</button>
+    <div id="findBox" class="find-box" hidden>
+      <div class="find-top"><input id="findInput" type="search" placeholder="Ko'cha, mahalla, bekat, metro…" autocomplete="off"><button class="btn small" data-action="findClose"><span>✕</span></button></div>
+      <ul id="findList"></ul>
+    </div>
+    <div id="hudHint" class="hud-hint">W / ↑ accelerate · A D / ← → steer · SPACE nitro</div>
+  </div>
+
+  <div id="countdown" class="countdown"></div>
+
+  <!-- Top buttons -->
+  <div class="top-buttons">
+    <span id="fps" class="fps" title="Frames per second">-- FPS</span>
+    <button class="icon-btn fs-only" data-action="fullscreen" aria-label="Full screen" title="Full screen">⛶</button>
+    <button id="viewBtn" class="icon-btn race-only hidden" data-action="view" aria-label="Change camera (C)" title="Camera: chase / cockpit (C)">◉</button>
+    <button id="lookBtn" class="icon-btn race-only hidden" data-key="look" aria-label="Look back (hold B)" title="Look back (hold B)">↺</button>
+    <button id="pauseBtn" class="icon-btn hidden" data-action="pause" aria-label="Pause">❚❚</button>
+    <button id="muteBtn" class="icon-btn" data-action="mute" aria-label="Toggle sound">♪</button>
+  </div>
+
+  <!-- TOSHKENT TAKSI: choose the car, start the shift -->
+  <section id="taxiGarage" class="screen dim">
+    <div class="card taxi-card">
+      <h2 class="screen-title">TOSHKENT TAKSI</h2>
+      <p class="muted">Mashinani tanlang. Balans: <b id="taxiGarageBal">0 so'm</b> · <span id="taxiGarageTrips">0</span> ta safar</p>
+      <div id="taxiCars" class="taxi-cars"></div>
+      <p id="taxiCarInfo" class="muted taxi-info"></p>
+      <button class="btn primary wide" data-action="taxiStart"><span>SMENANI BOSHLASH</span></button>
+      <button class="btn ghost wide" data-action="taxiBack"><span>← ORQAGA</span></button>
+    </div>
+  </section>
+
+  <!-- Pause -->
+  <section id="pause" class="screen dim">
+    <div class="card">
+      <h2 class="screen-title">PAUSED</h2>
+      <button class="btn primary wide" data-action="resume"><span>RESUME</span></button>
+      <button class="btn wide touch-only tilt-toggle" data-action="tilt"><span>STEER: BUTTONS</span></button>
+      <button class="btn wide" data-action="settings"><span>SETTINGS</span></button>
+      <button class="btn wide" data-action="hud"><span>HUD YONIQ / O'CHIQ (H)</span></button>
+      <button class="btn wide" data-action="restart"><span>RESTART</span></button>
+      <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
+    </div>
+  </section>
+
+  <!-- Game over -->
+  <section id="gameover" class="screen dim">
+    <div class="card">
+      <p class="eyebrow danger">CRASHED</p>
+      <h2 class="screen-title big">GAME OVER</h2>
+      <div id="newBest" class="new-best hidden">★ NEW BEST SCORE ★</div>
+      <div class="result-score"><span class="label">SCORE</span><span id="goScore">0</span></div>
+      <div class="results">
+        <div><span class="label">DISTANCE</span><b id="goDist">0 KM</b></div>
+        <div><span class="label">TOP SPEED</span><b id="goTop">0</b></div>
+        <div><span class="label">NEAR MISSES</span><b id="goNear">0</b></div>
+        <div><span class="label">BEST</span><b id="goBest">0</b></div>
+        <div id="goRivalBox" class="rival-result"><span class="label">VS AI RIVAL</span><b id="goRival">—</b></div>
+      </div>
+      <button class="btn primary wide" data-action="restart"><span>RESTART</span></button>
+      <button class="btn ghost wide" data-action="menu"><span>MAIN MENU</span></button>
+    </div>
+  </section>
+
+  <!-- Full screen on iPhone: Safari can't hide its bars, so the game goes on the home screen -->
+  <section id="fsGuide" class="screen dim">
+    <div class="card fs-card">
+      <h2 class="screen-title">TO‘LIQ EKRAN</h2>
+      <p class="fs-lead">Safari o‘z panellarini yashirmaydi. Bir marta bosh ekranga qo‘shing, keyin o‘yin ilova kabi to‘liq ekranda ochiladi.</p>
+      <ol class="fs-steps">
+        <li><b>1</b><span>Safari’da <svg class="fs-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 6.5 12 2.5l4 4M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2"/></svg> <em>Share / Ulashish</em> tugmasini bosing (ko‘rinmasa, avval <em>•••</em>)</span></li>
+        <li><b>2</b><span><em>Add to Home Screen</em> / <em>На экран «Домой»</em> ni tanlab, <em>Add</em> bosing</span></li>
+        <li><b>3</b><span>Safari’ni yoping va bosh ekrandagi <em>Racing 3D</em> belgisini bosing</span></li>
+      </ol>
+      <p class="muted fs-note">Telegram yoki Instagram ichida ochilgan bo‘lsa, avval havolani Safari’da oching.</p>
+      <button class="btn primary wide" data-action="fsClose"><span>OK</span></button>
+    </div>
+  </section>
+
+  <!-- Touch controls (shown on touch devices) -->
+  <div id="touch" class="touch hidden">
+    <div class="touch-left">
+      <button class="tbtn" data-key="left" aria-label="Steer left">◀</button>
+      <button class="tbtn" data-key="right" aria-label="Steer right">▶</button>
+      <div class="fly-btns">
+        <button class="tbtn fly" data-key="rise" aria-label="Fly up">▲</button>
+        <button class="tbtn fly" data-key="sink" aria-label="Fly down">▼</button>
+      </div>
+    </div>
+    <div class="touch-right">
+      <button class="tbtn nitro" data-key="nitro">N₂O</button>
+      <button class="tbtn brake" data-key="down">BRAKE</button>
+      <button class="tbtn gas" data-key="up">GAS</button>
+    </div>
+  </div>
+
+  <script>
+    // Fallback if the 3D engine fails to load (e.g. offline)
+    window.addEventListener('error', function (e) {
+      var t = document.getElementById('loadingText');
+      if (t && !window.__sr3dReady) t.textContent = 'ERROR: ' + (e.message || 'failed to load');
+    });
+    setTimeout(function () {
+      if (!window.__sr3dReady) {
+        var t = document.getElementById('loadingText');
+        if (t) t.textContent = 'STILL LOADING…';
+      }
+    }, 15000);
+  </script>
+  <script type="module" src="js/main.js?v=ab17f3c4"></script>
+</body>
+</html>
