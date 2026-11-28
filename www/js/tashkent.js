@@ -165,22 +165,65 @@ function madrasa() {
   return g;
 }
 
+// Chorsu bazaar: the great turquoise dome covered in a blue / white / turquoise geometric pattern, standing on
+// a drum ringed with tall pointed arched windows, over a lower ring of arches and blue tile panels; two smaller
+// domes beside it. (Before: a plain blue dome on white cylinders.) Pattern and proportions from photos
+// (docs/compare/street-chorsu.jpg); the tile motif is an original approximation, not traced.
+function chorsuDomeTex() {
+  return canvasTex(2048, 512, (g, w, h) => {
+    g.fillStyle = '#1aa3b4'; g.fillRect(0, 0, w, h);
+    const gores = 32, gw = w / gores;
+    for (let i = 0; i < gores; i++) {
+      const x = i * gw;
+      // a pointed lozenge down each gore, white outline, dark blue core, small stars between
+      for (let row = 0; row < 6; row++) {
+        const y0 = h * (0.08 + row * 0.15), y1 = y0 + h * 0.13;
+        g.fillStyle = row % 2 ? '#0d5f9e' : '#127fb8';
+        g.beginPath(); g.moveTo(x + gw / 2, y0); g.lineTo(x + gw * 0.92, (y0 + y1) / 2); g.lineTo(x + gw / 2, y1); g.lineTo(x + gw * 0.08, (y0 + y1) / 2); g.closePath(); g.fill();
+        g.strokeStyle = '#e9f4f2'; g.lineWidth = 3; g.stroke();
+        g.fillStyle = '#f2e9c8'; g.beginPath(); g.arc(x + gw / 2, (y0 + y1) / 2, gw * 0.08, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = 'rgba(255,255,255,0.75)'; g.fillRect(x, 0, 2, h);       // white rib between gores
+    }
+    g.fillStyle = '#e8eee9'; g.fillRect(0, h * 0.965, w, h * 0.035);        // white band at the foot
+    g.fillStyle = '#0c4f86'; g.fillRect(0, 0, w, h * 0.03);
+  });
+}
+function archBandTex(n, { wall = '#efe7d6', arch = '#24323b', tile = null } = {}) {
+  return canvasTex(2048, 256, (g, w, h) => {
+    g.fillStyle = wall; g.fillRect(0, 0, w, h);
+    const aw = w / n;
+    for (let i = 0; i < n; i++) {
+      const x = i * aw + aw * 0.14, ww = aw * 0.72, top = h * 0.12, bot = h * 0.9;
+      if (tile) { g.fillStyle = tile; g.fillRect(i * aw + 2, h * 0.04, aw - 4, h * 0.92); }
+      g.fillStyle = wall; g.fillRect(x - 4, top - 4, ww + 8, bot - top + 8);
+      g.fillStyle = arch;
+      g.beginPath(); g.moveTo(x, bot); g.lineTo(x, top + ww * 0.55);
+      g.quadraticCurveTo(x, top, x + ww / 2, top - ww * 0.05); g.quadraticCurveTo(x + ww, top, x + ww, top + ww * 0.55);
+      g.lineTo(x + ww, bot); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2; for (let k = 1; k < 4; k++) { g.beginPath(); g.moveTo(x + ww * k / 4, top + ww * 0.3); g.lineTo(x + ww * k / 4, bot); g.stroke(); }
+    }
+  });
+}
 function chorsu() {
   const g = new THREE.Group();
-  const base = std(0xd7cfc0);
-  const blue = std(0x1a6fc0, { emissive: 0x0d4f9a, emissiveIntensity: 0.45, roughness: 0.35 });
-  mesh(new THREE.CylinderGeometry(30, 31, 9, 40), base, 0, 4.5, 0, g);
-  mesh(new THREE.CylinderGeometry(24, 24, 6, 40), base, 0, 12, 0, g);
-  mesh(domeGeo(25, 0.62, 40), blue, 0, 15, 0, g);
-  // turquoise ribs on the dome
-  const ribMat = std(0x37d0d6, { emissive: 0x20a8b0, emissiveIntensity: 0.5 });
-  for (let i = 0; i < 12; i++) {
-    const rib = mesh(new THREE.TorusGeometry(25.1, 0.25, 4, 24, Math.PI / 2), ribMat, 0, 15, 0, g);
-    rib.rotation.set(0, (i / 12) * Math.PI * 2, 0);
-    rib.scale.set(1, 0.62, 1);
+  const domeTex = chorsuDomeTex(); domeTex.wrapS = THREE.RepeatWrapping;
+  const dome = new THREE.MeshStandardMaterial({ map: domeTex, roughness: 0.35, metalness: 0.15, emissive: 0x0a3f4a, emissiveIntensity: 0.15 });
+  const drumTex = archBandTex(28); drumTex.wrapS = THREE.RepeatWrapping;
+  const lowTex = archBandTex(40, { wall: '#e6dcc7', arch: '#2c3a44', tile: '#1f78b4' }); lowTex.wrapS = THREE.RepeatWrapping;
+  const drum = new THREE.MeshStandardMaterial({ map: drumTex, roughness: 0.8 });
+  const low = new THREE.MeshStandardMaterial({ map: lowTex, roughness: 0.8 });
+  const plain = std(0xe3dac6);
+  mesh(new THREE.CylinderGeometry(31, 31.5, 7, 64, 1, true), low, 0, 3.5, 0, g);          // lower arcade with blue tile panels
+  mesh(new THREE.CylinderGeometry(31, 31, 0.8, 64), plain, 0, 7.4, 0, g);                 // ledge
+  mesh(new THREE.CylinderGeometry(25.5, 26, 6.5, 64, 1, true), drum, 0, 11, 0, g);       // drum with tall arched windows
+  mesh(new THREE.CylinderGeometry(26.6, 26.6, 0.7, 64), plain, 0, 14.4, 0, g);
+  mesh(new THREE.SphereGeometry(26, 64, 20, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.55, 1), dome, 0, 14.6, 0, g);
+  mesh(new THREE.CylinderGeometry(1.2, 2.2, 1.6, 16), plain, 0, 29.6, 0, g);             // lantern on top
+  for (const [x, z] of [[-10, 38], [-10, -38]]) {
+    mesh(new THREE.CylinderGeometry(8.5, 8.5, 6.5, 32, 1, true), low, x, 3.25, z, g);
+    mesh(new THREE.SphereGeometry(8.6, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.62, 1), dome, x, 6.5, z, g);
   }
-  for (const [x, z] of [[-10, 36], [-10, -36]]) { mesh(new THREE.CylinderGeometry(8, 8, 7, 20), base, x, 3.5, z, g); mesh(domeGeo(8.2, 0.7, 20), blue, x, 7, z, g); }
-  mesh(new THREE.CylinderGeometry(31.2, 31.2, 0.6, 40, 1, true), glow(0xffd28a, 1.6), 0, 8.5, 0, g);
   g.userData = { name: 'Chorsu bozori', width: 80, setback: 36 };
   return g;
 }

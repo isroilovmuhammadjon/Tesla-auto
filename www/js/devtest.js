@@ -826,3 +826,34 @@ window.__carOverlay = async (type, { cam, target, fov, w, h, name }) => {
   r.dispose();
   return res.ok;
 };
+
+// When the browser window is hidden the game loop and timers are throttled and map cells stop streaming in.
+// Place the car and build the nearby cells directly (one per pass) so test views still work.
+window.__pumpTo = async (x, z, yaw = 0, maxPasses = 60) => {
+  const S = window.__sr3d, c = S.city;
+  Object.assign(c.state, { x, z, yaw, v: 0, latV: 0, r: 0 }); c.focus = null;
+  for (let i = 0; i < maxPasses; i++) {
+    c.updateCells();
+    const loading = [...c.pending.values()].some((d) => d === 'loading');
+    if (!c.pending.size && i > 2) break;
+    await new Promise((r) => (loading ? setTimeout(r, 120) : queueMicrotask(r)));
+  }
+  return { cells: c.cells.size, pending: c.pending.size };
+};
+window.__viewAtHidden = async (lat, lon, heading, { eye = 1.25, fov = 55, pitch = 0, name }) => {
+  const S = window.__sr3d;
+  const x = 83688.15960 * lon - 21.21882 * lat - 5797037.69, z = -1.1002137 * lon - 111050.703 * lat + 4587580.68;
+  const yaw = -heading * Math.PI / 180;
+  if (S.G.hudOff !== true) S.toggleHud(true);
+  await window.__pumpTo(x + Math.sin(yaw) * 60, z + Math.cos(yaw) * 60, yaw);
+  S.city.update(1 / 60);
+  S.G.mode = 'debug';
+  const cam = S.camera; cam.fov = fov; cam.updateProjectionMatrix(); cam.position.set(x, eye, z); cam.up.set(0, 1, 0);
+  cam.lookAt(x - Math.sin(yaw) * 50, eye + Math.tan(pitch * Math.PI / 180) * 50, z - Math.cos(yaw) * 50); cam.updateMatrixWorld();
+  S.composer.render();
+  const url = (document.getElementById('game') || document.querySelector('canvas')).toDataURL('image/jpeg', 0.88);
+  const b = await (await fetch(url)).blob();
+  const ok = (await fetch('http://127.0.0.1:8766/' + name, { method: 'POST', body: b })).ok;
+  S.G.mode = 'city';
+  return ok;
+};
