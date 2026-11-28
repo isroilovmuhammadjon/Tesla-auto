@@ -590,24 +590,25 @@ window.__carGrid = async (name = 'cars-grid.png', { color = 0xf4f4f6 } = {}) => 
 // Can this car physically take the corner from edge `fromE` into edge `toE` (at their shared node)?
 // Starts `back` metres before the node in the right-hand lane at `kmh`, tries turn-in points 0..9 m before
 // the node with full lock, stepped at 60 fps with collisions on. Reports the best attempt.
-window.__cornerTest = ({ fromE, toE, kmh = 8, back = 12 } = {}) => {
+window.__cornerTest = ({ fromE, toE, kmh = 8, back = 12, turnAts = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], simSec = 40 } = {}) => {
   const S = window.__sr3d, c = S.city, T = S.taxi, g = T.graph, inp = c.d.input, s = c.state;
   const A = g.edges[fromE], B = g.edges[toE];
   const node = [A.u, A.v].find((n) => n === B.u || n === B.v);
   const aDir = node === A.v ? 1 : -1, bDir = node === B.u ? 1 : -1;
   const sNode = aDir > 0 ? A.len : 0;
-  const lane = (e, sx, dir) => { const E = g.edges[e], p = g.pointAt(e, sx), off = E.oneway ? 0 : Math.min(1.2, E.width / 4); return { x: p.x - p.uz * off * dir, z: p.z + p.ux * off * dir, ux: p.ux * dir, uz: p.uz * dir }; };
+  const lane = (e, sx, dir) => { const E = g.edges[e], p = g.pointAt(e, sx), off = E.oneway || E.width < 5 ? 0 : Math.min(1.2, E.width / 4); return { x: p.x - p.uz * off * dir, z: p.z + p.ux * off * dir, ux: p.ux * dir, uz: p.uz * dir }; };
   const bEnd = lane(toE, bDir > 0 ? Math.min(B.len, 15) : Math.max(0, B.len - 15), bDir);
   const trf = c.updateTraffic; c.updateTraffic = () => {};
   const mode = S.G.mode; S.G.mode = 'city';
   const out = [];
-  for (const turnAt of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+  for (const car of c.cars) car.mesh.visible = false; c.cars.length = 0;
+  for (const turnAt of turnAts) {
     const p0 = lane(fromE, sNode - aDir * back, aDir);
     Object.assign(s, { x: p0.x, z: p0.z, yaw: Math.atan2(-p0.ux, -p0.uz), v: kmh / 3.6, latV: 0, r: 0, ax: 0, steer: 0, wheelU: 0, spin: 0 });
     c.hitCount = {};
     const np = g.pointAt(fromE, sNode);
     let best = 1e9, hits = 0, turning = false;
-    for (let i = 0; i < 60 * 40; i++) {
+    for (let i = 0; i < 60 * simSec; i++) {
       const dn = Math.hypot(s.x - np.x, s.z - np.z);
       if (!turning && dn < turnAt + 0.5) turning = true;
       // after the turn, steer toward the far lane point
@@ -657,4 +658,148 @@ window.__shotViews = async (prefix) => {
   }
   S.G.mode = 'city';
   return out;
+};
+
+// Survey of square corners between narrow lanes: for each car, can it take the corner slowly without
+// touching a wall (__cornerTest)? Used to set each car's limit for the taxi pickup filter.
+window.__cornerSurvey = async ({ cars = ['spark', 'cobalt', 'damas'], n = 30, seed = 1 } = {}) => {
+  const S = window.__sr3d, T = S.taxi; await T.ensureData();
+  const g = T.graph, E = g.edges, list = [];
+  let r = seed; const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  const head = (ei, dir, out) => { const p = E[ei].pts, a = out ? (dir > 0 ? p[p.length - 2] : p[1]) : (dir > 0 ? p[0] : p[p.length - 1]), b = out ? (dir > 0 ? p[p.length - 1] : p[0]) : (dir > 0 ? p[1] : p[p.length - 2]); return [b[0] - a[0], b[1] - a[1]]; };
+  for (let tries = 0; tries < 200000 && list.length < n; tries++) {
+    const A = E[Math.floor(rnd() * E.length)]; if (!A || A.width >= 4.5 || A.len < 14) continue;
+    for (const [ej, d2] of g.out[A.v] || []) {
+      const B = E[ej]; if (ej === A.i || B.len < 16 || Math.min(A.width, B.width) >= 4.5) continue;
+      const [ax, az] = head(A.i, 1, true), [bx, bz] = head(ej, d2, false);
+      const ang = Math.atan2(ax * bz - az * bx, ax * bx + az * bz);
+      if (Math.abs(ang) < 1.15 || Math.abs(ang) > 2.2) continue;
+      list.push({ fromE: A.i, toE: ej, w: [A.width, B.width], ang: +ang.toFixed(2) }); break;
+    }
+  }
+  const out = [];
+  for (const car of cars) {
+    S.toMenu(); await new Promise((q) => setTimeout(q, 500));
+    document.querySelector('[data-action=taxi]').click(); await new Promise((q) => setTimeout(q, 300));
+    document.querySelector(`[data-car=${car}]`).click(); document.querySelector('[data-action=taxiStart]').click();
+    await new Promise((q) => setTimeout(q, 2500));
+    for (const k of list) {
+      const p = g.pointAt(k.fromE, Math.max(0, E[k.fromE].len - 10)); await S.teleport(p.x, p.z, 0); await new Promise((q) => setTimeout(q, 900));
+      const res = window.__cornerTest({ fromE: k.fromE, toE: k.toE, kmh: 6, turnAts: [1, 3, 5], simSec: 22 });
+      out.push({ car, ...k, ok: res.ok });
+      window.__surveyProgress = out.length;
+    }
+  }
+  window.__surveyOut = out;
+  return out;
+};
+
+// One car from a chosen camera angle (azimuth deg: 0 = straight behind, 90 = right side, 180 = front;
+// elevation m), daylight studio, posted as PNG: to match a reference photo's angle.
+window.__carShot = async (type, { az = 35, el = 1.3, dist = 6.5, color = 0xf2f3f4, name = null, w = 640, h = 420, fov = 40 } = {}) => {
+  const THREE = await import('three');
+  const { createUzCar } = await import('./uzcars.js');
+  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  r.setSize(w, h, false); r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xd4dbe1);
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x667766, 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-6, 10, 8); sc.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
+  const c = createUzCar(type); c.setColor();
+  const m = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.32 }); for (const o of c.bodyMeshes) o.material = m;
+  sc.add(c.mesh);
+  const a = az * Math.PI / 180, cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, 100);
+  cam.position.set(Math.sin(a) * dist, el, Math.cos(a) * dist); cam.lookAt(0, 0.65, 0);
+  r.render(sc, cam);
+  const blob = await new Promise((res) => r.domElement.toBlob(res, 'image/png'));
+  const res = await fetch('http://127.0.0.1:8766/' + (name || `car-${type}-${az}.png`), { method: 'POST', body: blob });
+  r.dispose();
+  return res.ok;
+};
+
+// Drive up to and across the first signalled junction on the route from `fromName` to `toName` with real
+// key events (W/A/S/D, like a player), at `kmh`, obeying the light for this approach. Logs the light at
+// each moment, the stop, the crossing, and every other car inside the junction while the player crosses.
+window.__junctionRun = async (fromName, toName, { kmh = 50, after = 150, maxSec = 120 } = {}) => {
+  const S = window.__sr3d, T = S.taxi, c = S.city, s = c.state; await T.ensureData();
+  const find = (q) => T.search.find((e) => e[1] === q) || T.find(q)[0];
+  const A = find(fromName), B = find(toName);
+  const st0 = T.stopNear(A[2], A[3]); const p0 = T.graph.pointAt(st0.e, st0.s);
+  await S.teleport(p0.x, p0.z, Math.atan2(-p0.ux, -p0.uz)); await new Promise((r) => setTimeout(r, 2500));
+  if (!T.navigateTo(B)) return { err: 'no route' };
+  const P = T.route.pts, C = T.route.cum;
+  // first signal within 12 m of the route, at least `after` m along it
+  let sig = null, sigAt = 0;
+  for (let j = 0; j < P.length && !sig; j++) { if (C[j] < after) continue; for (const sg of c.signalList) if (Math.hypot(sg.x - P[j][0], sg.z - P[j][1]) < 12) { sig = sg; sigAt = C[j]; break; } }
+  if (!sig) return { err: 'no signal on route' };
+  const key = (code, on) => window.dispatchEvent(new KeyboardEvent(on ? 'keydown' : 'keyup', { code, key: code }));
+  const held = {}; const set = (code, on) => { if (!!held[code] !== on) { held[code] = on; key(code, on); } };
+  const log = { signal: [Math.round(sig.x), Math.round(sig.z)], signalAtRouteM: Math.round(sigAt), events: [], crossTraffic: [] };
+  // the approach direction just before the signal decides which half of the cycle is ours (as for traffic)
+  let jj = 1; while (jj < P.length - 1 && C[jj] < sigAt - 20) jj++;
+  const adx = P[jj][0] - P[jj - 1][0], adz = P[jj][1] - P[jj - 1][1], axis0 = Math.abs(adx) > Math.abs(adz) ? 'ew' : 'ns';
+  log.axis = axis0;
+  const t0 = performance.now(); let k = 0, stopped = false, crossed = false, lastLight = null, maxInJunction = 0;
+  while (performance.now() - t0 < maxSec * 1000) {
+    let bi = k, bd = 1e9; for (let i = Math.max(0, k - 3); i < Math.min(P.length, k + 60); i++) { const d = (P[i][0] - s.x) ** 2 + (P[i][1] - s.z) ** 2; if (d < bd) { bd = d; bi = i; } } k = bi;
+    const k2 = Math.min(P.length - 1, k + 1), sx2 = P[k2][0] - P[k][0], sz2 = P[k2][1] - P[k][1], sl = Math.hypot(sx2, sz2) || 1;
+    const here = C[k] + Math.max(-sl, Math.min(sl, ((s.x - P[k][0]) * sx2 + (s.z - P[k][1]) * sz2) / sl)), toSig = sigAt - here;
+    let tgt = P[P.length - 1]; for (let i = k; i < P.length; i++) if (C[i] - here > Math.max(8, s.v * 1.2)) { tgt = P[i]; break; }
+    const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = tgt[0] - s.x, dz = tgt[1] - s.z;
+    const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+    set('KeyD', ang > 0.04); set('KeyA', ang < -0.04);
+    const light = c.lightAt(sig, axis0);
+    if (light !== lastLight) { log.events.push({ t: +((performance.now() - t0) / 1000).toFixed(1), light, toSignalM: Math.round(toSig), kmh: Math.round(s.v * 3.6) }); lastLight = light; }
+    let want = kmh / 3.6;
+    const stopLine = toSig - 9;                        // stop line ~9 m before the signal node
+    if (!crossed && stopLine > -1 && (light === 'r' || (light === 'y' && stopLine > s.v * 1.5))) want = Math.min(want, Math.max(0, Math.sqrt(Math.max(0, 2 * 3 * (stopLine - 1)))));
+    for (const o of c.cars) { const rx = o.x - s.x, rz = o.z - s.z, ah = rx * fx + rz * fz, lat = Math.abs(rx * fz - rz * fx); if (ah > 0 && ah < 45 && lat < 2.4) want = Math.min(want, Math.max(0, (ah - 8) / 2)); }
+    set('KeyW', s.v < want - 0.3); set('KeyS', s.v > want + 1.2);
+    if (!stopped && s.v < 0.3 && stopLine < 12 && stopLine > -2) { stopped = true; log.events.push({ t: +((performance.now() - t0) / 1000).toFixed(1), stoppedAt: Math.round(stopLine), light }); }
+    if (toSig < 15 && toSig > -45) {           // inside the junction (a divided avenue's crossing is two carriageways deep): who else is in it, and which way are they going?
+      for (const o of c.cars) { const d = Math.hypot(o.x - s.x, o.z - s.z); if (d < 25 && o.speed > 1) { const cross = Math.abs(o.dirX * fx + o.dirZ * fz) < 0.5; if (cross) { maxInJunction++; log.crossTraffic.push({ t: +((performance.now() - t0) / 1000).toFixed(1), d: Math.round(d), speed: Math.round(o.speed * 3.6), theirLight: c.lightAt(sig, Math.abs(o.dirX) > Math.abs(o.dirZ) ? 'ew' : 'ns') }); } } }
+    }
+    if (!crossed && toSig < -45) { crossed = true; log.events.push({ t: +((performance.now() - t0) / 1000).toFixed(1), crossed: true, light }); }
+    if (crossed && toSig < -90) break;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  for (const code of Object.keys(held)) set(code, false);
+  log.hits = { ...(c.hitCount || {}) }; log.crossTrafficMovingSamples = maxInJunction;
+  return log;
+};
+
+// The six everyday cars driving past the parked player on an ordinary two-way street: first towards the
+// camera in the opposite lane, then from behind in the player's lane. No labels anywhere (canvas only).
+window.__passBy = async ({ x, z, types = ['cobalt', 'nexia', 'gentra', 'spark', 'damas', 'malibu'], gap = 28 } = {}) => {
+  const S = window.__sr3d, c = S.city, s = c.state;
+  const { createUzCar } = await import('./uzcars.js');
+  await S.teleport(x, z, 0); await new Promise((r) => setTimeout(r, 2500));
+  const segs = c.roadsNear(x, z, 0, 500).filter((r) => !r.oneway && r.len > 60).sort((a, b) => {
+    const d = (r) => { const t = Math.max(0, Math.min(1, ((x - r.ax) * (r.bx - r.ax) + (z - r.az) * (r.bz - r.az)) / (r.len * r.len))); return Math.hypot(r.ax + (r.bx - r.ax) * t - x, r.az + (r.bz - r.az) * t - z); };
+    return d(a) - d(b);
+  });
+  const seg = segs[0]; if (!seg) return { err: 'no two-way segment' };
+  // park the player on the right-hand kerb a third of the way along, facing along the segment
+  const ux = (seg.bx - seg.ax) / seg.len, uz = (seg.bz - seg.az) / seg.len, t0 = Math.min(seg.len * 0.35, 60);
+  const off = c.laneOffset(seg, 0) + 1.2;
+  await S.teleport(seg.ax + ux * t0 - uz * off, seg.az + uz * t0 + ux * off, Math.atan2(-ux, -uz));
+  await new Promise((r) => setTimeout(r, 1500));
+  for (const o of c.cars) o.mesh.visible = false; c.cars.length = 0;
+  const trf = c.updateTraffic.bind(c);
+  c.pool = [];                                            // nothing else spawns while the parade runs
+  const spawnBefore = c.spawnTraffic; c.maxCars0 = c.maxCars;
+  const made = [];
+  types.forEach((type, i) => {
+    for (const dir of [1]) {
+      const car = createUzCar(type); car.setColor(); if (car.setTaxi) car.setTaxi(false);
+      c.root.add(car.mesh); car.mesh.visible = true;
+      car.baseSpeed = car.speed = 9; car.lane = 0;
+      // dir 1: comes from the far end towards the player; dir 0: starts behind the player
+      const t = dir === 1 ? Math.min(seg.len - 5, t0 + 40 + i * gap) : Math.max(1, t0 - 30 - i * gap) ;
+      c.placeOnSeg(car, seg, dir, dir === 1 ? seg.len - t : t);
+      car.yaw = car.yawT; car.pass = { type, dir };
+      c.cars.push(car); made.push(car);
+    }
+  });
+  return { seg: [Math.round(seg.ax), Math.round(seg.az), Math.round(seg.bx), Math.round(seg.bz)], name: c.streetName(s.x, s.z), cars: made.length };
 };

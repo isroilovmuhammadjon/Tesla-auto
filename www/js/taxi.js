@@ -11,6 +11,13 @@ import { storageGet, storageSet } from './config.js';
 import { RoadGraph, uzLatin } from './route.js';
 import { MAP_VER } from './osmcity.js';
 
+// lane-width sum (m) each car needs to take a square corner between two narrow lanes (see cornersOk)
+// Corner survey 2026-11-28 (__cornerSurvey, 30 square corners between 3-4.5 m lanes across the city, lane sums
+// 6.0-14.2 m): Spark, Cobalt and Damas all got round every one at walking pace without touching a wall, so no
+// car is refused a pickup for a corner it can take slowly. The limits only catch narrower corners than any
+// surveyed (Gentra/Nexia assumed like the Cobalt; the larger black sedan gets a little margin).
+export const CORNER_ROOM = { spark: 5.8, damas: 5.8, cobalt: 6.0, gentra: 6.0, nexia: 6.0, malibu: 6.6, default: 6.0 };
+
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
 const STOP_OK = (e) => e.kind <= 1 && !(e.flags & (2 | 4 | 8 | 32 | 64)) && e.len > 22 && e.width >= 5;
@@ -282,7 +289,8 @@ export class TaxiShift {
     // no passengers who can only be reached (or driven away) through a square corner between two
     // 3-4 m mahalla lanes: in the game's map those corners are often too tight to turn without
     // shuffling back and forth against a wall
-    if (!F && (toPick.r.tight || trip.r.tight) && this.tries < 12) return null;
+    if (!F && !this.cornersOk(toPick.r) && this.tries < 12) return null;
+    if (!F && !this.cornersOk(trip.r) && this.tries < 12) return null;
     this.tries = 0;
     pickup.dir = toPick.dir;
     dest.dir = trip.dir;
@@ -291,6 +299,16 @@ export class TaxiShift {
     const eta = Math.max(2, Math.round(trip.r.time * 1.25 / 60));
     return { kind, pickup, dest, dist, fare, eta, pickRoute: toPick.r, pickName: this.describe(pickup, pickPlace), destName: this.describe(dest, destPlace),
       destPlace: destPlace && destPlace[0] === 'metro kirishi' ? destPlace : null };
+  }
+
+  // can the car on this shift take every square corner between narrow lanes on the route, slowly?
+  // Limits are the narrowest pair of lanes (sum of widths, m) each car got round without touching a
+  // wall in the corner survey (__cornerSurvey, devtest.js); sharper-than-square corners need more room.
+  cornersOk(r) {
+    if (!r || !r.corners || !r.corners.length) return true;
+    const id = this.city.state.def && this.city.state.def.id;
+    const lim = CORNER_ROOM[id] ?? CORNER_ROOM.default;
+    return r.corners.every((c) => c.w[0] + c.w[1] >= lim + (c.ang > 1.9 ? 1.5 : 0));
   }
 
   showOffer(o) {

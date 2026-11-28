@@ -817,7 +817,10 @@ export function buildCell(city, k, data) {
       lamps.setColorAt(i, city.lightOff);
     });
     cell.lampMesh = lamps;
-    cell.lampInfo = lampPos.map((l) => { const sg = city.signalList.find((q2) => q2.x === l[0] && q2.z === l[1]); return { x: l[0], z: l[1], color: l[6], phase: sg ? sg.phase : 0 }; });
+    // each head shows the light of the drivers it faces: they travel along (sin rot, cos rot), so a head facing
+    // east-west traffic runs on the other half of the junction's cycle (before, every head showed the
+    // north-south phase, so an east-west driver could see green while the cross traffic had it too)
+    cell.lampInfo = lampPos.map((l) => { const sg = city.signalList.find((q2) => q2.x === l[0] && q2.z === l[1]); return { x: l[0], z: l[1], color: l[6], phase: sg ? sg.phase : 0, axis: Math.abs(Math.sin(l[2])) > Math.abs(Math.cos(l[2])) ? 'ew' : 'ns' }; });
     group.add(lamps);
   }
 

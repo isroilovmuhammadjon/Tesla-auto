@@ -6,6 +6,60 @@ To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
+## 2026-11-28 kunduzgi ish, 4-qism
+
+### Taksi olish joyi filtri (har bir mashina uchun)
+- **Burchak tekshiruvi** (`__cornerSurvey`): shahar bo'ylab 30 ta tor burchak (3–4.5 m yo'laklar, kengliklar yig'indisi 6.0–14.2 m, 79–116°).
+  - Spark, Cobalt va Damas 6 km/soatda **hammasidan** devorga tegmay o'tdi.
+  - Demak avvalgi filtr ortiqcha qattiq edi.
+- **Endi:** har bir mashinaning o'z chegarasi (`CORNER_ROOM`, `taxi.js`): Spark/Damas 5.8 m, Cobalt/Gentra/Nexia 6.0 m, qora sedan 6.6 m. Tekshirilganlarning birortasi ham rad etilmaydi.
+- **Routing:** tor burchak endi taqiq emas, sekin burilish vaqti sifatida hisoblanadi (12 s, keskin burchakda 45 s).
+- **Tekshirildi:** Mahzuna bekati (edge 1548, Yusuf Sakkokiy ko'chasi) Spark, Cobalt va Damas'ga taklif qilinadi.
+
+### Svetoforlar
+- **Xato:** chorrahadagi barcha chiroq boshlari shimol–janub fazasini ko'rsatardi, mashinalar esa yo'nalishiga qarab ikki faza bilan yurardi. Sharq–g'arb tomondan kelgan o'yinchi yashil ko'rib chorrahaga kirsa, kesib o'tuvchi oqim ham harakatda bo'lardi.
+  - Tuzatildi: har bir bosh qaragan yo'nalishning fazasini ko'rsatadi (`osmbuild.js`, `osmcity.js`).
+- **Xato:** kesib o'tayotgan mashina o'yinchini faqat 8 m dan ko'rardi va 50 km/soatda yon tomonidan urilardi.
+  - Endi o'z tezligida to'xtash uchun yetarli masofadan ko'radi.
+
+### Tinchlik chorrahasi (`__junctionRun`, o'yinchi tugmalari W/A/S/D, 50 km/soat, Cobalt)
+- **Marshrut:** Tinchlik metrosi (taksi qidiruvidagi "Tinchlik") → Chorsu bozori.
+- **285 m dagi piyodalar svetofori** (-5198, -2537):
+  - 5.7 s da qizil, 21.5 s da stop-chiziqda to'xtadi, 22.3 s da yashil, yashilda o'tdi;
+  - urilish 0, kesib o'tuvchi harakat 0.
+- **720 m dagi chorraha** (Beruniy shoh ko'chasi × Bog'ko'cha, -4847, -2274; taxminan 41.3124, 69.2214):
+  - yashilda yetib keldi va o'tdi, kesib o'tuvchi harakatlanayotgan mashina yo'q;
+  - lekin navbatda oldidagi mashinalarga 18 marta yengil tegish bo'ldi (test haydovchisi yaqin kelgan).
+  - Qizilda to'xtash bu chorrahada qayta sinalmadi.
+- **Klip:** `docs/footage/junction-tinchlik.webm` (oxirgi urinish).
+- **Ishonchsiz urinishlar:** bitta urinishga foydalanuvchining shu tabdagi klik va tugmalari aralashdi, uning natijasi hisobga olinmadi.
+
+### Mashinalar va manbalar (`docs/CAR-REFERENCES.md`, `docs/compare/car-*.jpg`)
+- **Suratlardan topilgan xatolar:**
+  - Cobalt'ning orqa raqami bamperda, qopqoqda emas;
+  - Nexia 3 T250 kuzovi (Ravon Nexia R3), T300 emas;
+  - Damas raqami eshik oynasi ostida.
+- **Kuzov:** sedanlar va Spark endi ko'ndalang kesimlardan qurilgan (yumaloq yelka, dumaloq burun va dum).
+- **Detallar:** oyna oqishroq va aks qaytaradi; Cobalt, Nexia va Gentra'da cho'zilgan faralar va tuman chiroqlari.
+- **Solishtirish varaqlari:** chapda Commons surati, o'ngda o'yin, burchak bir xil.
+  - **Halol baho:** o'yindagi mashinalar hali suratdagilardek tanib bo'lmaydi. Kabina oynalari, panjara va faralar shakli, disklar va eshik chiziqlari yo'q.
+- **Klip:** `passby-sergeli.webm`, Sobir Rahimov ko'chasi (Sergeli, segment 1389,11962 → 1023,12179). 6 mashina qarshidan o'tadi, so'ng orqa ko'rinish. Nomlar yo'q.
+
+### Haqiqiy ko'cha va build (`docs/compare/street-*.jpg`)
+| Joy | Koordinata, yo'nalish | Natija |
+|---|---|---|
+| Amir Temur xiyoboni | 41.311897, 69.278703, 130°, kamera 16 m | Forum saroyi bor. Mehmonxona kadrda deyarli yo'q. Xiyobon daraxtlari siyrak va bir xil. |
+| Kurantlar | 41.310097, 69.279908, 171° | Kamera panjara ichida, minora kadr chetida (GPS yoki geometriya siljigan). |
+| Gimnaziya (ref-2) | 41.311806, 69.278458, 343° | Faqat hozirgi build. |
+| Tinchlik (ref-3) | 41.332279, 69.219193 | Surat metro ichida olingan, ko'cha uchun yaroqsiz. Kompozit olib tashlandi. |
+| Chorsu (ref-4) | 41.326197, 69.235164, yo'nalish taxmin 89° | Gumbaz o'yinda oddiy ko'k, haqiqiysi naqshli feruza; arkalar yo'q. |
+
+**Suratsiz joylar** (aniq ko'rinish `PHOTO-NEEDS.csv`'da):
+- taksi boshlanish joyi: 41.28602, 69.149564, 11°;
+- O'rikzor ko'chasi: 41.293575, 69.246832, 106°;
+- Sergeli mahallasi: 41.248658, 69.280271, 70°;
+- Tinchlik ko'chasi: chorraha 41.3124, 69.2214, g'arbdan sharqqa.
+
 ## 2026-11-28 kunduzgi ish, 3-qism
 
 ### Spark olish joyi (-10777, 1883)
@@ -299,8 +353,9 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 Shu fayl bilan birga push qilingan commit (`git log -1`), preview'da tekshirildi.
 
 ## BIRINCHI TUGALLANMAGAN VAZIFA
-- Mashinalarning old tomoni (panjara va chiroq shakllari) va kuzov yon yuzalari hali sodda.
-- Keyingi qadam: litsenziyasi aniq (CC0 yoki CC-BY) model topish yoki shakllarni yaxshilash, so'ng har bir mashinani haqiqiy surat bilan bir xil burchakdan solishtirish.
+- **Mashinalar:** kabina (oyna ramkalari va eshik chiziqlari), panjara va fara shakllari, disklar. Har biri `__carShot` + `carcompose.py` bilan suratga solishtiriladi. Litsenziyasi aniq (CC0 yoki CC-BY) 3D model topilsa, uni olish.
+- **Chorsu gumbazi:** naqsh va arkalar.
+- **Amir Temur xiyoboni:** zich, turli daraxtlar.
 
 ## Keyingi navbat
 1. **Qolgan obyektlar:**
