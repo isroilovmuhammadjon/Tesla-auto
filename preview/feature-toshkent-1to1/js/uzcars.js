@@ -4,12 +4,12 @@
 // Shapes and proportions follow the real cars; no logos.
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadGLB } from './glb.js?v=83ad4808';
+import { loadGLB } from './glb.js?v=72abeb68';
 
 // Cars built in Blender (scripts/cars/build_cars.py -> www/models/<car>.glb + .surf.json): body and cabin
 // come from the model, lamps / grilles / seams are laid onto its surface. Others (or if loading fails) use
 // the procedural body below.
-export const BLENDER_CARS = ['cobalt'];
+export const BLENDER_CARS = ['cobalt', 'gentra', 'nexia', 'spark', 'malibu'];
 const BLENDER = {};
 function decodeSurf(sj) {
   const dec = (b64) => { const bin = atob(b64), a = new Int16Array(bin.length / 2); for (let i = 0; i < a.length; i++) a[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); return a; };
@@ -29,7 +29,7 @@ function decodeSurf(sj) {
 }
 await Promise.all(BLENDER_CARS.map(async (t) => {
   try {
-    const [g, sj] = await Promise.all([loadGLB(`models/${t}.glb?v=20261128d`), fetch(`models/${t}.surf.json?v=20261128d`).then((r) => r.json())]);
+    const [g, sj] = await Promise.all([loadGLB(`models/${t}.glb?v=20261128e`), fetch(`models/${t}.surf.json?v=20261128e`).then((r) => r.json())]);
     if (g.body && g.cabin) BLENDER[t] = { body: g.body, cabin: g.cabin, surf: decodeSurf(sj) };
   } catch (e) { console.warn('car model not loaded, using the procedural one:', t, e); }
 }));
