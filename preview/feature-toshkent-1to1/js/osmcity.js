@@ -4,17 +4,17 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
-import { SkidMarks } from './vehicle.js?v=203bb9b3';
-import { People, windSway } from './life.js?v=203bb9b3';
-import { storageGet, storageSet } from './config.js?v=203bb9b3';
+import { SkidMarks } from './vehicle.js?v=82982f12';
+import { People, windSway } from './life.js?v=82982f12';
+import { storageGet, storageSet } from './config.js?v=82982f12';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CityMode, SUN_DIR } from './city.js?v=203bb9b3';
-import { createUzCar, pickUzType } from './uzcars.js?v=203bb9b3';
-import { daySky, facadeTexture } from './cityday.js?v=203bb9b3';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=203bb9b3';
-import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=203bb9b3';
-import { busStopParts } from './cityday.js?v=203bb9b3';
+import { CityMode, SUN_DIR } from './city.js?v=82982f12';
+import { createUzCar, pickUzType } from './uzcars.js?v=82982f12';
+import { daySky, facadeTexture } from './cityday.js?v=82982f12';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=82982f12';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=82982f12';
+import { busStopParts } from './cityday.js?v=82982f12';
 
 const CELL = 500;
 const BASE = 'map/';
@@ -49,14 +49,21 @@ function roadTexture(kind) {
 
 // yards and open ground: light concrete with a little grass, tiled every 20 m
 function groundTexture() {
+  // yards and open ground in Tashkent: dusty packed earth, worn grass, old asphalt patches and gravel,
+  // in patches of a few metres (tiled every 40 m; before it was an even sand colour that read as a desert)
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#a9a594'; g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 900; i++) {
-    const v = Math.random();
-    g.fillStyle = v < 0.25 ? 'rgba(96,128,64,0.35)' : `rgba(${150 + v * 60},${146 + v * 56},${132 + v * 50},0.35)`;
-    g.fillRect(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 4, 2 + Math.random() * 4);
+  let r = 11; const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  g.fillStyle = '#9c9a88'; g.fillRect(0, 0, 512, 512);
+  const blob = (x, y, rad, col) => { const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) g.fillRect(x - rad + ox, y - rad + oy, rad * 2, rad * 2); };
+  for (let i = 0; i < 26; i++) blob(rnd() * 512, rnd() * 512, 30 + rnd() * 70, `rgba(${86 + rnd() * 20},${112 + rnd() * 20},${58 + rnd() * 14},0.55)`);     // worn grass
+  for (let i = 0; i < 14; i++) blob(rnd() * 512, rnd() * 512, 25 + rnd() * 60, `rgba(${150 + rnd() * 20},${138 + rnd() * 16},${112 + rnd() * 12},0.45)`); // bare earth
+  for (let i = 0; i < 6; i++) blob(rnd() * 512, rnd() * 512, 30 + rnd() * 40, 'rgba(92,94,96,0.4)');                                                       // old asphalt / concrete
+  for (let i = 0; i < 16000; i++) {
+    const v = rnd();
+    g.fillStyle = v < 0.3 ? `rgba(70,${100 + v * 60},50,0.35)` : `rgba(${140 + v * 70},${136 + v * 64},${122 + v * 56},0.3)`;
+    g.fillRect(rnd() * 512, rnd() * 512, 1 + rnd() * 3, 1 + rnd() * 3);
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -152,7 +159,7 @@ export class OsmCity extends CityMode {
     };
     this.treeGeo.crown.computeVertexNormals();
     // plain ground everywhere, satellite tiles near the car
-    this.mats.ground.map.repeat.set(4000, 4000);
+    this.mats.ground.map.repeat.set(2000, 2000);
     const base = new THREE.Mesh(new THREE.PlaneGeometry(80000, 80000).rotateX(-Math.PI / 2), this.mats.ground);
     base.position.y = -0.06;
     base.receiveShadow = true;

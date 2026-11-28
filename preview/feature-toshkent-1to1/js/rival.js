@@ -2,9 +2,9 @@
 // out-score them: it reads the traffic ahead in every lane, picks the most open lane,
 // only changes lanes when the path is clear, keeps a safe gap, and saves nitro for open road.
 import * as THREE from 'three';
-import { createSportsCar } from './carModels.js?v=203bb9b3';
-import { CARS, LANES } from './config.js?v=203bb9b3';
-import { Powertrain } from './physics.js?v=203bb9b3';
+import { createSportsCar } from './carModels.js?v=82982f12';
+import { CARS, LANES } from './config.js?v=82982f12';
+import { Powertrain } from './physics.js?v=82982f12';
 
 const TRAFFIC_WINDOW_AHEAD = -600;   // traffic only exists between these z values
 const TRAFFIC_WINDOW_BEHIND = 35;

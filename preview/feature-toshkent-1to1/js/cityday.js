@@ -16,33 +16,59 @@ function canvasTex(w, h, draw, srgb = true) {
 export function dayPanelTexture(wall, seed = 1) {
   let r = seed * 9301 + 49297;
   const rnd = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
-  return canvasTex(128, 256, (g, w, h) => {
+  // A Soviet-era panel block as it looks today: every flat's owner has glazed (or not) their own balcony
+  // in their own frame colour, air conditioners hang under the windows, rust and rain streak the panels.
+  return canvasTex(256, 512, (g, w, h) => {
     g.fillStyle = wall; g.fillRect(0, 0, w, h);
     const cols = 6, rows = 12, cw = w / cols, rh = h / rows;
-    // panel seams
-    g.strokeStyle = 'rgba(0,0,0,0.10)'; g.lineWidth = 1;
-    for (let y = 0; y <= rows; y++) { g.beginPath(); g.moveTo(0, y * rh + 0.5); g.lineTo(w, y * rh + 0.5); g.stroke(); }
-    for (let x = 0; x <= cols; x += 2) { g.beginPath(); g.moveTo(x * cw + 0.5, 0); g.lineTo(x * cw + 0.5, h); g.stroke(); }
+    // uneven panels: a few slightly lighter or darker (replaced / repainted)
+    for (let row = 0; row < rows; row++) for (let c = 0; c < cols; c += 2) {
+      const k = rnd(); if (k < 0.2) { g.fillStyle = `rgba(${k < 0.1 ? '0,0,0' : '255,255,255'},0.05)`; g.fillRect(c * cw, row * rh, cw * 2, rh); }
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2;
+    for (let y = 0; y <= rows; y++) { g.beginPath(); g.moveTo(0, y * rh + 1); g.lineTo(w, y * rh + 1); g.stroke(); }
+    for (let x = 0; x <= cols; x += 2) { g.beginPath(); g.moveTo(x * cw + 1, 0); g.lineTo(x * cw + 1, h); g.stroke(); }
+    const FRAMES = ['#f2f1ec', '#f2f1ec', '#f2f1ec', '#7a5236', '#a9adb0', '#e9e2cf'];
     for (let row = 0; row < rows; row++) {
       for (let c = 0; c < cols; c++) {
         const x = c * cw, y = row * rh;
-        const balcony = c % 3 === 1;
-        if (balcony) {
-          // glazed balcony box
-          g.fillStyle = rnd() < 0.5 ? '#e8e4da' : '#d9d3c4';
-          g.fillRect(x + 1, y + rh * 0.12, cw - 2, rh * 0.8);
-          g.fillStyle = '#5d7387';
-          g.fillRect(x + 3, y + rh * 0.18, cw - 6, rh * 0.34);
-          g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 3, y + rh * 0.18, cw - 6, 2);
+        if (c % 3 === 1) {
+          const kind = rnd();
+          if (kind < 0.16) {
+            // open balcony: railing, dark inside, sometimes washing on a line
+            g.fillStyle = '#3a3f44'; g.fillRect(x + 2, y + rh * 0.12, cw - 4, rh * 0.5);
+            g.fillStyle = '#c9c5bb'; g.fillRect(x + 1, y + rh * 0.55, cw - 2, rh * 0.37);
+            for (let k = x + 4; k < x + cw - 3; k += 5) { g.fillStyle = 'rgba(60,60,60,0.5)'; g.fillRect(k, y + rh * 0.55, 1, rh * 0.37); }
+            if (rnd() < 0.6) for (let k = 0; k < 4; k++) { g.fillStyle = ['#d6453d', '#f0f0f0', '#3d6fb3', '#e8c547'][(k + row) % 4]; g.fillRect(x + 6 + k * 8, y + rh * 0.2, 5, rh * 0.18); }
+            continue;
+          }
+          // glazed box, in the owner's choice of frame
+          const fr = FRAMES[Math.floor(rnd() * FRAMES.length)];
+          const deep = rnd() < 0.5 ? 2 : 0;
+          g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x + 3 + deep, y + rh * 0.12 + 3, cw - 4, rh * 0.82);   // its shadow on the wall
+          g.fillStyle = fr; g.fillRect(x + 1, y + rh * 0.1, cw - 2, rh * 0.82);
+          const tint = rnd() < 0.15 ? '#5f88a8' : rnd() < 0.5 ? '#4f6475' : '#647a8c';
+          const panes = 2 + Math.floor(rnd() * 3), pw = (cw - 6) / panes;
+          for (let k = 0; k < panes; k++) { g.fillStyle = tint; g.fillRect(x + 3 + k * pw + 1, y + rh * 0.16, pw - 2, rh * 0.4); }
+          g.fillStyle = 'rgba(255,255,255,0.3)'; g.fillRect(x + 3, y + rh * 0.16, cw - 6, 2);
+          g.fillStyle = 'rgba(0,0,0,0.1)'; g.fillRect(x + 1, y + rh * 0.6, cw - 2, rh * 0.32);   // solid lower panel
           continue;
         }
-        g.fillStyle = '#f1efe9'; g.fillRect(x + cw * 0.16, y + rh * 0.16, cw * 0.68, rh * 0.52);   // frame
-        const tone = 60 + rnd() * 40;
+        g.fillStyle = '#f1efe9'; g.fillRect(x + cw * 0.16, y + rh * 0.16, cw * 0.68, rh * 0.52);
+        const tone = 55 + rnd() * 45;
         g.fillStyle = `rgb(${tone | 0},${(tone + 18) | 0},${(tone + 34) | 0})`;
         g.fillRect(x + cw * 0.2, y + rh * 0.2, cw * 0.6, rh * 0.44);
-        g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(x + cw * 0.2, y + rh * 0.2, cw * 0.6, rh * 0.08);   // sky reflection
-        g.fillStyle = '#f1efe9'; g.fillRect(x + cw * 0.49, y + rh * 0.2, 1.5, rh * 0.44);
-        if (rnd() < 0.25) { g.fillStyle = 'rgba(230,220,200,0.7)'; g.fillRect(x + cw * 0.2, y + rh * 0.2, cw * 0.28, rh * 0.44); }  // curtain
+        g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(x + cw * 0.2, y + rh * 0.2, cw * 0.6, rh * 0.08);
+        g.fillStyle = '#f1efe9'; g.fillRect(x + cw * 0.49, y + rh * 0.2, 2, rh * 0.44);
+        const cu = rnd();
+        if (cu < 0.35) { g.fillStyle = ['rgba(230,220,200,0.75)', 'rgba(210,190,160,0.7)', 'rgba(190,205,220,0.6)'][Math.floor(cu * 8.5) % 3]; g.fillRect(x + cw * 0.2, y + rh * 0.2, cw * (cu < 0.15 ? 0.6 : 0.28), rh * 0.44); }
+        if (rnd() < 0.22) {        // air conditioner under the window, with its drip streak
+          const ax = x + cw * (0.2 + rnd() * 0.3);
+          g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(ax + 6, y + rh * 0.84, 3, rh * 0.6);
+          g.fillStyle = '#eef0ef'; g.fillRect(ax, y + rh * 0.7, cw * 0.42, rh * 0.18);
+          g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(ax + 3, y + rh * 0.74, cw * 0.42 - 6, 2);
+        }
+        if (rnd() < 0.12) { g.fillStyle = 'rgba(70,50,30,0.08)'; g.fillRect(x + cw * 0.3, y + rh * 0.68, cw * 0.3, rh * (1 + rnd())); }   // rain streak
       }
     }
   });
@@ -195,6 +221,9 @@ export function facadeTexture(style, wall, seed = 1) {
         g.fillRect(x + cw * 0.26, y + rh * 0.18, cw * 0.48, rh * 0.52);
         g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x + cw * 0.26, y + rh * 0.18, cw * 0.48, 2);
         g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(x + cw * 0.18, y + rh * 0.76, cw * 0.64, 2);   // sill
+        const cu = rnd();
+        if (cu < 0.3) { g.fillStyle = cu < 0.12 ? 'rgba(225,212,190,0.75)' : 'rgba(200,180,150,0.6)'; g.fillRect(x + cw * 0.26, y + rh * 0.18, cw * 0.24, rh * 0.52); }
+        if (rnd() < 0.15) { g.fillStyle = '#eceeed'; g.fillRect(x + cw * 0.3, y + rh * 0.8, cw * 0.4, rh * 0.15); }   // air conditioner
       }
     } else if (style === 'band') {
       for (let row = 0; row < rows; row++) {

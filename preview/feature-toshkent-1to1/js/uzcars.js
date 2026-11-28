@@ -7,26 +7,32 @@ import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // x = forward (front at +L/2), y = up. Wheel x positions, radius, body top contour and glass house.
 const MODELS = {
+  // 2nd-generation sedan built in Uzbekistan since 2012: 4479 x 1735 x 1514 mm, wheelbase 2620 mm,
+  // 185/75 R14 tyres (published figures). A tall body: high waist (side glass starts ~0.98 m up), a
+  // high boot deck and a short glasshouse, which is what makes it look like itself from behind.
   cobalt: {
-    L: 4.48, W: 1.735, H: 1.51, R: 0.3, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
-    top: [[2.25, 0.52], [2.18, 0.69], [1.95, 0.78], [1.3, 0.86], [0.86, 0.91], [-0.5, 0.97], [-1.55, 1.02], [-1.75, 1.04], [-2.15, 1.03], [-2.25, 0.95], [-2.26, 0.55]],
-    glass: [[0.86, 0.9], [0.22, 1.45], [-0.75, 1.51], [-1.22, 1.43], [-1.62, 1.03]],
-    head: { x: 0.58, y: 0.75, z: 2.17, w: 0.5, h: 0.2, tilt: 0.5 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true, wrap: { inTop: 0.47, inBot: 0.57, top: 1.03, bot: 0.7, side: 0.44 }, plateOnLid: 0.84 },
-    grille: { y: 0.7, w: 0.66, h: 0.09 }, lower: { y: 0.45, w: 0.95, h: 0.22 },
+    L: 4.48, W: 1.735, H: 1.514, R: 0.31, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
+    top: [[2.25, 0.55], [2.2, 0.73], [1.98, 0.83], [1.4, 0.91], [0.86, 0.97], [-0.5, 1.0], [-1.55, 1.06], [-1.8, 1.08], [-2.17, 1.06], [-2.25, 0.98], [-2.26, 0.55]],
+    glass: [[0.86, 0.96], [0.2, 1.47], [-0.75, 1.514], [-1.25, 1.45], [-1.66, 1.07]],
+    head: { x: 0.58, y: 0.7, z: 2.17, w: 0.5, h: 0.17, tilt: 0.55 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true, wrap: { inTop: 0.47, inBot: 0.57, top: 1.06, bot: 0.73, side: 0.44 }, plateOnLid: 0.86 },
+    grille: { y: 0.72, w: 0.66, h: 0.09 }, lower: { y: 0.46, w: 0.95, h: 0.22 },
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
     top: [[2.28, 0.5], [2.22, 0.66], [1.95, 0.75], [1.2, 0.85], [0.8, 0.89], [-0.6, 0.94], [-1.55, 0.98], [-1.78, 1.0], [-2.18, 0.97], [-2.27, 0.84], [-2.25, 0.5]],
-    glass: [[0.8, 0.88], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 0.99]],
+    glass: [[0.8, 0.9], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 1.0]],
     head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55 }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
     grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 },
   },
+  // Nexia 3: the Uzbek-built small sedan of 2016-2020 (the same body as the 4th-generation compact
+  // sedan): 4399 x 1735 x 1517 mm, wheelbase 2525 mm (published figures). High waist, short boot, big
+  // swept-back headlamps. (Before, this was the 1990s Nexia's long, low body.)
   nexia: {
-    L: 4.48, W: 1.66, H: 1.39, R: 0.29, wheels: [1.3, -1.22], smooth: false, weight: 0.18,
-    top: [[2.27, 0.56], [2.22, 0.68], [1.95, 0.72], [0.95, 0.81], [-0.6, 0.85], [-1.55, 0.89], [-2.18, 0.91], [-2.25, 0.86], [-2.25, 0.42]],
-    glass: [[0.95, 0.8], [0.28, 1.36], [-0.85, 1.39], [-1.18, 1.35], [-1.6, 0.89]],
-    head: { x: 0.55, y: 0.62, z: 2.25, w: 0.44, h: 0.19, tilt: 0.25 }, tail: { x: 0.55, y: 0.82, w: 0.38, h: 0.24, bar: true, wrap: { inTop: 0.46, inBot: 0.5, top: 0.9, bot: 0.7, side: 0.18 } },
-    grille: { y: 0.6, w: 0.55, h: 0.12 }, lower: { y: 0.4, w: 1.4, h: 0.12 },
+    L: 4.4, W: 1.735, H: 1.517, R: 0.305, wheels: [1.34, -1.185], smooth: true, weight: 0.18,
+    top: [[2.2, 0.55], [2.15, 0.73], [1.92, 0.83], [1.3, 0.92], [0.8, 0.97], [-0.5, 1.0], [-1.5, 1.06], [-1.78, 1.07], [-2.12, 1.05], [-2.2, 0.96], [-2.2, 0.55]],
+    glass: [[0.8, 0.96], [0.1, 1.48], [-0.7, 1.517], [-1.2, 1.45], [-1.62, 1.06]],
+    head: { x: 0.56, y: 0.71, z: 2.13, w: 0.46, h: 0.17, tilt: 0.55 }, tail: { x: 0.58, y: 0.92, w: 0.36, h: 0.22, bar: true, wrap: { inTop: 0.44, inBot: 0.5, top: 1.04, bot: 0.82, side: 0.3 } },
+    grille: { y: 0.7, w: 0.6, h: 0.1 }, lower: { y: 0.44, w: 1.0, h: 0.2 },
   },
   spark: {
     L: 3.64, W: 1.6, H: 1.52, R: 0.29, wheels: [1.17, -1.21], smooth: true, weight: 0.18,
