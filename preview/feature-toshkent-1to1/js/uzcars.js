@@ -12,27 +12,31 @@ const MODELS = {
   // high boot deck and a short glasshouse, which is what makes it look like itself from behind.
   cobalt: {
     L: 4.48, W: 1.735, H: 1.514, R: 0.31, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
-    top: [[2.25, 0.55], [2.2, 0.73], [1.98, 0.83], [1.4, 0.91], [0.86, 0.97], [-0.5, 1.0], [-1.55, 1.06], [-1.8, 1.08], [-2.17, 1.06], [-2.25, 0.98], [-2.26, 0.55]],
+    top: [[2.25, 0.6], [2.22, 0.79], [2.05, 0.87], [1.4, 0.93], [0.86, 0.97], [-0.5, 1.0], [-1.55, 1.06], [-1.8, 1.08], [-2.17, 1.06], [-2.25, 0.98], [-2.26, 0.55]],
     glass: [[0.86, 0.96], [0.2, 1.47], [-0.75, 1.514], [-1.25, 1.45], [-1.66, 1.07]],
-    head: { x: 0.58, y: 0.7, z: 2.17, w: 0.5, h: 0.17, tilt: 0.55 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true, wrap: { inTop: 0.47, inBot: 0.57, top: 1.06, bot: 0.73, side: 0.44 }, plateOnLid: 0.86 },
-    grille: { y: 0.72, w: 0.66, h: 0.09 }, lower: { y: 0.46, w: 0.95, h: 0.22 },
+    head: { x: 0.58, y: 0.72, z: 2.22, w: 0.5, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.8, len: 0.42 } },
+    // tail lamps on the rear corners under the boot-lid line, wrapping well round onto the wings; the
+    // plate is on the bumper (checked against photos of Tashkent cars, see docs/CAR-REFERENCES.md)
+    tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: false, wrap: { inTop: 0.55, inBot: 0.6, top: 1.02, bot: 0.8, side: 0.42 } },
+    // two-part grille in one opening: a narrow upper slot and a big lower mesh with the chrome bar between
+    grille: { y: 0.66, w: 0.66, h: 0.2 }, lower: { y: 0.42, w: 0.9, h: 0.1 }, fog: true,
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
     top: [[2.28, 0.5], [2.22, 0.66], [1.95, 0.75], [1.2, 0.85], [0.8, 0.89], [-0.6, 0.94], [-1.55, 0.98], [-1.78, 1.0], [-2.18, 0.97], [-2.27, 0.84], [-2.25, 0.5]],
     glass: [[0.8, 0.9], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 1.0]],
-    head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55 }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
-    grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 },
+    head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55, sweep: { bot: 0.69, top: 0.79, len: 0.36 } }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
+    grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 }, fog: true,
   },
-  // Nexia 3: the Uzbek-built small sedan of 2016-2020 (the same body as the 4th-generation compact
-  // sedan): 4399 x 1735 x 1517 mm, wheelbase 2525 mm (published figures). High waist, short boot, big
-  // swept-back headlamps. (Before, this was the 1990s Nexia's long, low body.)
+  // Nexia 3 (also sold as Ravon Nexia R3, 2016-2020): the 4th-generation compact sedan body built at
+  // Asaka. About 4310 x 1710 x 1505 mm, wheelbase 2480 mm. Tall cabin with a big rear window, short
+  // boot, plate in a recess in the boot lid, round-element tail lamps on the corners, honeycomb grille.
   nexia: {
-    L: 4.4, W: 1.735, H: 1.517, R: 0.305, wheels: [1.34, -1.185], smooth: true, weight: 0.18,
-    top: [[2.2, 0.55], [2.15, 0.73], [1.92, 0.83], [1.3, 0.92], [0.8, 0.97], [-0.5, 1.0], [-1.5, 1.06], [-1.78, 1.07], [-2.12, 1.05], [-2.2, 0.96], [-2.2, 0.55]],
-    glass: [[0.8, 0.96], [0.1, 1.48], [-0.7, 1.517], [-1.2, 1.45], [-1.62, 1.06]],
-    head: { x: 0.56, y: 0.71, z: 2.13, w: 0.46, h: 0.17, tilt: 0.55 }, tail: { x: 0.58, y: 0.92, w: 0.36, h: 0.22, bar: true, wrap: { inTop: 0.44, inBot: 0.5, top: 1.04, bot: 0.82, side: 0.3 } },
-    grille: { y: 0.7, w: 0.6, h: 0.1 }, lower: { y: 0.44, w: 1.0, h: 0.2 },
+    L: 4.31, W: 1.71, H: 1.505, R: 0.3, wheels: [1.325, -1.155], smooth: true, weight: 0.18,
+    top: [[2.155, 0.6], [2.12, 0.78], [1.95, 0.86], [1.3, 0.93], [0.95, 0.95], [-0.5, 0.99], [-1.5, 1.03], [-1.75, 1.05], [-2.08, 1.03], [-2.155, 0.95], [-2.155, 0.55]],
+    glass: [[0.95, 0.94], [0.2, 1.47], [-0.55, 1.505], [-1.05, 1.46], [-1.58, 1.03]],
+    head: { x: 0.58, y: 0.71, z: 2.13, w: 0.44, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.79, len: 0.3 } }, tail: { x: 0.58, y: 0.92, w: 0.36, h: 0.22, bar: false, wrap: { inTop: 0.5, inBot: 0.52, top: 1.01, bot: 0.8, side: 0.26 }, plateOnLid: 0.87, plateNoBar: true },
+    grille: { y: 0.66, w: 0.56, h: 0.14 }, lower: { y: 0.42, w: 1.0, h: 0.14 }, fog: true,
   },
   spark: {
     L: 3.64, W: 1.6, H: 1.52, R: 0.29, wheels: [1.17, -1.21], smooth: true, weight: 0.18,
@@ -54,7 +58,7 @@ const MODELS = {
     L: 3.49, W: 1.4, H: 1.9, R: 0.26, wheels: [0.98, -0.86], smooth: false, weight: 0.12,
     top: [[1.75, 0.72], [1.62, 0.93], [0.6, 1.06], [-1.74, 1.06], [-1.75, 0.34]],
     glass: [[1.62, 0.92], [1.22, 1.8], [1.02, 1.9], [-1.66, 1.9], [-1.74, 1.82], [-1.74, 1.06]],
-    head: { x: 0.48, y: 0.62, z: 1.74, w: 0.3, h: 0.2, tilt: 0 }, tail: { x: 0.6, y: 0.72, w: 0.14, h: 0.34 },
+    head: { x: 0.48, y: 0.62, z: 1.74, w: 0.3, h: 0.2, tilt: 0 }, tail: { x: 0.6, y: 0.72, w: 0.14, h: 0.34, plateY: 0.98 },
     grille: { y: 0.6, w: 0.5, h: 0.1 }, lower: { y: 0.38, w: 1.3, h: 0.14 },
   },
 };
@@ -64,7 +68,8 @@ const MAT = new Map();
 const cg = (k, f) => { if (!GEO.has(k)) GEO.set(k, f()); return GEO.get(k); };
 const cm = (k, f) => { if (!MAT.has(k)) MAT.set(k, f()); return MAT.get(k); };
 const paint = (c) => cm(`p${c}`, () => new THREE.MeshStandardMaterial({ color: c, metalness: 0.45, roughness: 0.32, envMapIntensity: 1.2 }));
-const glass = () => cm('glass', () => new THREE.MeshStandardMaterial({ color: 0x22303b, metalness: 0.35, roughness: 0.06, envMapIntensity: 1.1 }));
+// tinted glass: you see sky reflections and a hint of the cabin, not a black hole (checked against photos)
+const glass = () => cm('glass', () => new THREE.MeshStandardMaterial({ color: 0x4a5866, metalness: 0.55, roughness: 0.05, envMapIntensity: 1.6 }));
 const black = () => cm('black', () => new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.7 }));
 const chrome = () => cm('chrome', () => new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 1, roughness: 0.18 }));
 const tire = () => cm('tire', () => new THREE.MeshStandardMaterial({ color: 0x121214, roughness: 0.92 }));
@@ -113,7 +118,7 @@ function shapeBody(g, m, type) {
 }
 function shapeGlass(g, m, type) {
   const p = g.attributes.position, belt = m.glass[0][1], top = Math.max(...m.glass.map((q) => q[1]));
-  const taper = type === 'damas' ? 0.06 : 0.2;
+  const taper = type === 'damas' ? 0.06 : 0.12;
   for (let i = 0; i < p.count; i++) p.setX(i, p.getX(i) * (1 - taper * smooth(belt, top, p.getY(i))));
   g.computeVertexNormals();
   return g;
@@ -141,6 +146,50 @@ function mergeParts(list) {
   for (const g of list) { pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  return g;
+}
+
+// Smooth body for the sedans and the Spark, lofted from cross-sections (the side profile's roof line, the
+// plan's rounded corners, a rounded shoulder and a tucked sill) instead of one extruded profile. The
+// extrusion gave flat slab sides with creased shading and a wedge nose; photos show rounded, sculpted
+// bodies. Wheel arches are cut into the floor line. Built in profile space (x forward, y up, w across)
+// and turned into the car's frame (front at -z) at the end.
+function loftBody(m) {
+  const half = m.L / 2 + 0.085;                          // the old extrusion's bevel reached about this far
+  const topPts = m.top.map(([x, y]) => new THREE.Vector2(x, y)).sort((a, b) => a.x - b.x);
+  const curve = new THREE.SplineCurve(topPts), dense = curve.getPoints(400).sort((a, b) => a.x - b.x);
+  const yTop = (x) => { if (x <= dense[0].x) return dense[0].y; for (let i = 1; i < dense.length; i++) if (dense[i].x >= x) { const a = dense[i - 1], b = dense[i], t = (x - a.x) / ((b.x - a.x) || 1); return a.y + (b.y - a.y) * t; } return dense[dense.length - 1].y; };
+  const ar = m.R + 0.07, yb0 = m.R * 0.95;
+  const yBot = (x) => { let y = yb0; for (const wx of m.wheels) { const d = x - wx; if (Math.abs(d) < ar) y = Math.max(y, m.R + Math.sqrt(ar * ar - d * d)); } return y; };
+  const N = 72, K = 7;
+  const xs = []; for (let i = 0; i <= N; i++) { const u = i / N; xs.push(-half + 2 * half * (0.5 - 0.5 * Math.cos(Math.PI * u))); }   // denser at the ends
+  const pos = [], idx = [];
+  const ring = (x, endK) => {
+    const t = Math.min(1, Math.abs(x) / half);
+    const w = (m.W / 2) * (1 - 0.13 * smooth(0.7, 1, t)) * (1 - 0.1 * endK);
+    let yt = Math.max(yTop(Math.max(-m.L / 2, Math.min(m.L / 2, x))), yBot(x) + 0.12), yb = yBot(x);
+    yt -= 0.03 * endK; yb += 0.04 * endK;
+    const h = yt - yb, ySh = yb + h * 0.74;
+    // half ring from the bottom centre round the side to the top centre
+    return [[0, yb], [w * 0.9, yb], [w * 0.99, yb + Math.min(0.1, h * 0.2)], [w, ySh], [w * 0.97, yt - Math.min(0.05, h * 0.12)], [w * 0.86, yt - 0.004], [0, yt + 0.012]];
+  };
+  const rings = xs.map((x, i) => ({ x, r: ring(x, i === 0 || i === N ? 1 : i === 1 || i === N - 1 ? 0.35 : 0) }));
+  const ringVerts = (R) => { const out = []; for (let k = 0; k < K; k++) out.push([R.r[k][0], R.r[k][1]]); for (let k = K - 2; k >= 1; k--) out.push([-R.r[k][0], R.r[k][1]]); return out; };
+  const M = 2 * K - 2;
+  for (const R of rings) for (const [w, y] of ringVerts(R)) pos.push(w, y, -R.x);
+  for (let i = 0; i < N; i++) for (let k = 0; k < M; k++) {
+    const a = i * M + k, b = i * M + (k + 1) % M, c = (i + 1) * M + k, d = (i + 1) * M + (k + 1) % M;
+    idx.push(a, c, b, b, c, d);
+  }
+  // end caps (own vertices, so the nose and tail faces shade flat)
+  for (const [i, flip] of [[0, false], [N, true]]) {
+    const R = ringVerts(rings[i]), base = pos.length / 3, cy = R.reduce((s2, p2) => s2 + p2[1], 0) / R.length;
+    pos.push(0, cy, -rings[i].x); for (const [w, y] of R) pos.push(w, y, -rings[i].x);
+    for (let k = 0; k < M; k++) { const p1 = base + 1 + k, p2 = base + 1 + (k + 1) % M; if (flip) idx.push(base, p2, p1); else idx.push(base, p1, p2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  g.computeVertexNormals();
   return g;
 }
 
@@ -229,7 +278,7 @@ export function createUzCar(type) {
   const g = new THREE.Group();
   const detail = new THREE.Group();       // small parts, hidden for far-away cars
   g.add(detail);
-  const bodyGeo = cg(`${type}b`, () => shapeBody(extrude(bodyShape(m), m.W, 0.07), m, type));
+  const bodyGeo = cg(`${type}b`, () => (type === 'damas' ? shapeBody(extrude(bodyShape(m), m.W, 0.07), m, type) : loftBody(m)));
   const glassGeo = cg(`${type}g`, () => shapeGlass(extrude(glassShape(m), m.W * 0.84, 0.05), m, type));
   const body = new THREE.Mesh(bodyGeo, paint(COLORS[0]));
   body.castShadow = true;
@@ -240,7 +289,7 @@ export function createUzCar(type) {
   const roofX0 = m.glass[1][0] - 0.12, roofX1 = m.glass[m.glass.length - 2][0] + 0.1;
   const roofY = Math.min(...m.glass.slice(1, -1).map((p) => p[1])) ;
   const roofLen = roofX0 - roofX1;
-  const glassTop = (type === 'damas' ? 0.94 : 0.8) * m.W * 0.84;          // the glasshouse narrows to this at the roof
+  const glassTop = (type === 'damas' ? 0.94 : 0.88) * m.W * 0.84;          // the glasshouse narrows to this at the roof
   const roof = new THREE.Mesh(cg(`${type}r`, () => new THREE.BoxGeometry(glassTop * 0.99, 0.05, roofLen)), body.material);
   // (the glass extrusion's bevel grows its outline by 5 cm: the roof sits on top of that, not inside it)
   roof.position.set(0, Math.max(...m.glass.map((p) => p[1])) + 0.04, -(roofX0 + roofX1) / 2);
@@ -254,29 +303,36 @@ export function createUzCar(type) {
   const bumperMat = type === 'damas' ? black() : body.material;
   const bumpers = [];
   const fF = zF - 0.095, fR = zR + 0.095;          // real front / rear faces of the bevelled body
-  bumpers.push(B(m.W * 0.94, 0.2, 0.12, bumperMat, 0, m.lower.y - 0.01, fF + 0.035, g));
+  bumpers.push(B(m.W * 0.84, 0.2, 0.08, bumperMat, 0, m.lower.y - 0.01, fF + 0.05, g));
   B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.1, fF + 0.03);
   B(m.lower.w, m.lower.h, 0.04, black(), 0, m.lower.y, fF - 0.03);
   B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, fF + 0.012);
   B(m.grille.w * 0.9, 0.02, 0.05, chrome(), 0, m.grille.y + m.grille.h * 0.15, fF + 0.008);
   B(0.52, 0.11, 0.02, plateMat(), 0, m.lower.y + 0.01, fF - 0.04);
-  bumpers.push(B(m.W * 0.94, 0.22, 0.12, bumperMat, 0, m.lower.y - 0.01, fR - 0.035, g));
+  bumpers.push(B(m.W * 0.84, 0.22, 0.08, bumperMat, 0, m.lower.y - 0.01, fR - 0.05, g));
   B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.11, fR - 0.03);
   if (m.tail.plateOnLid) {
     // Cobalt: the plate sits in a recess in the boot lid between the lamps, under a chrome strip
     B(0.6, 0.17, 0.02, black(), 0, m.tail.plateOnLid, fR + 0.002);
     B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.plateOnLid, fR + 0.01);
-    B(0.8, 0.035, 0.03, chrome(), 0, m.tail.plateOnLid + 0.12, fR + 0.004);
+    if (!m.tail.plateNoBar) B(0.8, 0.035, 0.03, chrome(), 0, m.tail.plateOnLid + 0.12, fR + 0.004);
   } else {
-    B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.y - (type === 'damas' ? 0.22 : 0.33), fR + 0.008);
+    B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.plateY ?? m.tail.y - 0.33, fR + 0.008);   // Damas: up on the tailgate under the window
     if (m.tail.bar) B(m.W * 0.45, 0.035, 0.03, chrome(), 0, m.tail.y + m.tail.h * 0.1, fR + 0.004, detail);   // chrome strip on the boot lid
   }
   // lights
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
-    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.84) - m.head.w / 2), m.head.y, -m.head.z - 0.085, g);   // inside the rounded nose   // on the bevelled nose surface
+    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.76) - m.head.w / 2), m.head.y, -m.head.z - 0.085, g);   // inside the rounded nose   // on the bevelled nose surface
     h.rotation.x = -m.head.tilt;
+    if (m.head.sweep) {
+      // the lamp carries on round the front corner and back along the wing, under the bonnet line
+      const sw = m.head.sweep, sideX = (m.W / 2) * 0.86;
+      const geo = cg(`hs${type}`, () => { const sh = new THREE.Shape(); sh.moveTo(0, sw.bot); sh.lineTo(sw.len, sw.bot + (sw.top - sw.bot) * 0.55); sh.lineTo(sw.len * 0.9, sw.top); sh.lineTo(0, sw.top); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); return gg; });
+      const hs = new THREE.Mesh(geo, headMat()); hs.position.set(s > 0 ? sideX + 0.012 : -sideX + 0.018, 0, fF + 0.06); g.add(hs);
+    }
+    if (m.fog) B(0.09, 0.07, 0.03, headMat(), s * (m.W / 2 - 0.26), m.lower.y + 0.02, fF - 0.035);
     // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
     const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 0.87);
     const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
@@ -331,7 +387,7 @@ export function createUzCar(type) {
   }
   // A- and C-pillars in body colour along the edges of the windscreen and rear window, so the glass
   // reads as windows in a painted body (before, the whole glasshouse was one dark block)
-  const gHalf = (y) => (m.W * 0.84 / 2 + 0.05) * (1 - (type === 'damas' ? 0.06 : 0.2) * smooth(belt, top, y));
+  const gHalf = (y) => (m.W * 0.84 / 2 + 0.05) * (1 - (type === 'damas' ? 0.06 : 0.12) * smooth(belt, top, y));
   const strip = (pa, pb, wid, inset) => {
     const dx = pb[0] - pa[0], dy = pb[1] - pa[1], len = Math.hypot(dx, dy) + 0.06;
     const L0 = Math.hypot(dx, dy), nx = dy / L0, ny = -dx / L0;                      // outward normal in the profile

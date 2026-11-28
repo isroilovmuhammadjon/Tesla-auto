@@ -169,7 +169,8 @@ export class RoadGraph {
     };
     const tightCost = (ei, ej, ang) => {
       const narrow = Math.min(E[ei].width, E[ej].width);
-      return narrow < 4.5 ? (Math.abs(ang) > 1.9 ? 120 : Math.abs(ang) > 1.15 ? 35 : 0) : narrow < 6 && Math.abs(ang) > 1.9 ? 30 : 0;
+      // (survey: every such corner tested is passable slowly, so these are time costs for a slow corner, not bans)
+      return narrow < 4.5 ? (Math.abs(ang) > 1.9 ? 45 : Math.abs(ang) > 1.15 ? 12 : 0) : narrow < 6 && Math.abs(ang) > 1.9 ? 15 : 0;
     };
     const allowed = (n, ei, ej) => {
       const t = this.turns.get(n + '|' + E[ei].way);
@@ -207,7 +208,7 @@ export class RoadGraph {
       }
     }
     if (bestState === -1) return null;
-    let pts, tight = 0;
+    let pts, tight = 0; const corners = [];
     if (bestState === -3) pts = this.slice(from.e, from.s, to.s);
     else {
       const chain = [];
@@ -221,7 +222,8 @@ export class RoadGraph {
         const ei = st2 >> 1, dir = st2 & 1 ? -1 : 1;
         // count the square corners between narrow lanes the route still has to take
         const li = last >> 1, ld = last & 1 ? -1 : 1, [ax, az] = headOut(li, ld), [bx, bz] = headIn(ei, dir);
-        if (li !== ei && tightCost(li, ei, Math.atan2(ax * bz - az * bx, ax * bx + az * bz)) >= 35) tight++;
+        const tang = Math.atan2(ax * bz - az * bx, ax * bx + az * bz);
+        if (li !== ei && tightCost(li, ei, tang) >= 12) { tight++; const np = ld > 0 ? E[li].pts[E[li].pts.length - 1] : E[li].pts[0]; corners.push({ w: [E[li].width, E[ei].width], ang: Math.abs(tang), at: [Math.round(np[0]), Math.round(np[1])] }); }
         last = st2;
         const p = dir > 0 ? E[ei].pts : E[ei].pts.slice().reverse();
         for (let j = 1; j < p.length; j++) pts.push(p[j]);
@@ -231,7 +233,7 @@ export class RoadGraph {
     }
     const cum = [0];
     for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
-    return { pts, cum, length: cum[cum.length - 1], time: best, tight };
+    return { pts, cum, length: cum[cum.length - 1], time: best, tight, corners };
   }
 
   // a stop on an edge: the kerb on the right-hand side of travel direction dir, set back from the lane

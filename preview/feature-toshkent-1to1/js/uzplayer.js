@@ -3,8 +3,8 @@
 // The body comes from uzcars.js (same models as the street traffic); here it gets spinning and
 // steering wheels, the driver's cabin (C) and the interface the game expects of a player car.
 import * as THREE from 'three';
-import { createUzCar } from './uzcars.js?v=82982f12';
-import { buildCockpit } from './cockpit.js?v=82982f12';
+import { createUzCar } from './uzcars.js?v=fc7ffdfb';
+import { buildCockpit } from './cockpit.js?v=fc7ffdfb';
 
 // fares: a game estimate in the range of Tashkent app taxis (base + per km), rounded to 500 so'm
 export const UZ_CARS = [
@@ -13,7 +13,7 @@ export const UZ_CARS = [
   { id: 'gentra', uz: 'gentra', name: 'GENTRA', cls: 'Standart', tagline: 'Lacetti / Gentra: sedan, 1.5 l', color: 0xc3c7ce,
     maxSpeed: 178, accel: 0.64, handling: 0.86, nitro: 0, fare: [7000, 2000], chassis: { m: 1210, a: 1.05, b: 1.55, h: 0.54, lock: 0.6 }, voice: { pitch: 1.04, tone: 1.05 }, cockpit: { s: 0.94, y: 0.0, z: 0.05 } },
   { id: 'nexia', uz: 'nexia', name: 'NEXIA 3', cls: 'Ekonom', tagline: 'Arzon va chidamli sedan, 1.5 l', color: 0xf0f0f2,
-    maxSpeed: 170, accel: 0.58, handling: 0.8, nitro: 0, fare: [6000, 1700], chassis: { m: 1150, a: 1.0, b: 1.525, h: 0.56, lock: 0.6, grip: 0.96 }, voice: { pitch: 0.97, tone: 0.95 }, cockpit: { s: 0.91, y: -0.04, z: 0.0 } },
+    maxSpeed: 170, accel: 0.58, handling: 0.8, nitro: 0, fare: [6000, 1700], chassis: { m: 1120, a: 0.98, b: 1.5, h: 0.57, lock: 0.6, grip: 0.96 }, voice: { pitch: 0.97, tone: 0.95 }, cockpit: { s: 0.91, y: -0.04, z: 0.0 } },
   { id: 'spark', uz: 'spark', name: 'SPARK', cls: 'Ekonom', tagline: "Kichkina xetchbek: mahalla ko'chalari uchun qulay, 1.25 l", color: 0x2e9bd6,
     maxSpeed: 155, accel: 0.55, handling: 0.9, nitro: 0, fare: [6000, 1700], chassis: { m: 960, a: 0.92, b: 1.46, h: 0.56, lock: 0.58, grip: 0.95, steerRate: 1.15, roll: 1.1 }, voice: { pitch: 0.82, tone: 1.15 }, cockpit: { s: 0.88, y: 0.1, z: -0.1 } },
   { id: 'damas', uz: 'damas', name: 'DAMAS', cls: 'Yuk-yo\'lovchi', tagline: "Mikroavtobus: sekin, lekin ko'p joy, 0.8 l", color: 0xf4f4f6,

@@ -4,12 +4,12 @@
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=82982f12';
-import { createUzCar, pickUzType } from './uzcars.js?v=82982f12';
-import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=82982f12';
-import { People, windSway, WIND } from './life.js?v=82982f12';
+import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=fc7ffdfb';
+import { createUzCar, pickUzType } from './uzcars.js?v=fc7ffdfb';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=fc7ffdfb';
+import { People, windSway, WIND } from './life.js?v=fc7ffdfb';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
-  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=82982f12';
+  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=fc7ffdfb';
 
 // warm afternoon sun from the south-west, high enough that the street itself is in the sun
 // (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes

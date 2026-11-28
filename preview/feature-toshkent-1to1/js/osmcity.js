@@ -4,17 +4,17 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
-import { SkidMarks } from './vehicle.js?v=82982f12';
-import { People, windSway } from './life.js?v=82982f12';
-import { storageGet, storageSet } from './config.js?v=82982f12';
+import { SkidMarks } from './vehicle.js?v=fc7ffdfb';
+import { People, windSway } from './life.js?v=fc7ffdfb';
+import { storageGet, storageSet } from './config.js?v=fc7ffdfb';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CityMode, SUN_DIR } from './city.js?v=82982f12';
-import { createUzCar, pickUzType } from './uzcars.js?v=82982f12';
-import { daySky, facadeTexture } from './cityday.js?v=82982f12';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=82982f12';
-import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=82982f12';
-import { busStopParts } from './cityday.js?v=82982f12';
+import { CityMode, SUN_DIR } from './city.js?v=fc7ffdfb';
+import { createUzCar, pickUzType } from './uzcars.js?v=fc7ffdfb';
+import { daySky, facadeTexture } from './cityday.js?v=fc7ffdfb';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=fc7ffdfb';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=fc7ffdfb';
+import { busStopParts } from './cityday.js?v=fc7ffdfb';
 
 const CELL = 500;
 const BASE = 'map/';
@@ -765,8 +765,7 @@ export class OsmCity extends CityMode {
       if (!cell || !cell.lampMesh) continue;
       // each signal head shows the phase of the street it faces; lamps keep their own colour slot
       cell.lampInfo.forEach((l, i) => {
-        const p = (this.signalTime + (l.phase ?? hashStr(Math.round(l.x), Math.round(l.z)) * 32)) % 32;
-        const st = p < 13 ? 'g' : p < 16 ? 'y' : 'r';
+        const st = this.lightAt({ phase: l.phase ?? hashStr(Math.round(l.x), Math.round(l.z)) * 32 }, l.axis || 'ns');
         const on = (l.color === '#ed4545' && st === 'r') || (l.color === '#e9aa35' && st === 'y') || (l.color === '#31ac74' && st === 'g');
         cell.lampMesh.setColorAt(i, on ? LIGHT[st] : LIGHT.off);
       });
@@ -859,7 +858,9 @@ export class OsmCity extends CityMode {
         const behind = ahead > 0 || (!o.player && same && Math.abs(ahead) < 0.5 && lat < 1 && this.cars.indexOf(o) < i);
         if (same ? behind && ahead > -0.5 && ahead < 20 && lat < 2.6 : ahead > 0 && ahead < 6 && lat < 1.8) limit = Math.min(limit, Math.max(0, (Math.max(0, ahead) - (same ? 7 : 3.5)) * 0.8));
         // the player's car crossing in front at a junction: stop dead, don't creep into it
-        if (o.player && !(c.goFirst > 0) && ahead > -1 && ahead < 8 && lat < 4.5 && Math.abs(c.dirX * -Math.sin(s.yaw) + c.dirZ * -Math.cos(s.yaw)) < 0.85) limit = 0;
+        // (looks as far ahead as it needs to stop from its own speed: at 8 m a car at 50 km/h ran into the side of a
+        // player waiting in the junction)
+        if (o.player && !(c.goFirst > 0) && ahead > -1 && ahead < Math.max(8, 3 + c.speed * c.speed / 7) && lat < 4.5 && Math.abs(c.dirX * -Math.sin(s.yaw) + c.dirZ * -Math.cos(s.yaw)) < 0.85) limit = Math.min(limit, Math.max(0, (ahead - 4) * 0.8));
       }
       // red lights at the OSM signal nodes just ahead
       const axis = Math.abs(c.dirX) > Math.abs(c.dirZ) ? 'ew' : 'ns';
