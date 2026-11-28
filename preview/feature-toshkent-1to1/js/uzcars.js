@@ -11,28 +11,28 @@ const MODELS = {
     L: 4.48, W: 1.735, H: 1.51, R: 0.3, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
     top: [[2.25, 0.52], [2.18, 0.69], [1.95, 0.78], [1.3, 0.86], [0.86, 0.91], [-0.5, 0.97], [-1.55, 1.02], [-1.75, 1.04], [-2.15, 1.03], [-2.25, 0.95], [-2.26, 0.55]],
     glass: [[0.86, 0.9], [0.22, 1.45], [-0.75, 1.51], [-1.22, 1.43], [-1.62, 1.03]],
-    head: { x: 0.6, y: 0.74, z: 2.17, w: 0.42, h: 0.14, tilt: 0.5 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true, wrap: { inTop: 0.47, inBot: 0.57, top: 1.03, bot: 0.7, side: 0.44 }, plateOnLid: 0.84 },
-    grille: { y: 0.68, w: 0.7, h: 0.1 }, lower: { y: 0.42, w: 1.0, h: 0.16 },
+    head: { x: 0.58, y: 0.75, z: 2.17, w: 0.5, h: 0.2, tilt: 0.5 }, tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: true, wrap: { inTop: 0.47, inBot: 0.57, top: 1.03, bot: 0.7, side: 0.44 }, plateOnLid: 0.84 },
+    grille: { y: 0.7, w: 0.66, h: 0.09 }, lower: { y: 0.45, w: 0.95, h: 0.22 },
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
     top: [[2.28, 0.5], [2.22, 0.66], [1.95, 0.75], [1.2, 0.85], [0.8, 0.89], [-0.6, 0.94], [-1.55, 0.98], [-1.78, 1.0], [-2.18, 0.97], [-2.27, 0.84], [-2.25, 0.5]],
     glass: [[0.8, 0.88], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 0.99]],
-    head: { x: 0.58, y: 0.7, z: 2.2, w: 0.46, h: 0.14, tilt: 0.55 }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
+    head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55 }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
     grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 },
   },
   nexia: {
     L: 4.48, W: 1.66, H: 1.39, R: 0.29, wheels: [1.3, -1.22], smooth: false, weight: 0.18,
     top: [[2.27, 0.56], [2.22, 0.68], [1.95, 0.72], [0.95, 0.81], [-0.6, 0.85], [-1.55, 0.89], [-2.18, 0.91], [-2.25, 0.86], [-2.25, 0.42]],
     glass: [[0.95, 0.8], [0.28, 1.36], [-0.85, 1.39], [-1.18, 1.35], [-1.6, 0.89]],
-    head: { x: 0.55, y: 0.6, z: 2.25, w: 0.44, h: 0.14, tilt: 0.15 }, tail: { x: 0.55, y: 0.82, w: 0.38, h: 0.24, bar: true, wrap: { inTop: 0.46, inBot: 0.5, top: 0.9, bot: 0.7, side: 0.18 } },
+    head: { x: 0.55, y: 0.62, z: 2.25, w: 0.44, h: 0.19, tilt: 0.25 }, tail: { x: 0.55, y: 0.82, w: 0.38, h: 0.24, bar: true, wrap: { inTop: 0.46, inBot: 0.5, top: 0.9, bot: 0.7, side: 0.18 } },
     grille: { y: 0.6, w: 0.55, h: 0.12 }, lower: { y: 0.4, w: 1.4, h: 0.12 },
   },
   spark: {
     L: 3.64, W: 1.6, H: 1.52, R: 0.29, wheels: [1.17, -1.21], smooth: true, weight: 0.18,
     top: [[1.84, 0.55], [1.77, 0.72], [1.45, 0.82], [1.05, 0.88], [-0.4, 0.95], [-1.62, 0.99], [-1.8, 0.97], [-1.84, 0.6]],
     glass: [[1.05, 0.87], [0.42, 1.44], [-0.55, 1.52], [-1.45, 1.5], [-1.7, 1.32], [-1.74, 0.98]],
-    head: { x: 0.52, y: 0.76, z: 1.76, w: 0.36, h: 0.18, tilt: 0.6 }, tail: { x: 0.62, y: 1.08, w: 0.17, h: 0.36 },
+    head: { x: 0.52, y: 0.78, z: 1.76, w: 0.38, h: 0.26, tilt: 0.6 }, tail: { x: 0.62, y: 1.08, w: 0.17, h: 0.36 },
     grille: { y: 0.6, w: 0.5, h: 0.12 }, lower: { y: 0.42, w: 0.8, h: 0.16 },
   },
   // the black mid-size sedan (Malibu style, 9th generation): long and low, a sloping fastback roof,
@@ -269,7 +269,7 @@ export function createUzCar(type) {
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
-    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * m.head.x, m.head.y, -m.head.z - 0.085, g);   // on the bevelled nose surface
+    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.84) - m.head.w / 2), m.head.y, -m.head.z - 0.085, g);   // inside the rounded nose   // on the bevelled nose surface
     h.rotation.x = -m.head.tilt;
     // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
     const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 0.87);
