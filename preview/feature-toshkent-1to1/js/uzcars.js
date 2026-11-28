@@ -12,14 +12,14 @@ const MODELS = {
   // high boot deck and a short glasshouse, which is what makes it look like itself from behind.
   cobalt: {
     L: 4.48, W: 1.735, H: 1.514, R: 0.31, wheels: [1.33, -1.29], smooth: true, weight: 0.3,
-    top: [[2.25, 0.6], [2.22, 0.79], [2.05, 0.87], [1.4, 0.93], [0.86, 0.97], [-0.5, 1.0], [-1.55, 1.06], [-1.8, 1.08], [-2.17, 1.06], [-2.25, 0.98], [-2.26, 0.55]],
-    glass: [[0.86, 0.96], [0.2, 1.47], [-0.75, 1.514], [-1.25, 1.45], [-1.66, 1.07]],
-    head: { x: 0.58, y: 0.72, z: 2.22, w: 0.5, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.8, len: 0.42 } },
+    top: [[2.25, 0.6], [2.22, 0.79], [2.05, 0.87], [1.4, 0.93], [0.76, 0.97], [-0.5, 1.0], [-1.55, 1.06], [-1.8, 1.08], [-2.17, 1.06], [-2.25, 0.98], [-2.26, 0.55]],
+    glass: [[0.76, 0.96], [0.08, 1.37], [-0.75, 1.41], [-1.2, 1.35], [-1.62, 1.07]],   // (outline + 5 cm glass bevel + roof panel = 1.514 m, checked by overlay)
+    head: { x: 0.45, y: 0.72, z: 2.22, w: 0.32, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.8, len: 0.42 } },
     // tail lamps on the rear corners under the boot-lid line, wrapping well round onto the wings; the
     // plate is on the bumper (checked against photos of Tashkent cars, see docs/CAR-REFERENCES.md)
-    tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: false, wrap: { inTop: 0.55, inBot: 0.6, top: 1.02, bot: 0.8, side: 0.42 } },
+    tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: false, wrap: { inTop: 0.6, inBot: 0.64, top: 1.03, bot: 0.66, side: 0.38 }, plateY: 0.47, bumperChrome: 0.57 },
     // two-part grille in one opening: a narrow upper slot and a big lower mesh with the chrome bar between
-    grille: { y: 0.66, w: 0.66, h: 0.2 }, lower: { y: 0.42, w: 0.9, h: 0.1 }, fog: true,
+    grille: { y: 0.67, w: 0.62, h: 0.2 }, lower: { y: 0.37, w: 0.8, h: 0.08 }, fog: true, frontPlateY: 0.5, plan: [0.36, 0.78, 0.2, 0.8], mirror: { z: 0.71, y: 1.13 }, bumperLow: [0.27, 0.4],
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
@@ -155,18 +155,31 @@ function mergeParts(list) {
 // bodies. Wheel arches are cut into the floor line. Built in profile space (x forward, y up, w across)
 // and turned into the car's frame (front at -z) at the end.
 function loftBody(m) {
-  const half = m.L / 2 + 0.085;                          // the old extrusion's bevel reached about this far
+  const half = m.L / 2 + 0.01;                           // the real overall length (checked by overlay on photos)
   const topPts = m.top.map(([x, y]) => new THREE.Vector2(x, y)).sort((a, b) => a.x - b.x);
   const curve = new THREE.SplineCurve(topPts), dense = curve.getPoints(400).sort((a, b) => a.x - b.x);
   const yTop = (x) => { if (x <= dense[0].x) return dense[0].y; for (let i = 1; i < dense.length; i++) if (dense[i].x >= x) { const a = dense[i - 1], b = dense[i], t = (x - a.x) / ((b.x - a.x) || 1); return a.y + (b.y - a.y) * t; } return dense[dense.length - 1].y; };
   const ar = m.R + 0.07, yb0 = m.R * 0.95;
-  const yBot = (x) => { let y = yb0; for (const wx of m.wheels) { const d = x - wx; if (Math.abs(d) < ar) y = Math.max(y, m.R + Math.sqrt(ar * ar - d * d)); } return y; };
+  // the underside rises beyond the axles to the bumpers' lower edges (photo overlay: ~0.40 m at the tail,
+  // ~0.27 m under the nose)
+  const [fw0, rw0] = m.wheels, endF = m.bumperLow ? m.bumperLow[0] : yb0, endR = m.bumperLow ? m.bumperLow[1] : yb0;
+  const yBot = (x) => {
+    let y = yb0;
+    if (x > fw0 + ar) y = yb0 + (endF - yb0) * smooth(fw0 + ar, half, x);
+    else if (x < rw0 - ar) y = yb0 + (endR - yb0) * smooth(rw0 - ar, -half, x);
+    for (const wx of m.wheels) { const d = x - wx; if (Math.abs(d) < ar) y = Math.max(y, m.R + Math.sqrt(ar * ar - d * d)); }
+    return y;
+  };
   const N = 72, K = 7;
   const xs = []; for (let i = 0; i <= N; i++) { const u = i / N; xs.push(-half + 2 * half * (0.5 - 0.5 * Math.cos(Math.PI * u))); }   // denser at the ends
   const pos = [], idx = [];
   const ring = (x, endK) => {
     const t = Math.min(1, Math.abs(x) / half);
-    const w = (m.W / 2) * (1 - 0.13 * smooth(0.7, 1, t)) * (1 - 0.1 * endK);
+    // plan shape from the photo overlays: the front bumper curves back over the last ~45 cm (the nose is about
+    // 70 % of the full width at its tip); the tail is squarer
+    const pf = m.plan || [0.31, 0.8, 0.14, 0.82];
+    const tf = x > 0 ? Math.max(0, (t - pf[1]) / (1 - pf[1])) : Math.max(0, (t - pf[3]) / (1 - pf[3]));
+    const w = (m.W / 2) * (1 - (x > 0 ? pf[0] : pf[2]) * tf * tf) * (1 - 0.06 * endK);
     let yt = Math.max(yTop(Math.max(-m.L / 2, Math.min(m.L / 2, x))), yBot(x) + 0.12), yb = yBot(x);
     yt -= 0.03 * endK; yb += 0.04 * endK;
     const h = yt - yb, ySh = yb + h * 0.74;
@@ -302,15 +315,20 @@ export function createUzCar(type) {
   // bumpers: body colour with a black lower insert (the Damas keeps its plain black ones)
   const bumperMat = type === 'damas' ? black() : body.material;
   const bumpers = [];
-  const fF = zF - 0.095, fR = zR + 0.095;          // real front / rear faces of the bevelled body
-  bumpers.push(B(m.W * 0.84, 0.2, 0.08, bumperMat, 0, m.lower.y - 0.01, fF + 0.05, g));
-  B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.1, fF + 0.03);
+  const ext = type === 'damas' ? 0.095 : 0.01;     // where the body's front / rear faces really are
+  const fF = zF - ext, fR = zR + ext;
+  // how far back from the nose / tail tip the body reaches 86 % of its width (where the lamps' wrap-round
+  // pieces sit on the flank): from the plan curve used in loftBody
+  const pfx = m.plan || [0.31, 0.8, 0.14, 0.82];
+  const wrapBack = (front) => { if (type === 'damas') return 0.05; const a = front ? pfx[0] : pfx[2], b = front ? pfx[1] : pfx[3]; const tf = Math.sqrt(Math.min(1, 0.14 / a)); return (m.L / 2) * (1 - (b + tf * (1 - b))) + 0.02; };
+  bumpers.push(B(m.W * (type === 'damas' ? 0.94 : 0.66), 0.2, 0.08, bumperMat, 0, m.lower.y - 0.01, fF + 0.05, g));
+  B(m.W * (type === 'damas' ? 0.8 : 0.62), 0.06, 0.12, black(), 0, m.lower.y - 0.1, fF + 0.03);
   B(m.lower.w, m.lower.h, 0.04, black(), 0, m.lower.y, fF - 0.03);
   B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, fF + 0.012);
   B(m.grille.w * 0.9, 0.02, 0.05, chrome(), 0, m.grille.y + m.grille.h * 0.15, fF + 0.008);
-  B(0.52, 0.11, 0.02, plateMat(), 0, m.lower.y + 0.01, fF - 0.04);
-  bumpers.push(B(m.W * 0.84, 0.22, 0.08, bumperMat, 0, m.lower.y - 0.01, fR - 0.05, g));
-  B(m.W * 0.8, 0.06, 0.12, black(), 0, m.lower.y - 0.11, fR - 0.03);
+  B(0.52, 0.11, 0.02, plateMat(), 0, m.frontPlateY ?? m.lower.y + 0.01, fF - 0.04);
+  bumpers.push(B(m.W * (type === 'damas' ? 0.84 : 0.74), 0.2, 0.08, bumperMat, 0, m.bumperLow ? m.bumperLow[1] + 0.11 : m.lower.y - 0.01, fR - 0.05, g));
+  B(m.W * (type === 'damas' ? 0.8 : 0.66), 0.06, 0.12, black(), 0, m.bumperLow ? m.bumperLow[1] + 0.02 : m.lower.y - 0.11, fR - 0.03);
   if (m.tail.plateOnLid) {
     // Cobalt: the plate sits in a recess in the boot lid between the lamps, under a chrome strip
     B(0.6, 0.17, 0.02, black(), 0, m.tail.plateOnLid, fR + 0.002);
@@ -318,38 +336,39 @@ export function createUzCar(type) {
     if (!m.tail.plateNoBar) B(0.8, 0.035, 0.03, chrome(), 0, m.tail.plateOnLid + 0.12, fR + 0.004);
   } else {
     B(0.52, 0.112, 0.02, rearPlateMat(), 0, m.tail.plateY ?? m.tail.y - 0.33, fR + 0.008);   // Damas: up on the tailgate under the window
+    if (m.tail.bumperChrome) B(m.W * 0.62, 0.025, 0.02, chrome(), 0, m.tail.bumperChrome, fR + 0.012);   // chrome strip across the bumper above the plate
     if (m.tail.bar) B(m.W * 0.45, 0.035, 0.03, chrome(), 0, m.tail.y + m.tail.h * 0.1, fR + 0.004, detail);   // chrome strip on the boot lid
   }
   // lights
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
-    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.76) - m.head.w / 2), m.head.y, -m.head.z - 0.085, g);   // inside the rounded nose   // on the bevelled nose surface
+    const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.76) - m.head.w / 2), m.head.y, (type === 'damas' ? -m.head.z - 0.085 : -(m.L / 2 - 0.015)), g);   // inside the rounded nose   // on the bevelled nose surface
     h.rotation.x = -m.head.tilt;
     if (m.head.sweep) {
       // the lamp carries on round the front corner and back along the wing, under the bonnet line
       const sw = m.head.sweep, sideX = (m.W / 2) * 0.86;
       const geo = cg(`hs${type}`, () => { const sh = new THREE.Shape(); sh.moveTo(0, sw.bot); sh.lineTo(sw.len, sw.bot + (sw.top - sw.bot) * 0.55); sh.lineTo(sw.len * 0.9, sw.top); sh.lineTo(0, sw.top); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); return gg; });
-      const hs = new THREE.Mesh(geo, headMat()); hs.position.set(s > 0 ? sideX + 0.012 : -sideX + 0.018, 0, fF + 0.06); g.add(hs);
+      const hs = new THREE.Mesh(geo, headMat()); hs.position.set(s > 0 ? sideX + 0.012 : -sideX + 0.018, 0, fF + wrapBack(true)); g.add(hs);
     }
-    if (m.fog) B(0.09, 0.07, 0.03, headMat(), s * (m.W / 2 - 0.26), m.lower.y + 0.02, fF - 0.035);
+    if (m.fog) B(0.09, 0.07, 0.03, headMat(), s * (m.W / 2 - 0.33), m.lower.y + 0.02, fF - 0.035);
     // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
-    const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 0.87);
+    const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 1 - pfx[2] * 0.85);   // the tail face's half-width (plan curve)
     const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
     // the rear face of the extruded body (bevel included) is ~9 cm behind zR: lamps sit 1 cm proud of it;
     // a sedan's lamps stop just under the edge of the boot lid
-    const face = zR + 0.095;
+    const face = fR;
     const deck = m.tail.bar ? m.top[m.top.length - 2][1] + 0.14 - 0.05 : Infinity;
     const tTop = Math.min(m.tail.y + m.tail.h / 2, deck), tBot = m.tail.y - m.tail.h / 2;
     const th = Math.max(0.12, tTop - tBot), ty = tTop - th / 2;
     if (m.tail.wrap) {
       // the sedans' lamp clusters: a slanted shape on the rear face that carries on round the corner
       // and runs forward along the flank to a point (the Cobalt's deep wrap is how you know it)
-      const w = m.tail.wrap, out = halfRear + 0.005, sideX = (m.W / 2) * 0.9;
+      const w = m.tail.wrap, out = halfRear + 0.005, sideX = (m.W / 2) * 0.86;
       const rear = cg(`tl${type}`, () => { const sh = new THREE.Shape(); sh.moveTo(w.inBot, w.bot); sh.lineTo(out, w.bot); sh.lineTo(out, w.top); sh.lineTo(w.inTop, w.top - 0.02); sh.closePath(); return new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }); });
       const rl = new THREE.Mesh(rear, tailMat); rl.scale.set(s, 1, 1); rl.position.set(0, 0, face - 0.02); g.add(rl);
       const side = cg(`ts${type}`, () => { const sh = new THREE.Shape(); sh.moveTo(0, w.bot + 0.02); sh.lineTo(w.side * 0.55, w.bot + 0.06); sh.lineTo(w.side, w.top - 0.03); sh.lineTo(0, w.top - 0.01); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: false }); gg.rotateY(Math.PI / 2); return gg; });
-      const sl = new THREE.Mesh(side, tailMat); sl.position.set(s * (sideX + 0.012) - (s > 0 ? 0.03 : 0), 0, face - 0.05); g.add(sl);
+      const sl = new THREE.Mesh(side, tailMat); sl.position.set(s * (sideX + 0.012) - (s > 0 ? 0.03 : 0), 0, face - wrapBack(false)); g.add(sl);
       const cx = s * (w.inBot + out) / 2, cy = (w.top + w.bot) / 2, cw = out - w.inBot;
       B(cw * 0.34, (w.top - w.bot) * 0.22, 0.03, revMat(), cx - s * cw * 0.18, w.bot + (w.top - w.bot) * 0.22, face - 0.002, g);
       B(cw * 0.3, (w.top - w.bot) * 0.2, 0.03, blinkMat, cx + s * cw * 0.22, cy + (w.top - w.bot) * 0.18, face - 0.002);
@@ -360,7 +379,8 @@ export function createUzCar(type) {
       B(0.03, th * 0.85, 0.09, tailMat, s * (halfRear - 0.012), ty, face - 0.06, g);         // wraps round onto the flank
     }
     // mirrors
-    B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
+    if (m.mirror) B(0.13, 0.12, 0.2, body.material, s * (m.W / 2 + 0.07), m.mirror.y, -m.mirror.z);   // (position from the photo camera fit)
+    else B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
   }
   // wheels
   const tg = cg(`t${m.R}`, () => tyreGeo(m.R));
@@ -418,7 +438,7 @@ export function createUzCar(type) {
       const c = palette[Math.floor(Math.random() * palette.length)];
       const mat = paint(c);
       for (const o of bodyMeshes) o.material = mat;
-      detail.children.forEach((o) => { if (o.geometry === GEO.get('bx0.12_0.1_0.16')) o.material = mat; });
+      detail.children.forEach((o) => { if (o.geometry === GEO.get('bx0.12_0.1_0.16') || o.geometry === GEO.get('bx0.13_0.12_0.2')) o.material = mat; });
       return c;
     },
     setDetail(on) { detail.visible = on; },

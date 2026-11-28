@@ -803,3 +803,25 @@ window.__passBy = async ({ x, z, types = ['cobalt', 'nexia', 'gentra', 'spark', 
   });
   return { seg: [Math.round(seg.ax), Math.round(seg.az), Math.round(seg.bx), Math.round(seg.bz)], name: c.streetName(s.x, s.z), cars: made.length };
 };
+
+// Render one car from an exact camera (position, look-at target, vertical FOV, image size) with flat colours
+// per part on a transparent background, for laying its outline over a reference photo (camsolve.py).
+window.__carOverlay = async (type, { cam, target, fov, w, h, name }) => {
+  const THREE = await import('three');
+  const { createUzCar } = await import('./uzcars.js');
+  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+  r.setSize(w, h, false); r.setClearColor(0x000000, 0);
+  const sc = new THREE.Scene();
+  const c = createUzCar(type);
+  const flat = (col) => new THREE.MeshBasicMaterial({ color: col });
+  const body = new Set(c.bodyMeshes);
+  c.mesh.traverse((o) => { if (!o.isMesh) return; o.material = o.material === c.tailMat ? flat(0xff0000) : body.has(o) ? flat(0xffffff) : o === c.glassMesh ? flat(0x0040ff) : flat(0x00ff00); });
+  sc.add(c.mesh);
+  const camera = new THREE.PerspectiveCamera(fov, w / h, 0.1, 200);
+  camera.position.set(...cam); camera.lookAt(new THREE.Vector3(...target));
+  r.render(sc, camera);
+  const blob = await new Promise((res) => r.domElement.toBlob(res, 'image/png'));
+  const res = await fetch('http://127.0.0.1:8766/' + name, { method: 'POST', body: blob });
+  r.dispose();
+  return res.ok;
+};

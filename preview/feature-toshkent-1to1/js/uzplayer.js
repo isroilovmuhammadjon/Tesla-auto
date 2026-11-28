@@ -3,8 +3,8 @@
 // The body comes from uzcars.js (same models as the street traffic); here it gets spinning and
 // steering wheels, the driver's cabin (C) and the interface the game expects of a player car.
 import * as THREE from 'three';
-import { createUzCar } from './uzcars.js?v=fc7ffdfb';
-import { buildCockpit } from './cockpit.js?v=fc7ffdfb';
+import { createUzCar } from './uzcars.js?v=6991f57e';
+import { buildCockpit } from './cockpit.js?v=6991f57e';
 
 // fares: a game estimate in the range of Tashkent app taxis (base + per km), rounded to 500 so'm
 export const UZ_CARS = [
@@ -28,7 +28,7 @@ export function createUzPlayer(def) {
   // the player's car keeps its own paint (traffic shares paint materials)
   const paint = new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.4, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.06, envMapIntensity: 0.9 });
   for (const o of car.bodyMeshes) o.material = paint;
-  car.detail.children.forEach((o) => { if (o.geometry && o.geometry.parameters && o.geometry.parameters.width === 0.12 && o.geometry.parameters.depth === 0.16) o.material = paint; });
+  car.detail.children.forEach((o) => { if (o.geometry && o.geometry.parameters && ((o.geometry.parameters.width === 0.12 && o.geometry.parameters.depth === 0.16) || (o.geometry.parameters.width === 0.13 && o.geometry.parameters.depth === 0.2))) o.material = paint; });
   car.setTaxi(true);
   const group = new THREE.Group();
   const body = new THREE.Group();
