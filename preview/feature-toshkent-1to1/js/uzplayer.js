@@ -3,8 +3,8 @@
 // The body comes from uzcars.js (same models as the street traffic); here it gets spinning and
 // steering wheels, the driver's cabin (C) and the interface the game expects of a player car.
 import * as THREE from 'three';
-import { createUzCar } from './uzcars.js?v=e70b85cf';
-import { buildCockpit } from './cockpit.js?v=e70b85cf';
+import { createUzCar } from './uzcars.js?v=b55d34f6';
+import { buildCockpit } from './cockpit.js?v=b55d34f6';
 
 // fares: a game estimate in the range of Tashkent app taxis (base + per km), rounded to 500 so'm
 export const UZ_CARS = [

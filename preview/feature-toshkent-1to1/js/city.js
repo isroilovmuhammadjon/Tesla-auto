@@ -4,12 +4,12 @@
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=e70b85cf';
-import { createUzCar, pickUzType } from './uzcars.js?v=e70b85cf';
-import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=e70b85cf';
-import { People, windSway, WIND } from './life.js?v=e70b85cf';
+import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=b55d34f6';
+import { createUzCar, pickUzType } from './uzcars.js?v=b55d34f6';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=b55d34f6';
+import { People, windSway, WIND } from './life.js?v=b55d34f6';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
-  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=e70b85cf';
+  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=b55d34f6';
 
 // warm afternoon sun from the south-west, high enough that the street itself is in the sun
 // (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes
@@ -970,7 +970,7 @@ export class CityMode {
     let maxSteer;
     if (this.steerV2 || this.legacySteer) maxSteer = Math.min(P.maxWheel, (P.L * P.mu * 9.81) / (sp * sp) + 0.06);
     else {
-      const pull = P.mu * 9.81 * Math.max(0.45, Math.min(1, 1 - (sp - 8) * 0.033));
+      const pull = P.mu * 9.81 * Math.max(this.steerPullMin ?? 0.33, Math.min(1, 1 - (sp - 8) * (this.steerPullSlope ?? 0.04)));
       maxSteer = Math.min(P.maxWheel, (P.L * pull * 1.3) / (sp * sp) + 0.012);
     }
     // A virtual steering wheel u (-1..1): holding A/D (or a touch button) turns it at a steady rate, so a
@@ -993,7 +993,11 @@ export class CityMode {
     } else if (d.tilt.enabled && d.tilt.axis) {
       s.wheelU += (d.tilt.axis - s.wheelU) * Math.min(1, dt * 10);
     } else {
-      const back = Math.min(Math.abs(s.wheelU), (v2 ? 3.2 + Math.abs(s.wheelU) * 2 : rate * (0.95 + Math.abs(s.wheelU) * 0.6)) * dt);
+      // letting go: at town speeds the wheel springs back quickly; at speed it eases back slowly, so between
+      // presses the car keeps most of its line through a long bend instead of snapping straight (tunable for tests)
+      const relax = this.steerRelax ?? 1;
+      const slowBack = Math.max(0.35, Math.min(1, 1 - (sp - 10) * 0.045)) * relax + (1 - relax);
+      const back = Math.min(Math.abs(s.wheelU), (v2 ? 3.2 + Math.abs(s.wheelU) * 2 : rate * (0.95 + Math.abs(s.wheelU) * 0.6) * slowBack) * dt);
       s.wheelU -= Math.sign(s.wheelU) * back;
     }
     const u = s.wheelU, shaped = this.steerV2 ? u * (0.4 + 0.6 * Math.abs(u)) : u * (0.5 + 0.5 * Math.abs(u));
