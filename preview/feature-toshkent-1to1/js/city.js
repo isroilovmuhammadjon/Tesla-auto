@@ -4,12 +4,12 @@
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=759f3173';
-import { createUzCar, pickUzType } from './uzcars.js?v=759f3173';
-import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=759f3173';
-import { People, windSway, WIND } from './life.js?v=759f3173';
+import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=cc37a101';
+import { createUzCar, pickUzType } from './uzcars.js?v=cc37a101';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=cc37a101';
+import { People, windSway, WIND } from './life.js?v=cc37a101';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
-  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=759f3173';
+  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=cc37a101';
 
 // warm afternoon sun from the south-west, high enough that the street itself is in the sun
 // (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes
@@ -1175,7 +1175,8 @@ export class CityMode {
       player.updateInterior(0, Math.abs(s.v) * 3.6, d.pt.rpm, s.v < -0.1 ? 'R' : s.v < 0.5 && !d.input.up ? 'N' : d.pt.gear, s.nitro,
         [this.streetName(s.x, s.z).slice(0, 22), Math.round(Math.abs(s.v) * 3.6) + ' km/h'], s.steer * 15);
       if (player.renderMirror && !look && !d.mobile) player.renderMirror(d.renderer, this.scene);
-      d.setFov(60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
+      // everyday cars: a natural ~52 degree vertical view (about what a driver takes in through the screen)
+      d.setFov(s.def && s.def.uz ? 52 + Math.min(1, Math.abs(s.v) / 60) * 4 : 60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
       this.camPos.copy(cam.position); this.camLook.set(s.x + fx * 10, 1, s.z + fz * 10);
       return;
     }

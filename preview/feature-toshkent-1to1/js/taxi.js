@@ -7,9 +7,9 @@
 // wrong turn; the passenger waits on the pavement at a kerb you can reach, and only gets in or out
 // once you have stopped next to them on their side of the street.
 import * as THREE from 'three';
-import { storageGet, storageSet } from './config.js?v=759f3173';
-import { RoadGraph } from './route.js?v=759f3173';
-import { MAP_VER } from './osmcity.js?v=759f3173';
+import { storageGet, storageSet } from './config.js?v=cc37a101';
+import { RoadGraph, uzLatin } from './route.js?v=cc37a101';
+import { MAP_VER } from './osmcity.js?v=cc37a101';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
@@ -77,6 +77,7 @@ export class TaxiShift {
     try {
       const [g, s] = await Promise.all([RoadGraph.load('map/graph.json?v=' + MAP_VER), this.search ? Promise.resolve(this.search) : fetch('map/search.json?v=' + MAP_VER).then((r) => r.json())]);
       this.graph = g; this.search = s;
+      for (const e of s) { e[1] = uzLatin(e[1]); if (e[4]) e[4] = uzLatin(e[4]); }
       return true;
     } catch (e) { console.error(e); return false; }
   }
@@ -133,8 +134,20 @@ export class TaxiShift {
   // ---------------------------------------------------------------- orders
   carSnap() {
     const s = this.city.state, fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw);
-    const n = this.graph.nearest(s.x, s.z, { heading: [fx, fz] });
+    let n = this.graph.nearest(s.x, s.z, { heading: [fx, fz] });
     if (!n) return null;
+    // off the carriageway (in a yard, between houses): the closest street may be behind a wall; take the
+    // closest one the car can drive straight to, so the route starts where the car can actually go
+    const c = this.city;
+    if (c.clearLine && n.d > this.graph.edges[n.e].width / 2 + 2 && !c.clearLine(s.x, s.z, n.x, n.z)) {
+      const bad = new Set([n.e]);
+      for (let k = 0; k < 8; k++) {
+        const m = this.graph.nearest(s.x, s.z, { heading: [fx, fz], filter: (e) => !bad.has(e.i), radius: 3 });
+        if (!m || m.d > 150) break;
+        if (c.clearLine(s.x, s.z, m.x, m.z)) { n = m; break; }
+        bad.add(m.e);
+      }
+    }
     const E = this.graph.edges[n.e];
     const dot = n.ux * fx + n.uz * fz;
     return { e: n.e, s: n.s, dir: E.oneway ? 1 : (dot >= 0 ? 1 : -1), d: n.d };
@@ -188,8 +201,35 @@ export class TaxiShift {
     const street = E.name || "nomsiz ko'cha";
     const any = near || this.placeName(p.x, p.z, null);
     const district = any && any[4] ? any[4].replace(/ tumani$/i, '') : '';
-    if (!near) return { title: street, sub: district };
-    return { title: near[1], sub: [street !== near[1] ? street : '', district].filter(Boolean).join(' · ') };
+    if (!near) {
+      const cross = this.crossStreet(stop);
+      return { title: cross ? `${street}, ${cross} yonida` : street, sub: district };
+    }
+    // a name used many times in the city ("Do'kon", a bus stop on both sides of the road) gets the
+    // nearest cross street and, for a stop, the way the traffic goes there
+    let title = near[1];
+    if (!this.nameCount) { this.nameCount = new Map(); for (const e of this.search) this.nameCount.set(e[1], (this.nameCount.get(e[1]) || 0) + 1); }
+    if ((this.nameCount.get(near[1]) || 0) > 1) {
+      const cross = this.crossStreet(stop), toward = this.towardName(stop);
+      if (cross && cross !== near[1]) title += ` (${cross} yonida)`;
+      else if (toward) title += ` (${toward} tomonga)`;
+    }
+    return { title, sub: [street !== near[1] ? street : '', district].filter(Boolean).join(' · ') };
+  }
+
+  // the named street meeting this one at the nearer end of the stop's edge
+  crossStreet(stop) {
+    const g = this.graph, E = g.edges[stop.e];
+    const ends = stop.s < E.len / 2 ? [E.u, E.v] : [E.v, E.u];
+    for (const node of ends) for (const [ei] of g.out[node] || []) { const O = g.edges[ei]; if (O && O.name && O.name !== E.name) return O.name; }
+    return '';
+  }
+
+  // the named street the traffic is heading for from this stop
+  towardName(stop) {
+    const g = this.graph, E = g.edges[stop.e], node = (stop.dir || 1) > 0 ? E.v : E.u;
+    for (const [ei] of g.out[node] || []) { const O = g.edges[ei]; if (O && O.name && O.name !== E.name) return O.name; }
+    return '';
   }
 
   pickFrom(types, cx, cz, rMin, rMax) {

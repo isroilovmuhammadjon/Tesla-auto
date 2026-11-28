@@ -461,7 +461,7 @@ window.__record = async (name, run, { caption = '', fps = 30 } = {}) => {
 
 // Car sheet: every Uzbek car model side by side in a small studio scene, from the rear three-quarter
 // ('rear'), front ('front') or side ('side'), drawn on an overlay canvas for screenshots.
-window.__carSheet = async (view = 'rear', { taxi = false } = {}) => {
+window.__carSheet = async (view = 'rear', { taxi = false, only = null, color = null } = {}) => {
   const THREE = await import('three');
   const { createUzCar } = await import('./uzcars.js');
   let cv = document.getElementById('carSheet');
@@ -474,14 +474,16 @@ window.__carSheet = async (view = 'rear', { taxi = false } = {}) => {
   sc.add(new THREE.HemisphereLight(0xffffff, 0x667766, 1.2));
   const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-6, 10, 8); sc.add(sun);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
-  const types = ['cobalt', 'gentra', 'nexia', 'spark', 'damas'];
+  const types = only ? [only] : ['cobalt', 'gentra', 'nexia', 'spark', 'malibu', 'damas'];
   types.forEach((t, i) => {
     const c = createUzCar(t); c.setColor(); c.setTaxi(taxi);
-    const g = c.mesh; g.position.x = (i - 2) * 2.6;
+    if (color !== null) { const m = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.32 }); for (const o of c.bodyMeshes) o.material = m; }
+    const g = c.mesh; g.position.x = (i - (types.length - 1) / 2) * 2.6;
     sc.add(g);
   });
-  const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 200);
-  if (view === 'rear') cam.position.set(-9, 4, 24); else if (view === 'front') cam.position.set(8, 2.4, -24); else cam.position.set(30, 2, 0);
+  const cam = new THREE.PerspectiveCamera(only ? 40 : 30, innerWidth / innerHeight, 0.1, 200);
+  const k = only ? 0.36 : 1;
+  if (view === 'rear') cam.position.set(-9 * k, only ? 1.9 : 4, 24 * k); else if (view === 'front') cam.position.set(8 * k, only ? 1.5 : 2.4, -24 * k); else if (view === 'chase') cam.position.set(0, 2.1, 6.5); else cam.position.set(30 * k, 2, 0);
   cam.lookAt(0, 0.7, 0);
   r.render(sc, cam);
   return 'drawn';

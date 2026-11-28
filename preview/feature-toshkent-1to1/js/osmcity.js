@@ -4,17 +4,17 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
-import { SkidMarks } from './vehicle.js?v=759f3173';
-import { People, windSway } from './life.js?v=759f3173';
-import { storageGet, storageSet } from './config.js?v=759f3173';
+import { SkidMarks } from './vehicle.js?v=cc37a101';
+import { People, windSway } from './life.js?v=cc37a101';
+import { storageGet, storageSet } from './config.js?v=cc37a101';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CityMode, SUN_DIR } from './city.js?v=759f3173';
-import { createUzCar, pickUzType } from './uzcars.js?v=759f3173';
-import { daySky, facadeTexture } from './cityday.js?v=759f3173';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=759f3173';
-import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=759f3173';
-import { busStopParts } from './cityday.js?v=759f3173';
+import { CityMode, SUN_DIR } from './city.js?v=cc37a101';
+import { createUzCar, pickUzType } from './uzcars.js?v=cc37a101';
+import { daySky, facadeTexture } from './cityday.js?v=cc37a101';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=cc37a101';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=cc37a101';
+import { busStopParts } from './cityday.js?v=cc37a101';
 
 const CELL = 500;
 const BASE = 'map/';
@@ -667,6 +667,23 @@ export class OsmCity extends CityMode {
   }
 
   cameraBlocked(cp) { return this.heightAt(cp.x, cp.z) > cp.y; }
+
+  // true when a car could drive straight from (x0, z0) to (x1, z1) without crossing a building or wall
+  // (the loaded cells only; used to pick a street the car can actually get to)
+  clearLine(x0, z0, x1, z1) {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / 8)), seen = new Set();
+    const ddx = x1 - x0, ddz = z1 - z0;
+    for (let i = 0; i <= n; i++) {
+      for (const b of this.nearbyBuckets(x0 + ddx * i / n, z0 + ddz * i / n)) for (const e of b.edges) {
+        if (seen.has(e)) continue; seen.add(e);
+        const [ax, az, bx, bz] = e, ex = bx - ax, ez = bz - az;
+        const den = ddx * ez - ddz * ex; if (Math.abs(den) < 1e-9) continue;
+        const t = ((ax - x0) * ez - (az - z0) * ex) / den, u = ((ax - x0) * ddz - (az - z0) * ddx) / den;
+        if (t > 0.02 && t < 0.98 && u >= 0 && u <= 1) return false;
+      }
+    }
+    return true;
+  }
 
   collide(dt) {
     const s = this.state, fx = this.d.fx, audio = this.d.audio;
