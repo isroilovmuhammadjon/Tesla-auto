@@ -495,6 +495,11 @@ body.osm-map .find-btn { display: block; }
 .taxi-car.on { border-color: #ffc61a; background: rgba(255,198,26,0.14); }
 .taxi-info { min-height: 2.6em; }
 @media (max-width: 640px) { .taxi-cars { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 561px) and (max-width: 1100px) {
+  /* narrow windows: the order panel and the offer card go below the top-right buttons instead of under them */
+  #taxiPanel:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 58px); }
+  .taxi-offer:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 150px); }
+}
 @media (max-width: 560px) and (orientation: portrait) {
   /* phone: the order panel goes below the minimap / dial / limit sign, the street name below the top buttons */
   #taxiPanel:not([hidden]) { top: calc(max(10px, env(safe-area-inset-top)) + 262px); max-width: 92vw; }

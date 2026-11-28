@@ -1,7 +1,7 @@
 // Online rooms over the internet (works on the website, any network, any device).
 // The host's game runs the room (LocalRoom); players connect peer-to-peer with WebRTC.
 // PeerJS's free public broker only introduces the devices — game data goes directly between them.
-import { LocalRoom } from './lanroom.js?v=337c5e50';
+import { LocalRoom } from './lanroom.js?v=203bb9b3';
 
 const PREFIX = 'sr3d-tsh-';            // namespace on the public broker
 let peerLib = null;
