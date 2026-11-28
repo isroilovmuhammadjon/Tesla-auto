@@ -6,6 +6,98 @@ To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
+## 2026-11-28 kunduzgi ish (davomi)
+
+### Rul: uzoq bosilgan A/D (asosiy shikoyat)
+- **O'lchov** (Cobalt, `__steerTest`, `__liveSteer` real tugmalar bilan): tugma uzoq bosilsa g'ildirak 0.3 s ichida to'liq burilib, 60 km/soatda 0.84 g, 90 km/soatda 1.0 g so'rardi. Oddiy keng burilish 0.1–0.3 g talab qiladi, shuning uchun uzoq bosish ortiqcha burib yuborardi va haydovchi bitta burilishda 20–50 marta tugmani bosib-qo'yib yuborishga majbur edi.
+- **Sabab:** tezlikka bog'liq chegara = tutish chegarasi + 0.06 rad. Kirish kechikishi (20–80 ms) ham, kadr tezligi ham sabab emas: 30/60/120 fps natijalari bir xil.
+- **Tuzatildi** (`city.js`):
+  - uzoq bosish endi tezlik oshgani sari kamayadigan yonlama tortish so'raydi: shaharda ~0.65–0.7 g, 90 km/soatda ~0.5 g (R≈124 m);
+  - rul tezda sekinroq aylanadi: to'xtab turganda 0.3 s, 90 km/soatda ~0.65 s;
+  - Spark'da rul tezroq (×1.15), Damas'da sekinroq (×0.82) va kuzovi ko'proq og'adi (×1.8).
+  - Eski xatti-harakat solishtirish uchun `?test` ostida `legacy:'v2'` sifatida qoldi.
+- **Sinov burilishlari:**
+  - Temur Malik ko'chasi (graph edge 57560, 13.2 m, bir tomonlama, 49°): boshlanishi 41.337288, 69.378592, oxiri 41.333991, 69.377995.
+  - Seul ko'chasi (66172): 41.29962, 69.232331 → 41.298594, 69.236102.
+- **Natija** (inson kabi "pursuit" bot, 250 ms reaksiya; yangi / eski):
+
+  | Burilish | km/soat | rms | tugma almashishi | eng katta yaw |
+  |---|---|---|---|---|
+  | Temur Malik | 60 | 0.26 / 0.34 m | 34 / 45 | 0.16 / 0.45 |
+  | Temur Malik | 90 | 0.35 / 0.32 m | 17 / 25 | 0.20 / 0.39 |
+  | Seul | 60 | 0.15 / 0.13 m | 25 / 48 | 0.16 / 0.45 |
+  | Seul | 90 | 0.23 / 0.34 m | 14 / 27 | 0.13 / 0.39 |
+
+- **Handling** (`__handling`):
+
+  | | Cobalt | Spark | Damas |
+  |---|---|---|---|
+  | 100→0 tormoz | 46.8 m | 49.3 m | 63.1 m |
+  | Uzoq bosish, 90 km/soat | 0.51 g | 0.48 g | 0.55 g |
+  | 60 km/soatda chiziq almashtirish | 4.3 m | 3.7 m | 3.7 m |
+
+  - Hammasida burilishda tormozlaganda teskari aylanish yo'q.
+  - Orqaga yurish 16 km/soatgacha; g'ildiraklar haqiqiy harakat yo'nalishida aylanadi.
+
+### Taksi
+- **`carSnap`:** yo'ldan chiqqan mashina uchun to'g'ridan-to'g'ri yetib boriladigan (devor yoki bino kesmaydigan) eng yaqin ko'cha olinadi (`osmcity.clearLine`).
+- **Tor mahalla burchaklari:** 4.5 m dan tor ko'chalar orasidagi 65° dan keskin burilishga +35 s, 110° dan keskiniga +120 s (`route.js turnCost`).
+  - Sabab: Samarbonu → Hojiobod mahallasi yo'lida Maxzuna (4.1 m) → Maxorat (3.2 m) 90° burchagida uyga 835 urilish va 78 tiqilish bo'lgan.
+  - Endi o'sha yo'l 2.99 km, tiqilish 0.
+- **Nomlar:**
+  - ruscha nomlar o'zbek lotiniga o'tkaziladi ("Газалхон улица" → "Gazalxon ko'chasi", "Рынок металла" → "Metalla bozori");
+  - takroriy nomlarga kesishgan ko'cha qo'shiladi ("Do'kon (Burxona Margilani ko'chasi yonida)").
+- **Buyurtma kartasi:** uzun manzil 2 qatorga sig'adi, narx va tugmalar siqilmaydi.
+- **Smena testi** (`__testShift`, noto'g'ri burilish bilan, lokal Browser pane, MacBook):
+
+  | Mashina | Masofa | Tiqilish | To'landi |
+  |---|---|---|---|
+  | Cobalt | 9.0 km | 1 | ha |
+  | Gentra | 10.4 km | 2 | ha |
+  | Nexia | 5.5 km | 0 | ha |
+  | Damas | 7.5 km | 0 | ha |
+  | Spark (alohida qayta haydovda) | 7.2 km | 0 | ha |
+  | Spark (to'plamda) | — | — | yo'q |
+
+  - To'plamdagi Spark yo'lovchigacha 135 m qolganda (-10777, 1883) burchagida qoldi: 3.8 m va 4.2 m nomsiz yo'laklar orasidagi 90° burilish. Test-bot uch nuqtali qayrilish qila olmadi.
+  - Tuzatish: bunday burchakdan o'tadigan olish joylarini taklif qilmaslik yoki yo'lak kengligini OSM width/surat bilan tekshirish.
+
+### Mashinalar
+- **Tom va ustunlar:** endi kuzov rangida. Avval tom panel shisha ichida yashiringan edi, butun kabina qora blok bo'lib ko'rinardi.
+- **Cobalt:** katta, burchakdan yon tomonga 44 sm o'tadigan chiroqlar; raqam yukxona qopqog'idagi chuqurchada, ustida xrom chiziq.
+- **Gentra va Nexia:** o'z shaklidagi o'raluvchi chiroqlar.
+- **Qora sedan** (Malibu uslubi): 4.92 m, ko'cha harakatiga qo'shildi (5%, asosan qora).
+- **Salon:** taksi mashinalarida ko'rish burchagi 60° dan 52° ga tushdi; ko'z balandligi Spark'da 1.13 m, Damas'da 1.36 m.
+
+### Binolar va yo'llar: tashxis (`docs/geom-check.json`, 581 holat)
+- 447 tasi 3 m yo'lak chetiga 1 m gacha kirgan uy burchagi (o'q chizig'i uydan o'tmaydi): OSM chiziq va uy konturi turli suratlardan chizilgan.
+- 55 tasi yo'lak uy orqali o'tadi (o'tish joyi deb belgilanmagan).
+- 41 tasi yo'lak uy ichida tugaydi.
+- 5 tasi 19.2 m nomsiz keng hudud.
+- Yo'l kengligi xatosi emas, shuning uchun binolar surilmadi.
+
+### Suratlar
+- Wikimedia Commons'dan qo'shimcha suratlar yuklab bo'lmadi: umumiy client nomi bilan so'rov 429 qaytardi, shaxsiy kontakt ma'lumoti qo'shilmadi.
+- Tumanlar bo'yicha qamrov:
+
+  | Tuman | Kerakli nuqtalar | Surat bor |
+  |---|---|---|
+  | Bektemir | 385 | 0 |
+  | Chilonzor | 758 | 0 |
+  | Mirobod | 654 | 1 |
+  | Mirzo Ulug'bek | 902 | 0 |
+  | Olmazor | 754 | 0 |
+  | Sergeli | 719 | 0 |
+  | Shayxontohur | 795 | 0 |
+  | Uchtepa | 828 | 0 |
+  | Yakkasaroy | 343 | 0 |
+  | Yangi Toshkent | 384 | 0 |
+  | Yangi hayot | 687 | 0 |
+  | Yashnobod | 1178 | 0 |
+  | Yunusobod | 1026 | 2 |
+
+  Qolgan barcha manzara taxminiy (OSM geometriyasi + umumiy fasadlar).
+
 ## 2026-11-28 tungi ish
 
 ### 1. Rul va fizika (`city.js`, `vehicle.js`, `uzplayer.js`)

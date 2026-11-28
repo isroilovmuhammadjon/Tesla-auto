@@ -668,6 +668,23 @@ export class OsmCity extends CityMode {
 
   cameraBlocked(cp) { return this.heightAt(cp.x, cp.z) > cp.y; }
 
+  // true when a car could drive straight from (x0, z0) to (x1, z1) without crossing a building or wall
+  // (the loaded cells only; used to pick a street the car can actually get to)
+  clearLine(x0, z0, x1, z1) {
+    const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / 8)), seen = new Set();
+    const ddx = x1 - x0, ddz = z1 - z0;
+    for (let i = 0; i <= n; i++) {
+      for (const b of this.nearbyBuckets(x0 + ddx * i / n, z0 + ddz * i / n)) for (const e of b.edges) {
+        if (seen.has(e)) continue; seen.add(e);
+        const [ax, az, bx, bz] = e, ex = bx - ax, ez = bz - az;
+        const den = ddx * ez - ddz * ex; if (Math.abs(den) < 1e-9) continue;
+        const t = ((ax - x0) * ez - (az - z0) * ex) / den, u = ((ax - x0) * ddz - (az - z0) * ddx) / den;
+        if (t > 0.02 && t < 0.98 && u >= 0 && u <= 1) return false;
+      }
+    }
+    return true;
+  }
+
   collide(dt) {
     const s = this.state, fx = this.d.fx, audio = this.d.audio;
     s.bumpCd = Math.max(0, s.bumpCd - dt);

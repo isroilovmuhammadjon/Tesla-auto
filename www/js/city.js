@@ -1175,7 +1175,8 @@ export class CityMode {
       player.updateInterior(0, Math.abs(s.v) * 3.6, d.pt.rpm, s.v < -0.1 ? 'R' : s.v < 0.5 && !d.input.up ? 'N' : d.pt.gear, s.nitro,
         [this.streetName(s.x, s.z).slice(0, 22), Math.round(Math.abs(s.v) * 3.6) + ' km/h'], s.steer * 15);
       if (player.renderMirror && !look && !d.mobile) player.renderMirror(d.renderer, this.scene);
-      d.setFov(60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
+      // everyday cars: a natural ~52 degree vertical view (about what a driver takes in through the screen)
+      d.setFov(s.def && s.def.uz ? 52 + Math.min(1, Math.abs(s.v) / 60) * 4 : 60 + Math.min(1, Math.abs(s.v) / 60) * 8, dt);
       this.camPos.copy(cam.position); this.camLook.set(s.x + fx * 10, 1, s.z + fz * 10);
       return;
     }
