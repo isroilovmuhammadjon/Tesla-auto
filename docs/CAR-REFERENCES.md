@@ -47,3 +47,41 @@ O'yindagi mashinalar asl modellar emas: logotip va nomlarsiz, `uzcars.js` da pro
   - Raqam qopqoqdagi chuqurchada, burchakda yumaloq elementli chiroqlar.
 - **Damas:** orqa raqam eshik oynasi ostida (~1 m balandlikda), bamperda emas.
 - **Gentra:** cho'zilgan faralar va tuman chiroqlari.
+
+## Cobalt: 3D model nomzodlari (Sketchfab, 2026-11-28)
+| Model | Muallif | Litsenziya | Poligon | Izoh |
+|---|---|---|---|---|
+| [Chevrolet Cobalt LTZ 2014](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-2014-f91cbef731444f939e263041400216ca) | Q.SARDOR | CC BY | 1.05 mln | Tavsifida "GTA SA modlaridan qayta yaratilgan" deyilgan, kelib chiqishi noaniq. |
+| [chevrolet Cobalt ltz](https://sketchfab.com/3d-models/chevrolet-cobalt-ltz-6bbacfcb4c224acda978f5ee74554b58) | uzb_rx7 | CC BY | 1.05 mln | "uzbekistan general motors car: chevrolet cobalt ltz 2012". Manbasi aytilmagan. |
+| [Chevrolet_ Cobalt](https://sketchfab.com/3d-models/chevrolet--cobalt-d41d10543caf4893815c16b7c99eb709) | UZBEK 3D | CC BY | 0.8 mln | Tavsif yo'q. |
+
+- Uchalasi ham to'g'ri avlod (2-avlod, O'zbekiston). Hammasida logotip bor, olib tashlash kerak bo'ladi.
+- Brauzer uchun poligonni ~30–60 mingtagacha kamaytirish kerak.
+- Yuklab olish Sketchfab akkaunti orqali bo'ladi, men akkaunt ochmadim.
+- CC BY yorlig'ini yuklagan odam qo'ygan. Agar model GTA modidan yoki pullik modeldan olingan bo'lsa, yorliq haqiqiy emas. Shu sabab o'yinga qo'shilmadi.
+
+## Cobalt: suratga kontur qo'yish
+- **Kamera suratdan topildi** (`camsolve*.py`). Tayanch nuqtalar:
+  - g'ildirak markazlari;
+  - raqam belgisi (520×112 mm);
+  - simmetrik juftliklar: ko'zgular, orqa chiroqlarning ichki burchaklari.
+  - Xato: 1.5–4.4 piksel.
+- **Suratlar:**
+  - old-o'ng: https://commons.wikimedia.org/wiki/File:Chevrolet_Cobalt._Chilonzor-5_avenue,_Tashkent,_Uzbekistan.jpg
+  - orqa-chap: https://commons.wikimedia.org/wiki/File:2016_Ravon_R4_silver_rear.jpg (CC0)
+  - orqa (Toshkent): https://commons.wikimedia.org/wiki/File:Ravon_R4,_Toshkent.jpg
+- **Tuzatilgan narsalar:**
+  - umumiy uzunlik (17 sm ortiqcha edi);
+  - kabina balandligi (~9 sm baland edi);
+  - old oyna pastki qirrasi (10 sm orqaga);
+  - burun yuqoridan ko'rinishda: uchida kenglik ~70%, oxirgi 45 sm da qayriladi;
+  - ko'zgu joyi (1.13 m balandlik, z −0.71);
+  - orqa chiroqlar: 1.03 m dan 0.66 m gacha, orqa yuzada tor, yon tomonga o'raladi; ichki-yuqori burchagi x 0.58, y 1.01;
+  - raqamlar: old 0.50 m, orqa 0.47 m, bamperda;
+  - bamper ostki qirralari (old 0.27 m, orqa 0.40 m).
+- **Tasdiqlab bo'lmagan shakllar** (aniq yon va yuqori surat yo'q):
+  - burunning yuqoridan ko'rinishdagi aniq egri chizig'i;
+  - tomning ko'ndalang qavariqligi;
+  - eshik chiziqlari;
+  - panjara va faralarning aniq konturi;
+  - g'ildirak o'yig'i qirralari.
