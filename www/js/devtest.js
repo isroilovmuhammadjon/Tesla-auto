@@ -118,8 +118,9 @@ window.__viewAt = async (lat, lon, heading, { eye = 1.6, fov = 55, pitch = 0 } =
 // A whole taxi trip through the normal game flow: open TOSHKENT TAKSI, pick a car, start the shift, accept
 // the first order with Enter, drive to the passenger's kerb, wait for boarding, make a deliberate wrong
 // turn on the way to the destination, follow the recalculated route, stop at the kerb and get paid.
-window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15 } = {}) => {
+window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15, force = null } = {}) => {
   const S = window.__sr3d, T = S.taxi;
+  T.forceOrder = force;
   window.__sr3dNoAutoPause = true;
   if (S.G.hudOff) S.toggleHud(false);
   S.toMenu(); await new Promise((r) => setTimeout(r, 400));
@@ -215,6 +216,11 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
       else {
         if (ang > 0.05) inp.right = true; else if (ang < -0.05) inp.left = true;
         let want = Math.abs(ang) > 0.45 ? 4 : 13;
+        // like a driver: slow down before a sharp corner in the next 25 m, and keep it slow in a 3-5 m lane
+        { let turn = 0; const h0 = Math.atan2(P[Math.min(P.length - 1, j + 1)][1] - P[j][1], P[Math.min(P.length - 1, j + 1)][0] - P[j][0]);
+          for (let k = j + 1; k < P.length - 1 && C[k] - here < 25; k++) { let d = Math.atan2(P[k + 1][1] - P[k][1], P[k + 1][0] - P[k][0]) - h0; d = Math.atan2(Math.sin(d), Math.cos(d)); turn = Math.max(turn, Math.abs(d)); }
+          if (turn > 1.2) want = Math.min(want, 3.2); else if (turn > 0.7) want = Math.min(want, 5.5);
+          if (c.roadHere && c.roadHere.width < 5.2) want = Math.min(want, 7); }
         if (left < 45) want = Math.min(want, Math.max(0, (left - 2) * 0.32));
         for (const o2 of c.cars) { const rx = o2.x - s.x, rz = o2.z - s.z, ah = rx * fx + rz * fz, lat = Math.abs(rx * fz - rz * fx); if (ah > 0 && ah < 22 && lat < 2.2) want = Math.min(want, Math.max(0, (ah - 8) * 0.7)); }
         if (s.v < want - 0.4) inp.up = true; else if (s.v > want + 0.8 && s.v > 0.3) inp.down = true;
@@ -238,7 +244,7 @@ window.__testShift = async ({ car = 'gentra', budget = 2400, wrongTurnAfter = 15
   log.paid = !!(T.lastTrip && T.lastTrip.paid) && log.phases.some((p) => p[0] === 'paid'); log.fare = T.lastTrip && T.lastTrip.fare; log.reroutes = T.lastTrip ? T.lastTrip.reroutes : T.reroutes;
   log.savedBalance = localStorage.getItem('sr3d_taxi_balance'); log.savedTrips = localStorage.getItem('sr3d_taxi_trips');
   log.nextOrderOffered = T.phase === 'offer' || T.phase === 'paid' || T.phase === 'search';
-  window.__shiftResult = log;
+  window.__shiftResult = log; T.forceOrder = null;
   return log;
 };
 
@@ -579,4 +585,76 @@ window.__carGrid = async (name = 'cars-grid.png', { color = 0xf4f4f6 } = {}) => 
   const res = await fetch('http://127.0.0.1:8766/' + name, { method: 'POST', body: blob });
   r.dispose();
   return { posted: res.ok, bytes: blob.size };
+};
+
+// Can this car physically take the corner from edge `fromE` into edge `toE` (at their shared node)?
+// Starts `back` metres before the node in the right-hand lane at `kmh`, tries turn-in points 0..9 m before
+// the node with full lock, stepped at 60 fps with collisions on. Reports the best attempt.
+window.__cornerTest = ({ fromE, toE, kmh = 8, back = 12 } = {}) => {
+  const S = window.__sr3d, c = S.city, T = S.taxi, g = T.graph, inp = c.d.input, s = c.state;
+  const A = g.edges[fromE], B = g.edges[toE];
+  const node = [A.u, A.v].find((n) => n === B.u || n === B.v);
+  const aDir = node === A.v ? 1 : -1, bDir = node === B.u ? 1 : -1;
+  const sNode = aDir > 0 ? A.len : 0;
+  const lane = (e, sx, dir) => { const E = g.edges[e], p = g.pointAt(e, sx), off = E.oneway ? 0 : Math.min(1.2, E.width / 4); return { x: p.x - p.uz * off * dir, z: p.z + p.ux * off * dir, ux: p.ux * dir, uz: p.uz * dir }; };
+  const bEnd = lane(toE, bDir > 0 ? Math.min(B.len, 15) : Math.max(0, B.len - 15), bDir);
+  const trf = c.updateTraffic; c.updateTraffic = () => {};
+  const mode = S.G.mode; S.G.mode = 'city';
+  const out = [];
+  for (const turnAt of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+    const p0 = lane(fromE, sNode - aDir * back, aDir);
+    Object.assign(s, { x: p0.x, z: p0.z, yaw: Math.atan2(-p0.ux, -p0.uz), v: kmh / 3.6, latV: 0, r: 0, ax: 0, steer: 0, wheelU: 0, spin: 0 });
+    c.hitCount = {};
+    const np = g.pointAt(fromE, sNode);
+    let best = 1e9, hits = 0, turning = false;
+    for (let i = 0; i < 60 * 40; i++) {
+      const dn = Math.hypot(s.x - np.x, s.z - np.z);
+      if (!turning && dn < turnAt + 0.5) turning = true;
+      // after the turn, steer toward the far lane point
+      const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), dx = bEnd.x - s.x, dz = bEnd.z - s.z;
+      const ang = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+      inp.right = turning && ang > 0.05; inp.left = turning && ang < -0.05;
+      inp.up = s.v < kmh / 3.6 - 0.2; inp.down = false;
+      c.update(1 / 60);
+      best = Math.min(best, Math.hypot(bEnd.x - s.x, bEnd.z - s.z));
+      if (best < 2.5) break;
+    }
+    hits = Object.values(c.hitCount || {}).reduce((a, b) => a + b, 0);
+    out.push({ turnAt, reached: best < 2.5, closestM: +best.toFixed(1), hits });
+  }
+  inp.left = inp.right = inp.up = false; c.updateTraffic = trf; S.G.mode = mode;
+  return { fromE, toE, widths: [A.width, B.width], kmh, car: s.def.id, attempts: out, ok: out.some((o) => o.reached && o.hits === 0) };
+};
+
+// Same daylight views (position, heading, driver's eye 1.25 m, FOV 55), HUD off, posted as JPEGs: for before/after.
+window.__shotViews = async (prefix) => {
+  const S = window.__sr3d, T = S.taxi; await T.ensureData();
+  const a=83688.15960,b=-21.21882,c=-5797037.69,d=-1.1002137,e=-111050.703,f=4587580.68;
+  const ll = (x, z) => { const X=x-c, Z=z-f, det=a*e-b*d; return [(a*Z-d*X)/det, (e*X-b*Z)/det]; };
+  const xz = (lat, lon) => [a*lon + b*lat + c, d*lon + e*lat + f];
+  const head = (lat, lon, tx, tz) => { const [x, z] = xz(lat, lon); return Math.atan2(tx - x, -(tz - z)) * 180 / Math.PI; };
+  const serg = T.search.find((q) => q[0] === 'mahalla' && /Sergeli/i.test(q[4] || ''));
+  const sergStop = T.stopNear(serg[2], serg[3], true), sp = T.graph.pointAt(sergStop.e, sergStop.s), [sLat, sLon] = ll(sp.x, sp.z);
+  const ork = T.graph.nearest(-2774, 1824), op = T.graph.pointAt(ork.e, ork.s), [oLat, oLon] = ll(op.x, op.z);
+  const views = [
+    ['spawn', 41.28602, 69.149564, 10.6],
+    ['amir-temur-xiyoboni', 41.311897, 69.278703, 130],
+    ['kuranti', 41.310097, 69.279908, 171.3],
+    ['tinchlik-metro', 41.332279, 69.219193, head(41.332279, 69.219193, -5034, -2409)],
+    ['chorsu', 41.326197, 69.235164, head(41.326197, 69.235164, -3609, -1802)],
+    ['orikzor-kochasi', oLat, oLon, Math.atan2(op.ux, -op.uz) * 180 / Math.PI],
+    ['sergeli-mahalla', sLat, sLon, Math.atan2(sp.ux, -sp.uz) * 180 / Math.PI],
+  ];
+  const out = [];
+  for (const [name, lat, lon, hd] of views) {
+    await window.__viewAt(lat, lon, hd, { eye: 1.25, fov: 55 });
+    await new Promise((r) => setTimeout(r, 1800));
+    S.composer.render();
+    const url = (document.getElementById('game') || document.querySelector('canvas')).toDataURL('image/jpeg', 0.86);
+    const blob = await (await fetch(url)).blob();
+    const res = await fetch(`http://127.0.0.1:8766/${prefix}-${name}.jpg`, { method: 'POST', body: blob });
+    out.push([name, +lat.toFixed(6), +lon.toFixed(6), Math.round(hd), res.ok]);
+  }
+  S.G.mode = 'city';
+  return out;
 };

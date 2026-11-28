@@ -165,9 +165,11 @@ export class RoadGraph {
       if (Math.abs(ang) < 0.5) return 0;
       // a square or sharper corner between two mahalla lanes (house walls on the corner, 3-4 m lanes) is a
       // slow shuffle at best: prefer the way round unless it is much longer
+      return (ang > 0 ? 2 : 6) + tightCost(ei, ej, ang);
+    };
+    const tightCost = (ei, ej, ang) => {
       const narrow = Math.min(E[ei].width, E[ej].width);
-      const tight = narrow < 4.5 ? (Math.abs(ang) > 1.9 ? 120 : Math.abs(ang) > 1.15 ? 35 : 0) : narrow < 6 && Math.abs(ang) > 1.9 ? 30 : 0;
-      return (ang > 0 ? 2 : 6) + tight;
+      return narrow < 4.5 ? (Math.abs(ang) > 1.9 ? 120 : Math.abs(ang) > 1.15 ? 35 : 0) : narrow < 6 && Math.abs(ang) > 1.9 ? 30 : 0;
     };
     const allowed = (n, ei, ej) => {
       const t = this.turns.get(n + '|' + E[ei].way);
@@ -205,7 +207,7 @@ export class RoadGraph {
       }
     }
     if (bestState === -1) return null;
-    let pts;
+    let pts, tight = 0;
     if (bestState === -3) pts = this.slice(from.e, from.s, to.s);
     else {
       const chain = [];
@@ -214,8 +216,13 @@ export class RoadGraph {
       chain.reverse();
       const first = chain[0], fdir = first & 1 ? -1 : 1;
       pts = this.slice(from.e, from.s, fdir > 0 ? F.len : 0);
+      let last = first;
       for (const st2 of chain.slice(1)) {
         const ei = st2 >> 1, dir = st2 & 1 ? -1 : 1;
+        // count the square corners between narrow lanes the route still has to take
+        const li = last >> 1, ld = last & 1 ? -1 : 1, [ax, az] = headOut(li, ld), [bx, bz] = headIn(ei, dir);
+        if (li !== ei && tightCost(li, ei, Math.atan2(ax * bz - az * bx, ax * bx + az * bz)) >= 35) tight++;
+        last = st2;
         const p = dir > 0 ? E[ei].pts : E[ei].pts.slice().reverse();
         for (let j = 1; j < p.length; j++) pts.push(p[j]);
       }
@@ -224,7 +231,7 @@ export class RoadGraph {
     }
     const cum = [0];
     for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]));
-    return { pts, cum, length: cum[cum.length - 1], time: best };
+    return { pts, cum, length: cum[cum.length - 1], time: best, tight };
   }
 
   // a stop on an edge: the kerb on the right-hand side of travel direction dir, set back from the lane

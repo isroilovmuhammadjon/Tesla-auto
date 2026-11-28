@@ -247,10 +247,12 @@ export class TaxiShift {
       pickPlace = this.pickFrom(['bozor'], s.x, s.z, 250, 3500);
       if (pickPlace) pickup = this.stopNear(pickPlace[2], pickPlace[3]);
     }
+    const F = this.forceOrder;                      // tests: repeat one exact trip
+    if (F) { pickup = { ...F.pickup }; dest = F.dest ? { ...F.dest } : null; }
     if (!pickup) pickup = this.randomStop(s.x, s.z, 180, 900, kind === 'mahalla');
     if (!pickup) return null;
     const pp = this.graph.pointAt(pickup.e, pickup.s);
-    if (kind === 'metro') {
+    if (F && dest) { /* forced */ } else if (kind === 'metro') {
       destPlace = this.pickFrom(['metro kirishi'], pp.x, pp.z, 900, 6000);
       if (destPlace) dest = this.stopNear(destPlace[2], destPlace[3]);
     } else if (kind === 'uzoq') {
@@ -276,7 +278,11 @@ export class TaxiShift {
     if (!toPick) return null;
     // a dispatcher offers passengers who are close by road, not just as the crow flies
     this.tries = (this.tries || 0) + 1;
-    if (toPick.r.length > 2200 && this.tries < 6) return null;
+    if (!F && toPick.r.length > 2200 && this.tries < 6) return null;
+    // no passengers who can only be reached (or driven away) through a square corner between two
+    // 3-4 m mahalla lanes: in the game's map those corners are often too tight to turn without
+    // shuffling back and forth against a wall
+    if (!F && (toPick.r.tight || trip.r.tight) && this.tries < 12) return null;
     this.tries = 0;
     pickup.dir = toPick.dir;
     dest.dir = trip.dir;

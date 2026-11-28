@@ -151,7 +151,7 @@ export function makeMaterials() {
     return new THREE.MeshLambertMaterial({ map, vertexColors: true });
   });
   const roadMat = (tex, k) => new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82, metalness: 0, envMapIntensity: 0.25, polygonOffset: true, polygonOffsetFactor: -1 - k, polygonOffsetUnits: -1 - k });
-  const a0 = asphalt('#4d4e4b', true), a1 = asphalt('#4a4b4d', false), a2 = asphalt('#424448', false);
+  const a0 = asphalt('#4a4f57', true), a1 = asphalt('#464b53', false), a2 = asphalt('#3f444b', false);   // cool grey: warm sun made the old ones look brown
   return {
     walls,
     store: new THREE.MeshLambertMaterial({ map: storefrontAtlas() }),
@@ -217,7 +217,8 @@ function hipRoof(xs, zs, h, out, col) {
 
 // ------------------------------------------------------------------ trees of Tashkent streets
 // 0 plane tree (chinar), 1 fruit tree (apricot / mulberry), 2 elm (qayrag'och), 3 poplar (terak), 4 juniper (archa)
-const TREE_HSL = [[0.22, 0.42, 0.28], [0.25, 0.45, 0.3], [0.24, 0.38, 0.25], [0.2, 0.4, 0.3], [0.33, 0.35, 0.18]];
+// leaf colours under the Tashkent summer sun: plane trees and elms a deep, slightly dusty green (before: too yellow)
+const TREE_HSL = [[0.27, 0.38, 0.24], [0.28, 0.42, 0.26], [0.29, 0.33, 0.21], [0.3, 0.34, 0.25], [0.36, 0.3, 0.16]];
 let TREE_GEOS = null;
 function treeGeos(city) {
   if (TREE_GEOS) return TREE_GEOS;
@@ -485,7 +486,14 @@ export function buildCell(city, k, data) {
         // avenues: plane trees (chinar), some stretches of poplars (terak); medians get poplars and junipers
         const kind0 = hashStr(Math.round(ax / 60), Math.round(az / 60)) < 0.7 ? 0 : 3;
         for (let t = 6; t < len - 6; t += 12 + hashStr(Math.round(ax + t), Math.round(az)) * 6) {
-          for (const sd of (r.median ? [1] : [-1, 1])) { const x = ax + dx * t - dz * off * sd, z = az + dz * t + dx * off * sd; if (!nearJunction(x, z, 6)) treePts.push([x, z, kind0]); }
+          for (const sd of (r.median ? [1] : [-1, 1])) {
+            // real street rows have gaps (a driveway, a dead tree, a shop front) and are not planted in pairs
+            const hj = hashStr(Math.round(ax * 7 + t * sd), Math.round(az * 3 - t));
+            if (hj < 0.16) continue;
+            const tt = t + (hj - 0.5) * 5, oo = off + (hashStr(Math.round(t * 13), Math.round(sd * 17 + ax)) - 0.5) * 0.7;
+            const x = ax + dx * tt - dz * oo * sd, z = az + dz * tt + dx * oo * sd;
+            if (!nearJunction(x, z, 6)) treePts.push([x, z, hj > 0.93 ? 2 : kind0]);
+          }
           if (r.median >= 3.5) { const mo = -(w + r.median / 2); const x = ax + dx * t - dz * mo, z = az + dz * t + dx * mo; if (!nearJunction(x, z, 6)) treePts.push([x, z, hashStr(Math.round(t), 7) < 0.5 ? 3 : 4]); }
         }
       } else if (r.kind === 0 && len > 12 && !r.tunnel) {
@@ -576,7 +584,7 @@ export function buildCell(city, k, data) {
     const crown = new THREE.InstancedMesh(geos[type].crown, mats.crown, list.length);
     const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tc = new THREE.Color();
     list.forEach(([x, z], i) => {
-      const hv = hashStr(Math.round(x * 3), Math.round(z * 3)), sc = 0.8 + hv * 0.45;
+      const hv = hashStr(Math.round(x * 3), Math.round(z * 3)), sc = 0.66 + hv * hv * 0.7;   // mostly mature, some young, a few big old ones
       tm.compose(new THREE.Vector3(x, 0, z), tq.setFromAxisAngle(UP, hv * 6.28), new THREE.Vector3(sc, sc * (0.9 + hv * 0.25), sc));
       trunk.setMatrixAt(i, tm); crown.setMatrixAt(i, tm);
       const [h0, s0, l0] = TREE_HSL[type], hv2 = hashStr(Math.round(z * 5), Math.round(x * 5));

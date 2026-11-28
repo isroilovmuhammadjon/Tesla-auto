@@ -6,6 +6,58 @@ To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
+## 2026-11-28 kunduzgi ish, 3-qism
+
+### Spark olish joyi (-10777, 1883)
+- **Aynan o'sha safar takrorlandi** (`__testShift({car:'spark', force})`, `taxi.forceOrder`): "Mahzuna ko'chasi (Toshkent halqa avtomobil yo'li yonida)" bekati (edge 1548) → Beshqayrog'och mahallasi.
+  - 3.39 km, tiqilish 0, yo'lovchi olindi va tushirildi, bir marta to'landi.
+  - Bu safar test noto'g'ri burilish uchun chorraha topmadi.
+- **Burchakdan o'tish mumkinmi** (`__cornerTest`, 75446 → 75444, 3.8 m → 4.2 m): Spark 3, 6 va 10 km/soatda, burilishni burchakdan 1–9 m oldin boshlasa, urilishsiz o'tadi.
+- **Sabab:** yo'l emas, test-bot. U tor yo'lakka 47 km/soatgacha tezlikda kirib, burchakni kesardi. Endi bot keskin burilish oldidan sekinlaydi (65° dan keskin bo'lsa 3.2 m/s gacha), 5.2 m dan tor yo'lakda 7 m/s dan oshmaydi.
+- **Routing:** marshrut tor burchaklarni sanaydi (`route.tight`). Bunday burchak orqali yetiladigan olish joylari taklif qilinmaydi (`makeOrder`).
+- **5 mashina smenasi:**
+
+  | Mashina | Masofa | Tiqilish | To'landi |
+  |---|---|---|---|
+  | Spark | 11.9 km | 1 | ha |
+  | Cobalt | 11.3 km | 0 | ha |
+  | Gentra | 18.1 km | 1 | ha |
+  | Nexia | 14.4 km | 0 | ha |
+  | Damas | 12.3 km | 1 | ha |
+
+### Mashinalar (chop etilgan o'lchamlar bo'yicha)
+- **Cobalt** (2-avlod, 4479×1735×1514, baza 2620, 185/75 R14): beli baland (yon oyna ~0.98 m dan boshlanadi), yukxona qopqog'i baland, oynalar qisqa, g'ildirak R=0.31.
+- **Nexia 3** (2016–2020, 4399×1735×1517, baza 2525): avval 1990-yillar Nexia'sining uzun, past kuzovi edi. Hozirgi zamonaviy sedan shakli, katta old chiroqlar.
+- **Old chiroqlar** kapotdan chiqib turmaydi.
+- **Salon:** haydovchi ko'zi 8 sm baland, kapot ko'rinadi.
+- Haqiqiy suratlar bilan yonma-yon solishtirish yo'q: qonuniy suratlar qo'lda emas, Blender yo'q.
+
+### Shahar ko'rinishi (barcha tumanlar uchun bir xil o'zgarish)
+- **Panel uylar:** har xonadonning balkoni o'z rangida (oq, jigarrang, kumush ramka), ochiq balkonlarda kir, deraza ostida konditsionerlar, yomg'ir izlari, turli pardalar.
+- **G'isht va arkali uylar:** pardalar va konditsionerlar.
+- **Yer:** tekis qum rangi o'rniga yo'qolgan o't, ochiq tuproq, eski asfalt dog'lari (40 m da takrorlanadi).
+- **Daraxtlar:** sariq-yashil emas, quyuq yashil. Qatorlarda bo'shliqlar, juft ekilmagan, yoshi turlicha.
+- **Asfalt:** jigarrang emas, sovuq kulrang.
+- **Oldin va keyin suratlari** (`docs/footage/before-*.jpg`, `after-*.jpg`): bir xil joy, yo'nalish, ko'z balandligi 1.25 m, FOV 55, HUD o'chiq.
+
+  | Joy | Koordinata | Yo'nalish |
+  |---|---|---|
+  | Taksi boshlanish joyi | 41.28602, 69.149564 | 11° |
+  | Amir Temur xiyoboni (surat bor: ref-0) | 41.311897, 69.278703 | 130° |
+  | Kurantlar (ref-1) | 41.310097, 69.279908 | 171° |
+  | Tinchlik metrosi (ref-3) | 41.332279, 69.219193 | 140° |
+  | Chorsu (ref-4) | 41.326197, 69.235164 | 89° |
+  | O'rikzor ko'chasi | 41.293575, 69.246832 | 106° |
+  | Sergeli mahallasi | 41.248658, 69.280271 | 70° |
+
+- O'rikzor, Sergeli va taksi boshlanish joyi uchun surat yo'q, `PHOTO-NEEDS.csv`'da qayd etilgan.
+
+### Kliplar
+- `cockpit-oncoming-sergeli.webm`: haydovchi o'rindig'idan, Sobir Rahimov ko'chasi (Sergeli, ikki tomonlama). Qarshidan kelayotgan mashinalar ko'rinadi.
+- `cockpit-signs-tinchlik.webm` (24 s): haydovchi o'rindig'idan, Tinchlik → Chorsu. 4-soniyada piyodalar o'tish belgisi ko'rinadi.
+  - 8-soniyada test-bot burilishni kesib, bir zum yo'lakka chiqadi.
+  - Bundan uzunroq urinishda bot 27-soniyada chorrahada kesib o'tayotgan mashinaga urildi (146 urilish): `__testDrive` boti svetofor va kesishgan harakatga qaramaydi.
+
 ## 2026-11-28 kunduzgi ish (davomi)
 
 ### Rul: uzoq bosilgan A/D (asosiy shikoyat)
@@ -247,8 +299,8 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 Shu fayl bilan birga push qilingan commit (`git log -1`), preview'da tekshirildi.
 
 ## BIRINCHI TUGALLANMAGAN VAZIFA
-- Yo'lovchini olish joyi faqat tor (≤4.5 m) yo'laklar orasidagi 90° burchak orqali yetiladigan bo'lsa, uni taklif qilmaslik. Masalan, (-10777, 1883) burchagida Spark qolib ketdi.
-- So'ng `__testShift` bilan 5 mashinani qayta haydash.
+- Mashinalarning old tomoni (panjara va chiroq shakllari) va kuzov yon yuzalari hali sodda.
+- Keyingi qadam: litsenziyasi aniq (CC0 yoki CC-BY) model topish yoki shakllarni yaxshilash, so'ng har bir mashinani haqiqiy surat bilan bir xil burchakdan solishtirish.
 
 ## Keyingi navbat
 1. **Qolgan obyektlar:**
