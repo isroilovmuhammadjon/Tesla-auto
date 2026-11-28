@@ -4,7 +4,7 @@
 // Shapes and proportions follow the real cars; no logos.
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadGLB } from './glb.js?v=b55d34f6';
+import { loadGLB } from './glb.js?v=83ad4808';
 
 // Cars built in Blender (scripts/cars/build_cars.py -> www/models/<car>.glb + .surf.json): body and cabin
 // come from the model, lamps / grilles / seams are laid onto its surface. Others (or if loading fails) use

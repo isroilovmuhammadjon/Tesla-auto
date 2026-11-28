@@ -1,5 +1,5 @@
 // DOM user interface: screens, HUD, garage, popups.
-import { CARS } from './config.js?v=b55d34f6';
+import { CARS } from './config.js?v=83ad4808';
 
 const $ = (id) => document.getElementById(id);
 const ARC_LEN = 395.84;   // 0.75 * 2π * 84

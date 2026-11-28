@@ -6,7 +6,7 @@
 // Data (c) OpenStreetMap contributors, ODbL 1.0.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=b55d34f6';
+import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=83ad4808';
 
 export const WALK = 3.2;
 const BUCKET = 25;
@@ -569,12 +569,33 @@ export function buildCell(city, k, data) {
   };
   // trees mapped in OSM (single trees, tree rows) are used as they are; generated ones fill the streets where
   // nothing is mapped. Nothing may stand on a carriageway (that is where the route line runs) or in a building.
+  // parks and gardens (OSM land use 0): a canopy of mature trees, not a bare lawn with a few blobs (Amir Temur
+  // square, Alisher Navoiy park, mahalla gardens). Jittered grid ~9 m apart inside the outline.
+  let parkLeft = mobile ? 60 : 220;          // candidates per cell (each one is checked against roads and houses)
+  for (const g2 of data.g || []) {
+    const [cls, ext] = g2;
+    if (cls !== 0 || ext.length < 6 || parkLeft <= 0) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, area = 0;
+    for (let i = 0; i < ext.length; i += 2) { x0 = Math.min(x0, ext[i]); x1 = Math.max(x1, ext[i]); z0 = Math.min(z0, ext[i + 1]); z1 = Math.max(z1, ext[i + 1]); const j = (i + 2) % ext.length; area += ext[i] * ext[j + 1] - ext[j] * ext[i + 1]; }
+    if (Math.abs(area) / 2 < 1200 || ext.length > 1200) continue;
+    const inside = (x, z) => { let ins = false; for (let i = 0, j = ext.length - 2; i < ext.length; j = i, i += 2) { const xi = ext[i], zi = ext[i + 1], xj = ext[j], zj = ext[j + 1]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) ins = !ins; } return ins; };
+    // ~9 m apart, but never more than ~350 candidates for one outline (big green areas get a sparser grid)
+    const step = Math.max(mobile ? 14 : 9, Math.sqrt(Math.abs(area) / 2 / 350));
+    for (let x = x0 + step / 2; x < x1; x += step) for (let z = z0 + step / 2; z < z1; z += step) {
+      const h1 = hashStr(Math.round(x * 3), Math.round(z * 3)), h2 = hashStr(Math.round(z * 7), Math.round(x * 5));
+      const px = x + (h1 - 0.5) * step * 0.8, pz = z + (h2 - 0.5) * step * 0.8;
+      if (parkLeft <= 0) break;
+      if (h1 < 0.12 || !inside(px, pz)) continue;            // a few clearings
+      parkLeft--;
+      treePts.push([px, pz, h2 < 0.55 ? 0 : h2 < 0.8 ? 2 : h2 < 0.92 ? 1 : 3, false]);
+    }
+  }
   for (const [x, z, t] of data.t || []) treePts.push([x, z, t === 1 ? 4 : t === 2 ? (hashStr(Math.round(x / 40), Math.round(z / 40)) < 0.6 ? 0 : 3) : (hashStr(Math.round(x), Math.round(z)) < 0.5 ? 0 : 2), true]);
   // nothing may hide a sign or a camera from the drivers it is for: no tree within 4 m of one
   const signSpots = (data.o || []).filter((o) => o[0] === 'sign' || o[0] === 'camera').map((o) => [o[2], o[3]]);
   const nearSign = (x, z) => signSpots.some(([sx, sz]) => (sx - x) ** 2 + (sz - z) ** 2 < 16);
   const pts = treePts.filter(([x, z, type, mapped]) => !onRoad(x, z, mapped ? 0.2 : 0.9) && !inBuilding(x, z, type === 1 || mapped ? 0.6 : 2) && !nearSign(x, z))
-    .filter((p2, i) => p2[3] || !mobile || i % 2 === 0).slice(0, mobile ? 140 : 360);
+    .filter((p2, i) => p2[3] || !mobile || i % 2 === 0).slice(0, mobile ? 180 : 700);
   cell.trees = [];
   const geos = treeGeos(city);
   for (let type = 0; type < geos.length; type++) {
