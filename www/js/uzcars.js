@@ -25,25 +25,25 @@ const MODELS = {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
     top: [[2.28, 0.5], [2.22, 0.66], [1.95, 0.75], [1.2, 0.85], [0.8, 0.89], [-0.6, 0.94], [-1.55, 0.98], [-1.78, 1.0], [-2.18, 0.97], [-2.27, 0.84], [-2.25, 0.5]],
     glass: [[0.8, 0.9], [0.06, 1.41], [-0.8, 1.445], [-1.26, 1.36], [-1.62, 1.0]],
-    head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55, sweep: { bot: 0.69, top: 0.79, len: 0.36 } }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: true, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 } },
-    grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 }, fog: true,
+    head: { x: 0.58, y: 0.71, z: 2.2, w: 0.48, h: 0.17, tilt: 0.55, sweep: { bot: 0.69, top: 0.79, len: 0.36 } }, tail: { x: 0.6, y: 0.88, w: 0.44, h: 0.17, bar: false, wrap: { inTop: 0.36, inBot: 0.44, top: 0.97, bot: 0.8, side: 0.26 }, plateOnLid: 0.82 },
+    grille: { y: 0.64, w: 0.6, h: 0.12 }, lower: { y: 0.4, w: 0.9, h: 0.14 }, fog: true, kit: 'gentra', frontPlateY: 0.43,
   },
   // Nexia 3 (also sold as Ravon Nexia R3, 2016-2020): the 4th-generation compact sedan body built at
   // Asaka. About 4310 x 1710 x 1505 mm, wheelbase 2480 mm. Tall cabin with a big rear window, short
   // boot, plate in a recess in the boot lid, round-element tail lamps on the corners, honeycomb grille.
   nexia: {
     L: 4.31, W: 1.71, H: 1.505, R: 0.3, wheels: [1.325, -1.155], smooth: true, weight: 0.18,
-    top: [[2.155, 0.6], [2.12, 0.78], [1.95, 0.86], [1.3, 0.93], [0.95, 0.95], [-0.5, 0.99], [-1.5, 1.03], [-1.75, 1.05], [-2.08, 1.03], [-2.155, 0.95], [-2.155, 0.55]],
+    top: [[2.155, 0.66], [2.13, 0.8], [1.95, 0.87], [1.3, 0.93], [0.95, 0.95], [-0.5, 0.99], [-1.5, 1.03], [-1.75, 1.05], [-2.08, 1.03], [-2.155, 0.95], [-2.155, 0.55]],
     glass: [[0.95, 0.94], [0.2, 1.47], [-0.55, 1.505], [-1.05, 1.46], [-1.58, 1.03]],
     head: { x: 0.58, y: 0.71, z: 2.13, w: 0.44, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.79, len: 0.3 } }, tail: { x: 0.58, y: 0.92, w: 0.36, h: 0.22, bar: false, wrap: { inTop: 0.5, inBot: 0.52, top: 1.01, bot: 0.8, side: 0.26 }, plateOnLid: 0.87, plateNoBar: true },
-    grille: { y: 0.66, w: 0.56, h: 0.14 }, lower: { y: 0.42, w: 1.0, h: 0.14 }, fog: true,
+    grille: { y: 0.66, w: 0.56, h: 0.14 }, lower: { y: 0.42, w: 1.0, h: 0.14 }, fog: true, kit: 'nexia', frontPlateY: 0.47,
   },
   spark: {
     L: 3.64, W: 1.6, H: 1.52, R: 0.29, wheels: [1.17, -1.21], smooth: true, weight: 0.18,
-    top: [[1.84, 0.55], [1.77, 0.72], [1.45, 0.82], [1.05, 0.88], [-0.4, 0.95], [-1.62, 0.99], [-1.8, 0.97], [-1.84, 0.6]],
+    top: [[1.84, 0.62], [1.8, 0.76], [1.45, 0.84], [1.05, 0.88], [-0.4, 0.95], [-1.62, 0.99], [-1.8, 0.97], [-1.84, 0.6]],
     glass: [[1.05, 0.87], [0.42, 1.44], [-0.55, 1.52], [-1.45, 1.5], [-1.7, 1.32], [-1.74, 0.98]],
-    head: { x: 0.52, y: 0.78, z: 1.76, w: 0.38, h: 0.26, tilt: 0.6 }, tail: { x: 0.62, y: 1.08, w: 0.17, h: 0.36 },
-    grille: { y: 0.6, w: 0.5, h: 0.12 }, lower: { y: 0.42, w: 0.8, h: 0.16 },
+    head: { x: 0.52, y: 0.78, z: 1.76, w: 0.38, h: 0.26, tilt: 0.6 }, tail: { x: 0.6, y: 0.86, w: 0.17, h: 0.3 },
+    grille: { y: 0.6, w: 0.5, h: 0.12 }, lower: { y: 0.42, w: 0.8, h: 0.16 }, kit: 'spark', frontPlateY: 0.45,
   },
   // the black mid-size sedan (Malibu style, 9th generation): long and low, a sloping fastback roof,
   // short boot, slim lamps joined by a chrome bar. Rare in traffic, mostly black.
@@ -51,15 +51,15 @@ const MODELS = {
     L: 4.92, W: 1.854, H: 1.465, R: 0.33, wheels: [1.42, -1.41], smooth: true, weight: 0.05,
     top: [[2.46, 0.5], [2.41, 0.7], [2.15, 0.79], [1.4, 0.88], [0.98, 0.92], [-0.6, 0.98], [-1.7, 1.02], [-2.0, 1.04], [-2.36, 1.02], [-2.46, 0.92], [-2.45, 0.5]],
     glass: [[0.98, 0.91], [0.1, 1.42], [-0.6, 1.465], [-1.2, 1.4], [-1.95, 1.04]],
-    head: { x: 0.66, y: 0.76, z: 2.38, w: 0.42, h: 0.09, tilt: 0.6 }, tail: { x: 0.66, y: 0.95, w: 0.4, h: 0.12, bar: true, wrap: { inTop: 0.52, inBot: 0.58, top: 1.0, bot: 0.9, side: 0.34 } },
-    grille: { y: 0.66, w: 0.9, h: 0.16 }, lower: { y: 0.42, w: 1.2, h: 0.2 }, colors: [0x060709, 0x060709, 0x060709, 0x101216, 0xf4f4f6],
+    head: { x: 0.66, y: 0.76, z: 2.38, w: 0.42, h: 0.09, tilt: 0.6 }, tail: { x: 0.66, y: 0.95, w: 0.4, h: 0.12, bar: false, wrap: { inTop: 0.52, inBot: 0.58, top: 1.0, bot: 0.88, side: 0.34 }, plateOnLid: 0.8 },
+    grille: { y: 0.66, w: 0.9, h: 0.16 }, lower: { y: 0.42, w: 1.2, h: 0.2 }, kit: 'malibu', frontPlateY: 0.5, colors: [0x060709, 0x060709, 0x060709, 0x101216, 0xf4f4f6],
   },
   damas: {
     L: 3.49, W: 1.4, H: 1.9, R: 0.26, wheels: [0.98, -0.86], smooth: false, weight: 0.12,
     top: [[1.75, 0.72], [1.62, 0.93], [0.6, 1.06], [-1.74, 1.06], [-1.75, 0.34]],
     glass: [[1.62, 0.92], [1.22, 1.8], [1.02, 1.9], [-1.66, 1.9], [-1.74, 1.82], [-1.74, 1.06]],
     head: { x: 0.48, y: 0.62, z: 1.74, w: 0.3, h: 0.2, tilt: 0 }, tail: { x: 0.6, y: 0.72, w: 0.14, h: 0.34, plateY: 0.98 },
-    grille: { y: 0.6, w: 0.5, h: 0.1 }, lower: { y: 0.38, w: 1.3, h: 0.14 },
+    grille: { y: 0.6, w: 0.5, h: 0.1 }, lower: { y: 0.38, w: 1.3, h: 0.14 }, kit: 'damas',
   },
 };
 
@@ -134,7 +134,12 @@ function rimGeo(R, type) {
   const parts = [new THREE.CylinderGeometry(R * 0.64, R * 0.64, 0.05, 20).rotateZ(Math.PI / 2).translate(0.07, 0, 0),
     new THREE.CylinderGeometry(R * 0.17, R * 0.17, 0.07, 12).rotateZ(Math.PI / 2).translate(0.1, 0, 0)];
   const spokes = type === 'damas' ? 0 : type === 'spark' ? 4 : 5;
-  if (type === 'cobalt') {
+  if (type === 'malibu') {
+    for (let i = 0; i < 5; i++) for (const d of [-0.16, 0.16]) parts.push(new THREE.BoxGeometry(0.028, R * 0.52, 0.06).translate(0.105, R * 0.34, 0).rotateX((i / 5) * Math.PI * 2 + d));
+  } else if (type === 'nexia') {
+    // steel wheel with a plastic cover: many short slots
+    for (let i = 0; i < 10; i++) parts.push(new THREE.BoxGeometry(0.03, R * 0.3, 0.05).translate(0.1, R * 0.42, 0).rotateX((i / 10) * Math.PI * 2));
+  } else if (type === 'cobalt') {
     // 15-inch alloy of the LTZ trim: six pairs of thin spokes
     for (let i = 0; i < 6; i++) for (const d of [-0.13, 0.13]) parts.push(new THREE.BoxGeometry(0.025, R * 0.5, 0.06).translate(0.105, R * 0.34, 0).rotateX((i / 6) * Math.PI * 2 + d));
   } else for (let i = 0; i < spokes; i++) parts.push(new THREE.BoxGeometry(0.04, R * 0.5, 0.07).translate(0.105, R * 0.33, 0).rotateX((i / spokes) * Math.PI * 2));
@@ -364,6 +369,83 @@ const KITS = {
     rear: [['dark', [[-0.3, 0.405], [0.3, 0.405], [0.3, 0.535], [-0.3, 0.535]]]],
     belt: [[0.78, 0.957], [-1.58, 0.957]],
   },
+  // Gentra / Lacetti sedan (Uzbek-built 2013-2024; photos of Tashkent cars): low bonnet, big swept clear
+  // headlamps, chrome bar between the upper slot and the lower grille, round fog lamps; plate on the boot lid.
+  gentra: {
+    front: [
+      ['lens', [[0.34, 0.555], [0.33, 0.64], [0.45, 0.668], [0.6, 0.695], [0.74, 0.722], [0.8, 0.722], [0.79, 0.685], [0.7, 0.638], [0.56, 0.58], [0.44, 0.553]], true],
+      ['lensIn', circle(0.44, 0.61, 0.038), true], ['lensIn', circle(0.55, 0.625, 0.034), true],
+      ['dark', [[-0.3, 0.6], [0.3, 0.6], [0.31, 0.645], [-0.31, 0.645]]],
+      ['chrome', [[-0.33, 0.583], [0.33, 0.583], [0.33, 0.6], [-0.33, 0.6]]],
+      ['mesh', [[-0.33, 0.58], [0.33, 0.58], [0.29, 0.475], [-0.29, 0.475]]],
+      ['dark', [[-0.36, 0.385], [0.36, 0.385], [0.31, 0.31], [-0.31, 0.31]]],
+      ['dark', circle(0.58, 0.37, 0.07, 0.05), true], ['fog', circle(0.58, 0.37, 0.03), true],
+    ],
+    seams: [[[0.93, 0.38], [0.9, 0.6], [0.78, 0.9]], [[-0.1, 0.36], [-0.11, 0.9]], [[-0.86, 0.38], [-0.93, 0.6], [-1.1, 0.9]]],
+    handles: [[0.27, 0.82], [-0.57, 0.82]],
+    belt: [[0.78, 0.893], [-1.6, 0.893]],
+    rearSeams: [[[-0.36, 0.97], [-0.42, 0.8], [-0.38, 0.72], [0, 0.7], [0.38, 0.72], [0.42, 0.8], [0.36, 0.97]]],
+  },
+  // Nexia 3 (Ravon Nexia R3, T250 body): big swept headlamps rising along the bonnet, honeycomb grille right
+  // under the bonnet edge with a chrome top, plate and dark intake on the bumper, fog lamps; plate on the lid.
+  nexia: {
+    front: [
+      ['lens', [[0.33, 0.62], [0.31, 0.72], [0.42, 0.75], [0.56, 0.78], [0.7, 0.805], [0.79, 0.82], [0.81, 0.795], [0.74, 0.735], [0.6, 0.66], [0.45, 0.62]], true],
+      ['lensIn', circle(0.44, 0.685, 0.042), true],
+      ['mesh', [[-0.3, 0.728], [0.3, 0.728], [0.26, 0.6], [-0.26, 0.6]]],
+      ['chrome', [[-0.31, 0.728], [0.31, 0.728], [0.31, 0.745], [-0.31, 0.745]]],
+      ['dark', [[-0.36, 0.42], [0.36, 0.42], [0.32, 0.34], [-0.32, 0.34]]],
+      ['dark', circle(0.58, 0.4, 0.07, 0.048), true], ['fog', circle(0.58, 0.4, 0.03), true],
+    ],
+    seams: [[[0.92, 0.4], [0.89, 0.62], [0.8, 0.94]], [[-0.12, 0.38], [-0.13, 0.94]], [[-0.76, 0.4], [-0.83, 0.62], [-1.02, 0.95]]],
+    handles: [[0.25, 0.86], [-0.5, 0.86]],
+    belt: [[0.93, 0.945], [-1.55, 0.945]],
+    rearSeams: [[[-0.5, 1.01], [-0.53, 0.82], [-0.45, 0.73], [0, 0.71], [0.45, 0.73], [0.53, 0.82], [0.5, 1.01]]],
+  },
+  // Spark (M300): huge headlamps climbing up beside the bonnet to the A-pillars, thin upper slot, big
+  // honeycomb lower grille with the plate on it, fog lamps; rear door handles hidden in the window frame.
+  spark: {
+    front: [
+      ['lens', [[0.3, 0.57], [0.29, 0.66], [0.4, 0.7], [0.55, 0.745], [0.66, 0.78], [0.72, 0.795], [0.74, 0.765], [0.68, 0.7], [0.55, 0.615], [0.42, 0.565]], true],
+      ['lensIn', circle(0.42, 0.63, 0.04), true],
+      ['dark', [[-0.26, 0.62], [0.26, 0.62], [0.27, 0.66], [-0.27, 0.66]]],
+      ['mesh', [[-0.33, 0.565], [0.33, 0.565], [0.37, 0.4], [-0.37, 0.4]]],
+      ['dark', circle(0.56, 0.34, 0.06, 0.045), true], ['fog', circle(0.56, 0.34, 0.028), true],
+    ],
+    seams: [[[0.79, 0.4], [0.76, 0.62], [0.68, 0.95]], [[-0.2, 0.38], [-0.21, 0.97]], [[-0.82, 0.4], [-0.9, 0.62], [-1.05, 0.98]]],
+    handles: [[0.12, 0.86]],
+    belt: [[0.98, 0.955], [-1.45, 0.955]],
+    rearSeams: [[[-0.5, 1.32], [-0.52, 0.66], [0, 0.64], [0.52, 0.66], [0.5, 1.32]]],
+  },
+  // Black mid-size sedan (Malibu style, 9th generation): slim headlamps, thin chrome-framed upper grille,
+  // chrome bar, big lower grille, vertical fog-lamp slots; chrome window line.
+  malibu: {
+    front: [
+      ['lens', [[0.37, 0.62], [0.36, 0.665], [0.5, 0.69], [0.66, 0.725], [0.8, 0.765], [0.84, 0.758], [0.8, 0.72], [0.66, 0.672], [0.5, 0.632]], true],
+      ['dark', [[-0.34, 0.632], [0.34, 0.632], [0.35, 0.68], [-0.35, 0.68]]],
+      ['chrome', [[-0.36, 0.68], [0.36, 0.68], [0.36, 0.692], [-0.36, 0.692]]],
+      ['chrome', [[-0.37, 0.612], [0.37, 0.612], [0.37, 0.63], [-0.37, 0.63]]],
+      ['mesh', [[-0.4, 0.605], [0.4, 0.605], [0.36, 0.42], [-0.36, 0.42]]],
+      ['dark', [[0.58, 0.36], [0.66, 0.36], [0.66, 0.5], [0.58, 0.5]], true],
+    ],
+    seams: [[[1.02, 0.42], [0.98, 0.66], [0.88, 0.98]], [[-0.1, 0.4], [-0.12, 0.99]], [[-0.98, 0.42], [-1.05, 0.66], [-1.3, 0.99]]],
+    handles: [[0.32, 0.9], [-0.6, 0.9]],
+    belt: [[0.96, 1.0], [-1.9, 1.0]],
+    beltMat: 'chrome',
+    rearSeams: [[[-0.5, 1.0], [-0.54, 0.86], [-0.4, 0.74], [0, 0.72], [0.4, 0.74], [0.54, 0.86], [0.5, 1.0]]],
+  },
+  // Damas: flat-fronted micro-van; rectangular headlamps either side of a dark grille with a chrome bar;
+  // front doors and the sliding side door.
+  damas: {
+    front: [
+      ['lens', [[0.38, 0.56], [0.62, 0.56], [0.62, 0.7], [0.38, 0.7]], true],
+      ['dark', [[-0.3, 0.55], [0.3, 0.55], [0.3, 0.71], [-0.3, 0.71]]],
+      ['chrome', [[-0.3, 0.62], [0.3, 0.62], [0.3, 0.64], [-0.3, 0.64]]],
+    ],
+    seams: [[[1.52, 0.42], [1.48, 1.05]], [[0.74, 0.36], [0.74, 1.05]], [[-0.42, 0.36], [-0.42, 1.05]]],
+    handles: [[0.86, 0.84], [-0.3, 0.84]],
+    belt: [[1.5, 1.07], [-1.7, 1.07]],
+  },
 };
 function buildKit(name, surf, m) {
   const K = KITS[name], out = [];
@@ -393,7 +475,7 @@ function buildKit(name, surf, m) {
   for (const sm of K.rearSeams || []) out.push([strip(sm, 0.007, rearMap), 'seam', true]);
   for (const sd of [-1, 1]) {
     for (const sm of K.seams) out.push([strip(sm, 0.007, sideMap(sd)), 'seam', true]);
-    out.push([strip(K.belt, 0.022, sideMap(sd)), 'dark', true]);
+    out.push([strip(K.belt, K.beltMat ? 0.014 : 0.022, sideMap(sd)), K.beltMat || 'dark', true]);
     for (const [hx, hy] of K.handles) out.push([strip([[hx + 0.07, hy], [hx - 0.07, hy]], 0.028, sideMap(sd)), 'chrome', true]);
   }
   void m;
@@ -553,6 +635,14 @@ export function createUzCar(type) {
   if (type !== 'damas') {
     strip(gl[0], gl[1], 0.08, 0);                               // A-pillars
     strip(gl[gl.length - 2], gl[gl.length - 1], type === 'spark' ? 0.16 : 0.24, 0);   // C-pillars
+  }
+  if (type === 'damas' && !bodyGeo.userData.surf) {
+    // the van's extruded body: flat front and rear faces, sides pulled in a little at the corners and roof
+    const shoulder = m.glass[0][1] - 0.08;
+    bodyGeo.userData.surf = {
+      end(w, y, front) { return Math.abs(w) < m.W / 2 * 0.93 && y > m.R * 0.95 && y < 0.95 ? (front ? -(m.L / 2 + 0.095) : m.L / 2 + 0.095) : null; },
+      side(xp, y) { const t = Math.abs(xp) / (m.L / 2); return (m.W / 2) * (1 - 0.05 * smooth(0.72, 1, t)) * (1 - 0.02 * smooth(shoulder, m.H, y)); },
+    };
   }
   if (m.kit && bodyGeo.userData.surf) { const kit = cg(`kit${type}`, () => buildKit(m.kit, bodyGeo.userData.surf, m)); for (const [geo, mat, inDetail] of kit) { const o = new THREE.Mesh(geo, KIT_MATS[mat]()); (inDetail ? detail : g).add(o); } }
   if (m.kit) for (const p of pillars) if (p.userData.bpillar) p.material = black();   // black B-pillar applique (window frames)

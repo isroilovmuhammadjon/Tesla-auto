@@ -6,6 +6,35 @@ To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
+## 2026-11-28 kunduzgi ish, 5-qism: Cobalt detallari, keyin qolgan 5 mashina
+
+### Cobalt (6991f57 dan, kuzov o'lchamlari saqlandi)
+- **Yangi texnika:** detallar quti emas, kuzov sirtiga yotqizilgan shakllar (`surfDecal`, `buildKit`, `KITS` — `uzcars.js`). Kontur uchburchaklarga bo'linadi va har nuqta lofted kuzov sirtiga tushiriladi, shuning uchun burun va qanot egriligiga mos keladi.
+- **Old tomon:**
+  - faralar burchakda, yuqori qirrasi kapot chizig'i bo'ylab qanotga ko'tariladi;
+  - bitta teshikda ikki panjara: tor yuqori tirqish xrom qirra bilan, xrom chiziq, katta pastki panjara;
+  - raqam bamperda (0.44 m);
+  - qora chuqurchalarda dumaloq tuman chiroqlari, raqam ostida qora havo kirish joyi;
+  - ko'zgu oyoqchasi bilan.
+- **Yon tomon:** eshik chiziqlari (old eshik old g'ildirak o'yig'i ortida, B-ustun, orqa eshik orqa o'yiq atrofida), dastaklar, oyna ostidagi qora molding, qora B-ustun.
+- **Orqa tomon:** yukxona qopqog'i chizig'i (chiroqlar ichidan tushib, markazda pastga egiladi), raqam chuqurchasi, kengroq orqa chiroqlar.
+- **G'ildirak:** LTZ'ning 15 dyuymli 6 juft parmoqli diski.
+- **Tekshiruv:**
+  - uchta burchakdan haqiqiy suratlar bilan: Kobaltuz (to'g'ri oldidan), Chili (old-chap), Chilonzor-5 (old-o'ng) — `docs/compare/cobalt-front-check.jpg`;
+  - orqa kamera va Toshkent surati — `cobalt-rear-check.jpg`;
+  - qarshi qatorda yaqinlashayotgan klip — `docs/footage/cobalt-oncoming.webm` (Sobir Rahimov ko'chasi, Sergeli).
+- **Ochiq aytaman:** kapot yumaloq "sovun" shaklida, haqiqiy Cobalt'dagi qanot qirrasi yo'q; orqa chiroqlar tekis qizil, ichki bo'limlari yo'q; old yuz tikroq.
+
+### Gentra, Nexia 3, Spark, Damas, Malibu
+- **Har biriga o'z suratlari bo'yicha detal to'plami:**
+  - **Gentra:** raqam qopqoqda, xrom chiziqli ikki panjara, tuman chiroqlari.
+  - **Nexia 3 (T250):** asal ko'zli panjara kapot qirrasi ostida, katta faralar, raqam qopqoqda, g'ildirak qopqoqlari; burun 6 sm ko'tarildi.
+  - **Spark:** baland faralar, katta asal ko'zli pastki panjara, orqa eshik dastaklari yashirin; burun ko'tarildi; orqa chiroqlar kuzovga tushirildi.
+  - **Malibu:** ingichka faralar, xrom ramkali tor panjara, katta pastki panjara, vertikal tuman tirqishlari, xrom oyna chizig'i, raqam qopqoqda, 5 juft parmoqli disk.
+  - **Damas:** to'rtburchak faralar, xromli qora panjara, surma eshik chizig'i.
+- **Solishtirish:** `docs/compare/car-*.jpg` (Commons surati va o'yin, bir xil burchak).
+  - **Halol baho:** bu beshtasida faqat birinchi qadam qilindi. Kuzov kontur bo'yicha suratga moslanmagan (Cobalt'dagidek kamera hisobi yo'q). Detallar kichik va ko'p burchakdan sezilmaydi.
+
 ## 2026-11-28 kunduzgi ish, 4-qism
 
 ### Taksi olish joyi filtri (har bir mashina uchun)
@@ -353,9 +382,9 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 Shu fayl bilan birga push qilingan commit (`git log -1`), preview'da tekshirildi.
 
 ## BIRINCHI TUGALLANMAGAN VAZIFA
-- **Mashinalar:** kabina (oyna ramkalari va eshik chiziqlari), panjara va fara shakllari, disklar. Har biri `__carShot` + `carcompose.py` bilan suratga solishtiriladi. Litsenziyasi aniq (CC0 yoki CC-BY) 3D model topilsa, uni olish.
-- **Chorsu gumbazi:** naqsh va arkalar.
-- **Amir Temur xiyoboni:** zich, turli daraxtlar.
+- Gentra, Nexia 3, Spark, Damas va Malibu uchun Cobalt'dagi kontur jarayoni: suratdan kamera hisobi (`camsolve*.py`), konturni qo'yish (`__carOverlay` + `overlay.py`), uzunlik, kabina, burun va dumni tuzatish.
+- So'ng detal to'plamlarini aniqlashtirish.
+- Cobalt: kapot qanot qirrasi va orqa chiroqlarning ichki bo'limlari.
 
 ## Keyingi navbat
 1. **Qolgan obyektlar:**
