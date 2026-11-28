@@ -17,9 +17,9 @@ const MODELS = {
     head: { x: 0.45, y: 0.72, z: 2.22, w: 0.32, h: 0.15, tilt: 0.25, sweep: { bot: 0.68, top: 0.8, len: 0.42 } },
     // tail lamps on the rear corners under the boot-lid line, wrapping well round onto the wings; the
     // plate is on the bumper (checked against photos of Tashkent cars, see docs/CAR-REFERENCES.md)
-    tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: false, wrap: { inTop: 0.6, inBot: 0.64, top: 1.03, bot: 0.66, side: 0.38 }, plateY: 0.47, bumperChrome: 0.57 },
+    tail: { x: 0.6, y: 0.9, w: 0.34, h: 0.3, bar: false, wrap: { inTop: 0.5, inBot: 0.56, top: 1.03, bot: 0.66, side: 0.38 }, plateY: 0.47, bumperChrome: 0.57 },
     // two-part grille in one opening: a narrow upper slot and a big lower mesh with the chrome bar between
-    grille: { y: 0.67, w: 0.62, h: 0.2 }, lower: { y: 0.37, w: 0.8, h: 0.08 }, fog: true, frontPlateY: 0.5, plan: [0.36, 0.78, 0.2, 0.8], mirror: { z: 0.71, y: 1.13 }, bumperLow: [0.27, 0.4],
+    grille: { y: 0.67, w: 0.62, h: 0.2 }, lower: { y: 0.37, w: 0.8, h: 0.08 }, fog: true, frontPlateY: 0.44, plan: [0.36, 0.78, 0.2, 0.8], mirror: { z: 0.71, y: 1.13 }, bumperLow: [0.27, 0.4], kit: 'cobalt',
   },
   gentra: {
     L: 4.52, W: 1.725, H: 1.445, R: 0.3, wheels: [1.33, -1.27], smooth: true, weight: 0.22,
@@ -134,7 +134,10 @@ function rimGeo(R, type) {
   const parts = [new THREE.CylinderGeometry(R * 0.64, R * 0.64, 0.05, 20).rotateZ(Math.PI / 2).translate(0.07, 0, 0),
     new THREE.CylinderGeometry(R * 0.17, R * 0.17, 0.07, 12).rotateZ(Math.PI / 2).translate(0.1, 0, 0)];
   const spokes = type === 'damas' ? 0 : type === 'spark' ? 4 : 5;
-  for (let i = 0; i < spokes; i++) parts.push(new THREE.BoxGeometry(0.04, R * 0.5, 0.07).translate(0.105, R * 0.33, 0).rotateX((i / spokes) * Math.PI * 2));
+  if (type === 'cobalt') {
+    // 15-inch alloy of the LTZ trim: six pairs of thin spokes
+    for (let i = 0; i < 6; i++) for (const d of [-0.13, 0.13]) parts.push(new THREE.BoxGeometry(0.025, R * 0.5, 0.06).translate(0.105, R * 0.34, 0).rotateX((i / 6) * Math.PI * 2 + d));
+  } else for (let i = 0; i < spokes; i++) parts.push(new THREE.BoxGeometry(0.04, R * 0.5, 0.07).translate(0.105, R * 0.33, 0).rotateX((i / spokes) * Math.PI * 2));
   const all = parts.map((g) => { const n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); return n; });
   const merged = mergeParts(all);
   return merged;
@@ -202,6 +205,55 @@ function loftBody(m) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  // where the body surface is, so lamps, grilles and seams can be laid onto it (decals) instead of boxes
+  const inRing = (r, w, y) => {      // (w, y) inside the half ring closed along w = 0
+    let inside = false;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i], [xj, yj] = r[j];
+      if ((yi > y) !== (yj > y) && w < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const halfAt = (x, y) => {         // the body's half-width at profile station x and height y (null above / below)
+    const r = ring(x, 0); let best = null;
+    for (let i = 0; i < r.length - 1; i++) {
+      const [x1, y1] = r[i], [x2, y2] = r[i + 1];
+      if ((y1 - y) * (y2 - y) <= 0 && y1 !== y2) { const w = x1 + (x2 - x1) * (y - y1) / (y2 - y1); if (best === null || w > best) best = w; }
+    }
+    return best;
+  };
+  g.userData.surf = {
+    // world z of the nose (front) or tail surface at lateral offset w and height y
+    end(w, y, front) { const sg = front ? 1 : -1; for (let x = half; x > 0.3; x -= 0.004) if (inRing(ring(sg * x, 0), Math.abs(w), y)) return -sg * x; return null; },
+    side(xp, y) { return halfAt(xp, y); },     // lateral half-width at profile x (forward) and height y
+  };
+  return g;
+}
+
+// A decal laid on the body: a 2D outline in (a, b) is gridded into small cells and each corner is mapped onto
+// the surface by map(a, b) -> [x, y, z] (or null off the body). Follows the nose's and flanks' curves.
+function surfDecal(poly, map, maxEdge = 0.02) {
+  // triangulate the outline (smooth edges), split triangles until no edge is longer than maxEdge, then map
+  // every vertex onto the body so the decal follows its curves
+  const shape = new THREE.Shape(poly.map(([a, b]) => new THREE.Vector2(a, b)));
+  const base = new THREE.ShapeGeometry(shape);
+  const P = base.attributes.position, I = base.index ? base.index.array : null;
+  const tris = [];
+  const n = I ? I.length : P.count;
+  for (let i = 0; i < n; i += 3) { const v = (k) => { const j = I ? I[i + k] : i + k; return [P.getX(j), P.getY(j)]; }; tris.push([v(0), v(1), v(2)]); }
+  const out = [];
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  const len = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  while (tris.length) {
+    const [A, B2, C] = tris.pop();
+    if (Math.max(len(A, B2), len(B2, C), len(C, A)) > maxEdge) { const ab = mid(A, B2), bc = mid(B2, C), ca = mid(C, A); tris.push([A, ab, ca], [ab, B2, bc], [ca, bc, C], [ab, bc, ca]); continue; }
+    const pa = map(...A), pb = map(...B2), pc = map(...C);
+    if (pa && pb && pc) out.push(...pa, ...pb, ...pc);
+  }
+  base.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
   g.computeVertexNormals();
   return g;
 }
@@ -274,6 +326,80 @@ function taxiTrim(g, m, type) {
   return parts;
 }
 
+// ---------------------------------------------------------------- per-model detail kits (decals on the body)
+const decalMat = (k, f) => cm(k, () => { const mt = f(); mt.side = THREE.DoubleSide; mt.polygonOffset = true; mt.polygonOffsetFactor = -2; mt.polygonOffsetUnits = -2; return mt; });
+const KIT_MATS = {
+  lens: () => decalMat('kLens', () => new THREE.MeshStandardMaterial({ color: 0xdfe5ea, emissive: 0xfff3dc, emissiveIntensity: 0.25, metalness: 0.7, roughness: 0.12 })),
+  lensIn: () => decalMat('kLensIn', () => new THREE.MeshStandardMaterial({ color: 0x9aa3ab, metalness: 0.9, roughness: 0.2 })),
+  dark: () => decalMat('kDark', () => new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.75 })),
+  mesh: () => decalMat('kMesh', () => new THREE.MeshStandardMaterial({ color: 0x24272b, roughness: 0.6 })),
+  chrome: () => decalMat('kChrome', () => new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 1, roughness: 0.15 })),
+  seam: () => decalMat('kSeam', () => new THREE.MeshBasicMaterial({ color: 0x1a1c1f, transparent: true, opacity: 0.75 })),
+  fog: () => decalMat('kFog', () => new THREE.MeshStandardMaterial({ color: 0xf2f2ee, emissive: 0xfff6e0, emissiveIntensity: 0.15, roughness: 0.2 })),
+};
+const circle = (cx, cy, rx, ry = rx, n = 18) => Array.from({ length: n }, (_, i) => [cx + rx * Math.cos((i / n) * Math.PI * 2), cy + ry * Math.sin((i / n) * Math.PI * 2)]);
+const mirrorA = (poly) => poly.map(([a, b]) => [-a, b]).reverse();
+// The Cobalt as sold in Uzbekistan (2012-): checked against photos of Tashkent cars (docs/CAR-REFERENCES.md).
+// Front: big swept headlamps whose top edge follows the bonnet shut line back up the wing; a narrow upper
+// grille slot under a chrome edge, the chrome bar, a large lower grille in the same opening; plate on the
+// bumper; round fog lamps in dark recesses at the bumper corners; a dark intake under the plate.
+// Side: door shut lines (front door behind the front arch, B-pillar, rear door round the rear arch), handles,
+// a dark belt moulding under the side glass.
+const KITS = {
+  cobalt: {
+    front: [
+      ['lens', [[0.37, 0.6], [0.35, 0.73], [0.42, 0.745], [0.55, 0.77], [0.68, 0.795], [0.79, 0.818], [0.835, 0.814], [0.825, 0.775], [0.74, 0.715], [0.62, 0.66], [0.5, 0.625], [0.42, 0.61]], true],
+      ['lensIn', circle(0.47, 0.685, 0.042), true], ['lensIn', circle(0.58, 0.705, 0.036), true],
+      ['dark', [[-0.32, 0.688], [0.32, 0.688], [0.335, 0.735], [-0.335, 0.735]]],
+      ['chrome', [[-0.345, 0.735], [0.345, 0.735], [0.35, 0.75], [-0.35, 0.75]]],
+      ['mesh', [[-0.355, 0.655], [0.355, 0.655], [0.33, 0.5], [-0.33, 0.5]]],
+      ['chrome', [[-0.35, 0.66], [0.35, 0.66], [0.35, 0.679], [-0.35, 0.679]]],
+      ['dark', [[-0.38, 0.405], [0.38, 0.405], [0.34, 0.335], [-0.34, 0.335]]],
+      ['dark', circle(0.6, 0.41, 0.085, 0.055), true], ['fog', circle(0.6, 0.41, 0.034), true],
+    ],
+    seams: [[[0.93, 0.4], [0.9, 0.62], [0.82, 0.96]], [[-0.07, 0.38], [-0.09, 0.97]], [[-0.86, 0.39], [-0.93, 0.6], [-1.12, 0.97]]],
+    handles: [[0.3, 0.86], [-0.55, 0.86]],
+    // boot-lid shut line: down the inside of each lamp, dipping across the tail under the badge; plate recess
+    rearSeams: [[[-0.49, 1.03], [-0.54, 0.8], [-0.47, 0.67], [-0.25, 0.625], [0, 0.615], [0.25, 0.625], [0.47, 0.67], [0.54, 0.8], [0.49, 1.03]]],
+    rear: [['dark', [[-0.3, 0.405], [0.3, 0.405], [0.3, 0.535], [-0.3, 0.535]]]],
+    belt: [[0.78, 0.957], [-1.58, 0.957]],
+  },
+};
+function buildKit(name, surf, m) {
+  const K = KITS[name], out = [];
+  const front = (a, b) => { const z = surf.end(Math.abs(a), b, true); return z === null ? null : [a, b, z - 0.004]; };
+  for (const [mat, poly, both] of K.front) {
+    out.push([surfDecal(poly, front), mat, mat !== 'lens' && mat !== 'mesh']);
+    if (both) out.push([surfDecal(mirrorA(poly), front), mat, mat !== 'lens' && mat !== 'mesh']);
+  }
+  const sideMap = (sd) => (xp, y) => { const w = surf.side(xp, y); return w === null ? null : [sd * (w + 0.003), y, -xp]; };
+  const strip = (pts, wd, map) => {       // a thin line along the side, as quads
+    const pos = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [a1, b1] = pts[i], [a2, b2] = pts[i + 1], L = Math.hypot(a2 - a1, b2 - b1), n = Math.max(1, Math.ceil(L / 0.03));
+      const na = -(b2 - b1) / L * wd / 2, nb = (a2 - a1) / L * wd / 2;
+      for (let k = 0; k < n; k++) {
+        const u0 = k / n, u1 = (k + 1) / n;
+        const A = [a1 + (a2 - a1) * u0, b1 + (b2 - b1) * u0], B2 = [a1 + (a2 - a1) * u1, b1 + (b2 - b1) * u1];
+        const q = [map(A[0] - na, A[1] - nb), map(B2[0] - na, B2[1] - nb), map(B2[0] + na, B2[1] + nb), map(A[0] + na, A[1] + nb)];
+        if (q.some((v) => !v)) continue;
+        pos.push(...q[0], ...q[1], ...q[2], ...q[0], ...q[2], ...q[3]);
+      }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+  };
+  const rearMap = (a, b) => { const z = surf.end(Math.abs(a), b, false); return z === null ? null : [a, b, z + 0.004]; };
+  for (const [mat, poly] of K.rear || []) out.push([surfDecal(poly, rearMap), mat, true]);
+  for (const sm of K.rearSeams || []) out.push([strip(sm, 0.007, rearMap), 'seam', true]);
+  for (const sd of [-1, 1]) {
+    for (const sm of K.seams) out.push([strip(sm, 0.007, sideMap(sd)), 'seam', true]);
+    out.push([strip(K.belt, 0.022, sideMap(sd)), 'dark', true]);
+    for (const [hx, hy] of K.handles) out.push([strip([[hx + 0.07, hy], [hx - 0.07, hy]], 0.028, sideMap(sd)), 'chrome', true]);
+  }
+  void m;
+  return out;
+}
+
 export const UZ_TYPES = Object.fromEntries(Object.entries(MODELS).map(([k, m]) => [k, { w: m.W, l: m.L, h: m.H, mass: k === 'damas' ? 1.1 : 1.2, weight: m.weight }]));
 
 export function pickUzType() {
@@ -321,11 +447,13 @@ export function createUzCar(type) {
   // pieces sit on the flank): from the plan curve used in loftBody
   const pfx = m.plan || [0.31, 0.8, 0.14, 0.82];
   const wrapBack = (front) => { if (type === 'damas') return 0.05; const a = front ? pfx[0] : pfx[2], b = front ? pfx[1] : pfx[3]; const tf = Math.sqrt(Math.min(1, 0.14 / a)); return (m.L / 2) * (1 - (b + tf * (1 - b))) + 0.02; };
-  bumpers.push(B(m.W * (type === 'damas' ? 0.94 : 0.66), 0.2, 0.08, bumperMat, 0, m.lower.y - 0.01, fF + 0.05, g));
+  if (!m.kit) bumpers.push(B(m.W * (type === 'damas' ? 0.94 : 0.66), 0.2, 0.08, bumperMat, 0, m.lower.y - 0.01, fF + 0.05, g));
   B(m.W * (type === 'damas' ? 0.8 : 0.62), 0.06, 0.12, black(), 0, m.lower.y - 0.1, fF + 0.03);
-  B(m.lower.w, m.lower.h, 0.04, black(), 0, m.lower.y, fF - 0.03);
-  B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, fF + 0.012);
-  B(m.grille.w * 0.9, 0.02, 0.05, chrome(), 0, m.grille.y + m.grille.h * 0.15, fF + 0.008);
+  if (!m.kit) {
+    B(m.lower.w, m.lower.h, 0.04, black(), 0, m.lower.y, fF - 0.03);
+    B(m.grille.w, m.grille.h, 0.05, black(), 0, m.grille.y, fF + 0.012);
+    B(m.grille.w * 0.9, 0.02, 0.05, chrome(), 0, m.grille.y + m.grille.h * 0.15, fF + 0.008);
+  }
   B(0.52, 0.11, 0.02, plateMat(), 0, m.frontPlateY ?? m.lower.y + 0.01, fF - 0.04);
   bumpers.push(B(m.W * (type === 'damas' ? 0.84 : 0.74), 0.2, 0.08, bumperMat, 0, m.bumperLow ? m.bumperLow[1] + 0.11 : m.lower.y - 0.01, fR - 0.05, g));
   B(m.W * (type === 'damas' ? 0.8 : 0.66), 0.06, 0.12, black(), 0, m.bumperLow ? m.bumperLow[1] + 0.02 : m.lower.y - 0.11, fR - 0.03);
@@ -343,6 +471,7 @@ export function createUzCar(type) {
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
   for (const s of [-1, 1]) {
+    if (!m.kit) {
     const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.76) - m.head.w / 2), m.head.y, (type === 'damas' ? -m.head.z - 0.085 : -(m.L / 2 - 0.015)), g);   // inside the rounded nose   // on the bevelled nose surface
     h.rotation.x = -m.head.tilt;
     if (m.head.sweep) {
@@ -352,6 +481,7 @@ export function createUzCar(type) {
       const hs = new THREE.Mesh(geo, headMat()); hs.position.set(s > 0 ? sideX + 0.012 : -sideX + 0.018, 0, fF + wrapBack(true)); g.add(hs);
     }
     if (m.fog) B(0.09, 0.07, 0.03, headMat(), s * (m.W / 2 - 0.33), m.lower.y + 0.02, fF - 0.035);
+    }
     // tail lamp cluster set into the rounded rear corner, with the white reversing lamp and amber indicator
     const halfRear = (m.W / 2) * (type === 'damas' ? 0.95 : 1 - pfx[2] * 0.85);   // the tail face's half-width (plan curve)
     const tx = s * Math.min(m.tail.x, halfRear - m.tail.w / 2 - 0.02);
@@ -379,7 +509,7 @@ export function createUzCar(type) {
       B(0.03, th * 0.85, 0.09, tailMat, s * (halfRear - 0.012), ty, face - 0.06, g);         // wraps round onto the flank
     }
     // mirrors
-    if (m.mirror) B(0.13, 0.12, 0.2, body.material, s * (m.W / 2 + 0.07), m.mirror.y, -m.mirror.z);   // (position from the photo camera fit)
+    if (m.mirror) { B(0.13, 0.12, 0.2, body.material, s * (m.W / 2 + 0.035), m.mirror.y, -m.mirror.z); B(0.07, 0.05, 0.08, black(), s * (m.W / 2 - 0.03), m.mirror.y - 0.04, -m.mirror.z + 0.03); }   // housing (position from the photo camera fit) on its stalk
     else B(0.12, 0.1, 0.16, body.material, s * (m.W / 2 + 0.05), m.glass[0][1] + 0.12, -(m.glass[0][0] - 0.25));
   }
   // wheels
@@ -402,6 +532,7 @@ export function createUzCar(type) {
       const p = new THREE.Mesh(cg(`pil${type}`, () => new THREE.BoxGeometry(0.03, top - belt - 0.04, 0.1)), body.material);
       p.position.set(sd * ((m.W * 0.42 + glassTop / 2) / 2 + 0.006), (top + belt) / 2, -x);
       p.rotation.z = sd * Math.atan2((m.W * 0.42 - glassTop / 2), top - belt);
+      p.userData.bpillar = true;
       g.add(p); pillars.push(p);
     }
   }
@@ -423,7 +554,9 @@ export function createUzCar(type) {
     strip(gl[0], gl[1], 0.08, 0);                               // A-pillars
     strip(gl[gl.length - 2], gl[gl.length - 1], type === 'spark' ? 0.16 : 0.24, 0);   // C-pillars
   }
-  const bodyMeshes = [body, roof, ...pillars, ...(type === 'damas' ? [] : bumpers)];
+  if (m.kit && bodyGeo.userData.surf) { const kit = cg(`kit${type}`, () => buildKit(m.kit, bodyGeo.userData.surf, m)); for (const [geo, mat, inDetail] of kit) { const o = new THREE.Mesh(geo, KIT_MATS[mat]()); (inDetail ? detail : g).add(o); } }
+  if (m.kit) for (const p of pillars) if (p.userData.bpillar) p.material = black();   // black B-pillar applique (window frames)
+  const bodyMeshes = [body, roof, ...pillars.filter((p) => !(m.kit && p.userData.bpillar)), ...(type === 'damas' ? [] : bumpers)];
   const palette = m.colors || (type === 'spark' ? SPARK_COLORS : COLORS);
   return {
     type, mesh: g, model: m, wheels, bodyMeshes, glassMesh: cab, detail, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,
