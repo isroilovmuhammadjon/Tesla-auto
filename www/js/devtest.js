@@ -707,6 +707,7 @@ window.__carShot = async (type, { az = 35, el = 1.3, dist = 6.5, color = 0xf2f3f
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
   const c = createUzCar(type); c.setColor();
   const m = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.32 }); for (const o of c.bodyMeshes) o.material = m;
+  if (c.cabinPaint) c.cabinPaint(m);
   sc.add(c.mesh);
   const a = az * Math.PI / 180, cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, 100);
   cam.position.set(Math.sin(a) * dist, el, Math.cos(a) * dist); cam.lookAt(0, 0.65, 0);

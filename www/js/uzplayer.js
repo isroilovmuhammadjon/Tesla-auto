@@ -28,6 +28,7 @@ export function createUzPlayer(def) {
   // the player's car keeps its own paint (traffic shares paint materials)
   const paint = new THREE.MeshPhysicalMaterial({ color: def.color, metalness: 0.4, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.06, envMapIntensity: 0.9 });
   for (const o of car.bodyMeshes) o.material = paint;
+  if (car.cabinPaint) car.cabinPaint(paint);   // the Blender cabin's painted roof and pillars
   car.detail.children.forEach((o) => { if (o.geometry && o.geometry.parameters && ((o.geometry.parameters.width === 0.12 && o.geometry.parameters.depth === 0.16) || (o.geometry.parameters.width === 0.13 && o.geometry.parameters.depth === 0.2))) o.material = paint; });
   car.setTaxi(true);
   const group = new THREE.Group();

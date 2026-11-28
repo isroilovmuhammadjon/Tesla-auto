@@ -4,6 +4,35 @@
 // Shapes and proportions follow the real cars; no logos.
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { loadGLB } from './glb.js';
+
+// Cars built in Blender (scripts/cars/build_cars.py -> www/models/<car>.glb + .surf.json): body and cabin
+// come from the model, lamps / grilles / seams are laid onto its surface. Others (or if loading fails) use
+// the procedural body below.
+export const BLENDER_CARS = ['cobalt'];
+const BLENDER = {};
+function decodeSurf(sj) {
+  const dec = (b64) => { const bin = atob(b64), a = new Int16Array(bin.length / 2); for (let i = 0; i < a.length; i++) a[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); return a; };
+  const F = dec(sj.front), R = dec(sj.rear), S = dec(sj.side);
+  const bil = (A, nu, u, v, nv) => {          // bilinear over a grid of millimetres, -32768 = no surface
+    const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+    if (i < 0 || j < 0 || i >= nu - 1 || j >= nv - 1) return null;
+    const q = [A[j * nu + i], A[j * nu + i + 1], A[(j + 1) * nu + i], A[(j + 1) * nu + i + 1]];
+    if (q.some((x) => x === -32768)) { const ok = q.filter((x) => x !== -32768); return ok.length >= 2 ? ok.reduce((a, b) => a + b, 0) / ok.length / 1000 : null; }
+    return ((q[0] * (1 - fu) + q[1] * fu) * (1 - fv) + (q[2] * (1 - fu) + q[3] * fu) * fv) / 1000;
+  };
+  return {
+    // world z of the nose / tail surface at lateral w, height y (Blender Y forward = -z in the game)
+    end(w, y, front) { const Y = bil(front ? F : R, sj.nw, Math.abs(w) / sj.dw, (y - sj.y0) / sj.dy, sj.ny); return Y === null ? null : -Y; },
+    side(xp, y) { return bil(S, sj.nx, (xp - sj.x0) / sj.dx, (y - sj.y0) / sj.dy, sj.ny); },
+  };
+}
+await Promise.all(BLENDER_CARS.map(async (t) => {
+  try {
+    const [g, sj] = await Promise.all([loadGLB(`models/${t}.glb?v=20261128d`), fetch(`models/${t}.surf.json?v=20261128d`).then((r) => r.json())]);
+    if (g.body && g.cabin) BLENDER[t] = { body: g.body, cabin: g.cabin, surf: decodeSurf(sj) };
+  } catch (e) { console.warn('car model not loaded, using the procedural one:', t, e); }
+}));
 
 // x = forward (front at +L/2), y = up. Wheel x positions, radius, body top contour and glass house.
 const MODELS = {
@@ -340,6 +369,7 @@ const KIT_MATS = {
   mesh: () => decalMat('kMesh', () => new THREE.MeshStandardMaterial({ color: 0x24272b, roughness: 0.6 })),
   chrome: () => decalMat('kChrome', () => new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 1, roughness: 0.15 })),
   seam: () => decalMat('kSeam', () => new THREE.MeshBasicMaterial({ color: 0x1a1c1f, transparent: true, opacity: 0.75 })),
+  rev: () => decalMat('kRev', () => new THREE.MeshStandardMaterial({ color: 0xf4f4f4, emissive: 0x222222, roughness: 0.2 })),
   fog: () => decalMat('kFog', () => new THREE.MeshStandardMaterial({ color: 0xf2f2ee, emissive: 0xfff6e0, emissiveIntensity: 0.15, roughness: 0.2 })),
 };
 const circle = (cx, cy, rx, ry = rx, n = 18) => Array.from({ length: n }, (_, i) => [cx + rx * Math.cos((i / n) * Math.PI * 2), cy + ry * Math.sin((i / n) * Math.PI * 2)]);
@@ -364,6 +394,14 @@ const KITS = {
     ],
     seams: [[[0.93, 0.4], [0.9, 0.62], [0.82, 0.96]], [[-0.07, 0.38], [-0.09, 0.97]], [[-0.86, 0.39], [-0.93, 0.6], [-1.12, 0.97]]],
     handles: [[0.3, 0.86], [-0.55, 0.86]],
+    // tail lamps (Blender body): on the rear face from the boot-lid line down to the bumper top, wrapping round
+    // the corner onto the wing (rear-left photo overlay: inner top corner x 0.58, y 1.01)
+    tailLamp: {
+      rear: [[0.5, 1.035], [0.72, 1.045], [0.79, 1.0], [0.8, 0.8], [0.76, 0.68], [0.62, 0.655], [0.55, 0.69], [0.52, 0.86]],
+      side: [[-2.25, 1.04], [-2.08, 1.03], [-1.9, 0.99], [-2.02, 0.86], [-2.18, 0.7], [-2.25, 0.67]],
+      rev: [[0.56, 0.72], [0.64, 0.7], [0.65, 0.8], [0.57, 0.81]],
+      blink: [[0.63, 0.88], [0.74, 0.88], [0.74, 0.96], [0.63, 0.96]],
+    },
     // boot-lid shut line: down the inside of each lamp, dipping across the tail under the badge; plate recess
     rearSeams: [[[-0.49, 1.03], [-0.54, 0.8], [-0.47, 0.67], [-0.25, 0.625], [0, 0.615], [0.25, 0.625], [0.47, 0.67], [0.54, 0.8], [0.49, 1.03]]],
     rear: [['dark', [[-0.3, 0.405], [0.3, 0.405], [0.3, 0.535], [-0.3, 0.535]]]],
@@ -473,6 +511,15 @@ function buildKit(name, surf, m) {
   const rearMap = (a, b) => { const z = surf.end(Math.abs(a), b, false); return z === null ? null : [a, b, z + 0.004]; };
   for (const [mat, poly] of K.rear || []) out.push([surfDecal(poly, rearMap), mat, true]);
   for (const sm of K.rearSeams || []) out.push([strip(sm, 0.007, rearMap), 'seam', true]);
+  if (K.tailLamp) {
+    const T = K.tailLamp, sideM = (sd) => (xp, y) => { const w = surf.side(xp, y); return w === null ? null : [sd * (w + 0.004), y, -xp]; };
+    const rearM = (a, b) => { const z = surf.end(Math.abs(a), b, false); return z === null ? null : [a, b, z + 0.005]; };
+    const rearM2 = (a, b) => { const z = surf.end(Math.abs(a), b, false); return z === null ? null : [a, b, z + 0.007]; };
+    out.push([surfDecal(T.rear, rearM), 'tail', false], [surfDecal(mirrorA(T.rear), rearM), 'tail', false]);
+    out.push([surfDecal(T.rev, rearM2), 'rev', false], [surfDecal(mirrorA(T.rev), rearM2), 'rev', false]);
+    out.push([surfDecal(T.blink, rearM2), 'blink', false], [surfDecal(mirrorA(T.blink), rearM2), 'blink', false]);
+    for (const sd of [-1, 1]) out.push([surfDecal(T.side, sideM(sd)), 'tail', false]);
+  }
   for (const sd of [-1, 1]) {
     for (const sm of K.seams) out.push([strip(sm, 0.007, sideMap(sd)), 'seam', true]);
     out.push([strip(K.belt, K.beltMat ? 0.014 : 0.022, sideMap(sd)), K.beltMat || 'dark', true]);
@@ -482,6 +529,7 @@ function buildKit(name, surf, m) {
   return out;
 }
 
+export const UZ_MODELS = MODELS;
 export const UZ_TYPES = Object.fromEntries(Object.entries(MODELS).map(([k, m]) => [k, { w: m.W, l: m.L, h: m.H, mass: k === 'damas' ? 1.1 : 1.2, weight: m.weight }]));
 
 export function pickUzType() {
@@ -499,11 +547,16 @@ export function createUzCar(type) {
   const g = new THREE.Group();
   const detail = new THREE.Group();       // small parts, hidden for far-away cars
   g.add(detail);
-  const bodyGeo = cg(`${type}b`, () => (type === 'damas' ? shapeBody(extrude(bodyShape(m), m.W, 0.07), m, type) : loftBody(m)));
-  const glassGeo = cg(`${type}g`, () => shapeGlass(extrude(glassShape(m), m.W * 0.84, 0.05), m, type));
+  const BL = BLENDER[type];
+  const bodyGeo = BL ? BL.body.geometry : cg(`${type}b`, () => (type === 'damas' ? shapeBody(extrude(bodyShape(m), m.W, 0.07), m, type) : loftBody(m)));
+  if (BL && !bodyGeo.userData.surf) bodyGeo.userData.surf = BL.surf;
   const body = new THREE.Mesh(bodyGeo, paint(COLORS[0]));
   body.castShadow = true;
-  const cab = new THREE.Mesh(glassGeo, glass());
+  let cab;
+  if (BL) {
+    // the Blender cabin: paint, glass and black trim in one mesh (materials by name from the export)
+    cab = new THREE.Mesh(BL.cabin.geometry, BL.cabin.materials.map((n) => (n === 'glass' ? glass() : n === 'trim' ? black() : body.material)));
+  } else cab = new THREE.Mesh(cg(`${type}g`, () => shapeGlass(extrude(glassShape(m), m.W * 0.84, 0.05), m, type)), glass());
   cab.castShadow = true;
   g.add(body, cab);
   // body-colour roof panel + pillars read as a real car rather than a glass bubble
@@ -515,7 +568,7 @@ export function createUzCar(type) {
   // (the glass extrusion's bevel grows its outline by 5 cm: the roof sits on top of that, not inside it)
   roof.position.set(0, Math.max(...m.glass.map((p) => p[1])) + 0.04, -(roofX0 + roofX1) / 2);
   roof.castShadow = true;
-  g.add(roof);
+  if (!BL) g.add(roof);
   void roofY;
   const B = (w, h, d, mat, x, y, z, parent = detail) => { const o = new THREE.Mesh(cg(`bx${w}_${h}_${d}`, () => new THREE.BoxGeometry(w, h, d)), mat); o.position.set(x, y, z); parent.add(o); return o; };
   const zF = -m.L / 2, zR = m.L / 2;
@@ -552,6 +605,9 @@ export function createUzCar(type) {
   // lights
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x5a0a0e, emissive: 0xff1a22, emissiveIntensity: 0.5, roughness: 0.2 });
   const blinkMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.14, 0.02) });
+  // the same lamp materials as decals (double-sided, drawn over the paint) so brake lights and indicators work
+  const tailDecal = tailMat.clone(); tailDecal.side = THREE.DoubleSide; tailDecal.polygonOffset = true; tailDecal.polygonOffsetFactor = -3; tailDecal.polygonOffsetUnits = -3;
+  const blinkDecal = blinkMat; blinkMat.side = THREE.DoubleSide; blinkMat.polygonOffset = true; blinkMat.polygonOffsetFactor = -4; blinkMat.polygonOffsetUnits = -4;
   for (const s of [-1, 1]) {
     if (!m.kit) {
     const h = B(m.head.w, m.head.h, 0.06, headMat(), s * Math.min(m.head.x, (m.W / 2) * (type === 'damas' ? 0.93 : 0.76) - m.head.w / 2), m.head.y, (type === 'damas' ? -m.head.z - 0.085 : -(m.L / 2 - 0.015)), g);   // inside the rounded nose   // on the bevelled nose surface
@@ -573,7 +629,9 @@ export function createUzCar(type) {
     const deck = m.tail.bar ? m.top[m.top.length - 2][1] + 0.14 - 0.05 : Infinity;
     const tTop = Math.min(m.tail.y + m.tail.h / 2, deck), tBot = m.tail.y - m.tail.h / 2;
     const th = Math.max(0.12, tTop - tBot), ty = tTop - th / 2;
-    if (m.tail.wrap) {
+    if (BL && KITS[m.kit] && KITS[m.kit].tailLamp) {
+      // lamps are decals on the Blender body (buildKit)
+    } else if (m.tail.wrap) {
       // the sedans' lamp clusters: a slanted shape on the rear face that carries on round the corner
       // and runs forward along the flank to a point (the Cobalt's deep wrap is how you know it)
       const w = m.tail.wrap, out = halfRear + 0.005, sideX = (m.W / 2) * 0.86;
@@ -608,7 +666,7 @@ export function createUzCar(type) {
   const front = gl[1][0], rear = gl[gl.length - 2][0];
   const pillarsAt = type === 'damas' ? [0.62, 0.3] : [0.5];
   const pillars = [];
-  for (const f of pillarsAt) {
+  for (const f of BL ? [] : pillarsAt) {
     const x = front + (rear - front) * f;
     for (const sd of [-1, 1]) {
       const p = new THREE.Mesh(cg(`pil${type}`, () => new THREE.BoxGeometry(0.03, top - belt - 0.04, 0.1)), body.material);
@@ -632,7 +690,7 @@ export function createUzCar(type) {
       g.add(o); pillars.push(o);
     }
   };
-  if (type !== 'damas') {
+  if (type !== 'damas' && !BL) {
     strip(gl[0], gl[1], 0.08, 0);                               // A-pillars
     strip(gl[gl.length - 2], gl[gl.length - 1], type === 'spark' ? 0.16 : 0.24, 0);   // C-pillars
   }
@@ -644,23 +702,24 @@ export function createUzCar(type) {
       side(xp, y) { const t = Math.abs(xp) / (m.L / 2); return (m.W / 2) * (1 - 0.05 * smooth(0.72, 1, t)) * (1 - 0.02 * smooth(shoulder, m.H, y)); },
     };
   }
-  if (m.kit && bodyGeo.userData.surf) { const kit = cg(`kit${type}`, () => buildKit(m.kit, bodyGeo.userData.surf, m)); for (const [geo, mat, inDetail] of kit) { const o = new THREE.Mesh(geo, KIT_MATS[mat]()); (inDetail ? detail : g).add(o); } }
+  if (m.kit && bodyGeo.userData.surf) { const kit = cg(`kit${type}`, () => buildKit(m.kit, bodyGeo.userData.surf, m)); for (const [geo, mat, inDetail] of kit) { const o = new THREE.Mesh(geo, mat === 'tail' ? tailDecal : mat === 'blink' ? blinkDecal : mat === 'rev' ? KIT_MATS.rev() : KIT_MATS[mat]()); (inDetail ? detail : g).add(o); } }
   if (m.kit) for (const p of pillars) if (p.userData.bpillar) p.material = black();   // black B-pillar applique (window frames)
   const bodyMeshes = [body, roof, ...pillars.filter((p) => !(m.kit && p.userData.bpillar)), ...(type === 'damas' ? [] : bumpers)];
   const palette = m.colors || (type === 'spark' ? SPARK_COLORS : COLORS);
   return {
-    type, mesh: g, model: m, wheels, bodyMeshes, glassMesh: cab, detail, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,
+    type, mesh: g, model: m, wheels, bodyMeshes, glassMesh: cab, cabinPaint: BL ? (mat) => { cab.material = cab.material.map((x, i) => (BL.cabin.materials[i] === 'paint' ? mat : x)); } : null, detail, halfW: m.W / 2, halfL: m.L / 2, height: m.H, mass: UZ_TYPES[type].mass, air: false, tailMat, blinkMat,
     // a Tashkent taxi: the lit roof sign and the chequered band on the doors
     setTaxi(on) {
       if (on && !this.taxiParts) this.taxiParts = taxiTrim(g, m, type);
       if (this.taxiParts) for (const o of this.taxiParts) o.visible = on;
     },
-    setBrake(on) { tailMat.emissiveIntensity = on ? 2.6 : 0.5; },
+    setBrake(on) { tailMat.emissiveIntensity = tailDecal.emissiveIntensity = on ? 2.6 : 0.5; },
     setBlink(on) { blinkMat.color.setRGB(on ? 4 : 0.3, on ? 1.6 : 0.14, on ? 0 : 0.02); },
     setColor() {
       const c = palette[Math.floor(Math.random() * palette.length)];
       const mat = paint(c);
       for (const o of bodyMeshes) o.material = mat;
+      if (Array.isArray(cab.material)) cab.material = cab.material.map((x, i) => (BL.cabin.materials[i] === 'paint' ? mat : x));
       detail.children.forEach((o) => { if (o.geometry === GEO.get('bx0.12_0.1_0.16') || o.geometry === GEO.get('bx0.13_0.12_0.2')) o.material = mat; });
       return c;
     },
