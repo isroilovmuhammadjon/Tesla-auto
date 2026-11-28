@@ -69,6 +69,21 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 - **Qora sedan** (Malibu uslubi): 4.92 m, ko'cha harakatiga qo'shildi (5%, asosan qora).
 - **Salon:** taksi mashinalarida ko'rish burchagi 60° dan 52° ga tushdi; ko'z balandligi Spark'da 1.13 m, Damas'da 1.36 m.
 
+### Footaj va suratlar (`docs/footage/`)
+- `bend90-temur-before.webm`, `bend90-temur-after.webm`: Temur Malik ko'chasi burilishi (edge 57560), Cobalt, 90 km/soat, bir xil kamera, tezlik, A/W/D va g'ildirak burchagi ko'rinadi. Real vaqt, 150 ms reaksiyali pursuit-bot:
+
+  | | rms | Eng katta chetlanish | Tugma bosish |
+  |---|---|---|---|
+  | Eski rul | 0.27 m | 0.94 m | 38 |
+  | Yangi rul | 0.44 m | 1.09 m | 23 |
+
+  Bot uchun yangi rul biroz kengroq yuradi, lekin kam tugma talab qiladi va silliqroq. Ikkalasi ham qatordan chiqmadi.
+- `hudoff-tinchlik-chorsu.webm`: HUD o'chiq, Cobalt, Tinchlik metrosi → Chorsu bozori. 3.29 km, 4.7 daqiqa, tiqilish 0, urilish 0. Fayl 39 MB, Git'ga qo'shilmagan, faqat lokal.
+- `cars-grid.png`: 6 mashina × 3 burchak (orqa 3/4, old 3/4, chase kamerasi).
+  - Haqiqiy suratlar bilan yonma-yon solishtirish yo'q: qonuniy qayta foydalanish mumkin bo'lgan suratlar mavjud emas.
+  - Blender yo'q.
+  - Modellar hali protsedurali va soddalashtirilgan.
+
 ### Binolar va yo'llar: tashxis (`docs/geom-check.json`, 581 holat)
 - 447 tasi 3 m yo'lak chetiga 1 m gacha kirgan uy burchagi (o'q chizig'i uydan o'tmaydi): OSM chiziq va uy konturi turli suratlardan chizilgan.
 - 55 tasi yo'lak uy orqali o'tadi (o'tish joyi deb belgilanmagan).
@@ -229,10 +244,10 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 - `hudoff-navoiy-amirtemur.webm`: HUD o'chiq kunduzgi haydov, 45 s, tiqilish 0, to'qnashuv 0.
 
 ## Oxirgi sinalgan commit
-`586aa6f` (preview'da tekshirildi).
+Shu fayl bilan birga push qilingan commit (`git log -1`), preview'da tekshirildi.
 
 ## BIRINCHI TUGALLANMAGAN VAZIFA
-- `taxi.js` → `reroute()`/`carSnap()`: yo'ldan chiqqan mashina uchun eng yaqin *yetib boriladigan* ko'chani tanlash (Nexia testi, (-11144, 2297) atrofi).
+- Yo'lovchini olish joyi faqat tor (≤4.5 m) yo'laklar orasidagi 90° burchak orqali yetiladigan bo'lsa, uni taklif qilmaslik. Masalan, (-10777, 1883) burchagida Spark qolib ketdi.
 - So'ng `__testShift` bilan 5 mashinani qayta haydash.
 
 ## Keyingi navbat
@@ -241,6 +256,7 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
    - 3 bekat, 11 belgi, 8 radar ustuni (`docs/geom-check.json`).
 2. **Taksi spawn atrofi:** takrorlanuvchi fasadlar, bir tekis daraxtlar.
 3. **Mashinalar:**
+   - old ko'rinish (panjara, chiroq shakllari) hali sodda;
    - Gentra/Nexia avlod farqlari;
    - qora sedan;
    - uzoqdagi mashinalar uchun yengil versiya (hozir faqat mayda detallar yashiriladi).

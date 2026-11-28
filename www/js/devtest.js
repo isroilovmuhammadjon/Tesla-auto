@@ -280,7 +280,7 @@ window.__steerTest = async ({ kmh = 60, hold = 2, tap = false, fps = 60, car = n
 // Follow a real bend with the keyboard only, like a player: W/S to hold `kmh`, and A/D pressed or released
 // 20 times a second depending on whether the car is left or right of the lane line ahead. Reports how far
 // the car strays from the lane (the real game loop is stepped, collisions on).
-window.__bendTest = async ({ edge, from = 40, kmh = 60, legacy = false, record = false, reactMs = 50 } = {}) => {
+window.__bendTest = async ({ edge, from = 40, kmh = 60, legacy = false, record = false, reactMs = 50, driver = 'aim' } = {}) => {
   const S = window.__sr3d, T = S.taxi, c = S.city; await T.ensureData();
   const g = T.graph, E = g.edges[edge];
   const lane = (sx) => { const p = g.pointAt(edge, sx); const off = E.oneway ? Math.max(0, E.width / 2 - 1.8) : E.width / 4; return { x: p.x - p.uz * off, z: p.z + p.ux * off, ux: p.ux, uz: p.uz }; };
@@ -310,7 +310,13 @@ window.__bendTest = async ({ edge, from = 40, kmh = 60, legacy = false, record =
     // a person decides every ~250 ms (reactMs) and holds the key until the next decision
     const decide = !window.__lastDecide || performance.now() - window.__lastDecide >= reactMs;
     if (decide) window.__lastDecide = performance.now();
-    const right = decide ? ang > 0.012 : lastRight, left = decide ? ang < -0.012 : lastLeft;
+    let kk = ang > 0.012 ? 1 : ang < -0.012 ? -1 : 0;
+    if (driver === 'pursuit') {
+      const Ld = Math.hypot(a.x - s.x, a.z - s.z), need = 2 * Math.sin(ang) / Ld, have = -s.r / Math.max(1, s.v), band = 0.0012, sn = Math.sign(need);
+      if (Math.abs(need) < band) kk = Math.abs(have) > 2 * band ? -Math.sign(have) : 0;
+      else if (Math.sign(have) !== sn || Math.abs(have) < Math.abs(need) - band) kk = sn; else kk = 0;
+    }
+    const right = decide ? kk > 0 : lastRight, left = decide ? kk < 0 : lastLeft;
     if (right && !lastRight) presses++; if (left && !lastLeft) presses++;
     lastRight = right; lastLeft = left;
     set('right', 'KeyD', right); set('left', 'KeyA', left);
@@ -426,7 +432,7 @@ window.__bendSim = ({ edge = 66172, from = 40, kmh = 60, legacy = false, reactMs
 
 // Records the game canvas with a caption, speed and the A/D keys drawn on, as WebM, and posts it to a
 // receiver on this machine (http://127.0.0.1:8766/<name>) — used for the before/after clips.
-window.__record = async (name, run, { caption = '', fps = 30 } = {}) => {
+window.__record = async (name, run, { caption = '', fps = 30, bps = 3_000_000 } = {}) => {
   const S = window.__sr3d, c = S.city, src = document.getElementById('game') || document.querySelector('canvas');
   const W = 960, H = Math.round(W * src.height / src.width);
   const out = document.createElement('canvas'); out.width = W; out.height = H;
@@ -448,7 +454,7 @@ window.__record = async (name, run, { caption = '', fps = 30 } = {}) => {
     requestAnimationFrame(draw);
   };
   requestAnimationFrame(draw);
-  const rec = new MediaRecorder(out.captureStream(fps), { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 3_000_000 });
+  const rec = new MediaRecorder(out.captureStream(fps), { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bps });
   const chunks = []; rec.ondataavailable = (e) => chunks.push(e.data);
   rec.start(500);
   const result = await run();
@@ -541,4 +547,36 @@ window.__handling = ({ fps = 60 } = {}) => {
   out.forwardWheelRoll = tyres.length ? Math.sign(tyres[0].rotation.x - rx1) : null;
   c.collide = coll; c.updateTraffic = trf; S.G.mode = mode; reset(0);
   return out;
+};
+
+// A contact sheet of all six everyday cars from the same angles (rear three-quarter, front three-quarter,
+// straight behind at chase-camera height), drawn off screen and posted as a PNG to the local receiver.
+window.__carGrid = async (name = 'cars-grid.png', { color = 0xf4f4f6 } = {}) => {
+  const THREE = await import('three');
+  const { createUzCar } = await import('./uzcars.js');
+  const types = ['cobalt', 'gentra', 'nexia', 'spark', 'malibu', 'damas'];
+  const views = [['rear', [-3.4, 1.7, 6.2]], ['front', [3.2, 1.4, -6.2]], ['chase', [0, 2.1, 6.8]]];
+  const cw = 420, ch = 260;
+  const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  r.setSize(cw, ch, false); r.setPixelRatio(1); r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+  const grid = document.createElement('canvas'); grid.width = cw * views.length; grid.height = ch * types.length;
+  const gg = grid.getContext('2d');
+  for (let i = 0; i < types.length; i++) {
+    const sc = new THREE.Scene(); sc.background = new THREE.Color(0xcfd6dc);
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x667766, 1.2));
+    const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-6, 10, 8); sc.add(sun);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; sc.add(ground);
+    const c = createUzCar(types[i]); c.setColor();
+    if (types[i] !== 'malibu') { const m = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.32 }); for (const o of c.bodyMeshes) o.material = m; }
+    sc.add(c.mesh);
+    views.forEach(([, p], j) => {
+      const cam = new THREE.PerspectiveCamera(40, cw / ch, 0.1, 100); cam.position.set(...p); cam.lookAt(0, 0.7, 0);
+      r.render(sc, cam); gg.drawImage(r.domElement, j * cw, i * ch);
+      gg.fillStyle = 'rgba(0,0,0,0.6)'; gg.fillRect(j * cw, i * ch, 150, 22); gg.fillStyle = '#fff'; gg.font = 'bold 14px Arial'; gg.fillText(types[i].toUpperCase() + ' · ' + views[j][0], j * cw + 6, i * ch + 16);
+    });
+  }
+  const blob = await new Promise((res) => grid.toBlob(res, 'image/png'));
+  const res = await fetch('http://127.0.0.1:8766/' + name, { method: 'POST', body: blob });
+  r.dispose();
+  return { posted: res.ok, bytes: blob.size };
 };
