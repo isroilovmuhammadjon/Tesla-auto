@@ -26,6 +26,7 @@ export function chassisFor(def) {
       mu: 0.95 * (0.9 + 0.1 * def.handling) * (c.grip || 1), Cf: 125000 * (c.m / 1200) * (0.85 + 0.15 * def.handling), Cr: 140000 * (c.m / 1200) * (0.85 + 0.15 * def.handling),
       // lock from the real turning circle (wall to wall): radius = wheelbase / tan(lock)
       esc: 1, muF: 0.94, muR: 1.06, drive: c.rear ? 'rear' : 'front', maxWheel: c.lock || 0.46,
+      steerRate: c.steerRate || 1, roll: c.roll || 1,      // how quick the steering is; how far the body leans
     };
   }
   const sedan = def.style === 'malibu';
