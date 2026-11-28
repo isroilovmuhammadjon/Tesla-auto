@@ -7,9 +7,9 @@
 // wrong turn; the passenger waits on the pavement at a kerb you can reach, and only gets in or out
 // once you have stopped next to them on their side of the street.
 import * as THREE from 'three';
-import { storageGet, storageSet } from './config.js?v=5399783e';
-import { RoadGraph, uzLatin } from './route.js?v=5399783e';
-import { MAP_VER } from './osmcity.js?v=5399783e';
+import { storageGet, storageSet } from './config.js?v=2165ebae';
+import { RoadGraph, uzLatin } from './route.js?v=2165ebae';
+import { MAP_VER } from './osmcity.js?v=2165ebae';
 
 // lane-width sum (m) each car needs to take a square corner between two narrow lanes (see cornersOk)
 // Corner survey 2026-11-28 (__cornerSurvey, 30 square corners between 3-4.5 m lanes across the city, lane sums

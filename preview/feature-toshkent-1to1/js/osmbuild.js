@@ -6,7 +6,7 @@
 // Data (c) OpenStreetMap contributors, ODbL 1.0.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=5399783e';
+import { facadeTexture, storefrontAtlas, STOREFRONTS, dayGlassTexture, busStopParts, crossingSignTexture } from './cityday.js?v=2165ebae';
 
 export const WALK = 3.2;
 const BUCKET = 25;

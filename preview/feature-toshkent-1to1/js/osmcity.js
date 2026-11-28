@@ -4,17 +4,17 @@
 // around the car; the driving, camera, HUD and daylight come from the TOSHKENT SHAHAR mode.
 //
 // Coordinates: 1 unit = 1 m, x east, z south (north is -z, like the rest of the game).
-import { SkidMarks } from './vehicle.js?v=5399783e';
-import { People, windSway } from './life.js?v=5399783e';
-import { storageGet, storageSet } from './config.js?v=5399783e';
+import { SkidMarks } from './vehicle.js?v=2165ebae';
+import { People, windSway } from './life.js?v=2165ebae';
+import { storageGet, storageSet } from './config.js?v=2165ebae';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CityMode, SUN_DIR } from './city.js?v=5399783e';
-import { createUzCar, pickUzType } from './uzcars.js?v=5399783e';
-import { daySky, facadeTexture } from './cityday.js?v=5399783e';
-import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=5399783e';
-import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=5399783e';
-import { busStopParts } from './cityday.js?v=5399783e';
+import { CityMode, SUN_DIR } from './city.js?v=2165ebae';
+import { createUzCar, pickUzType } from './uzcars.js?v=2165ebae';
+import { daySky, facadeTexture } from './cityday.js?v=2165ebae';
+import { LANDMARK_BUILDERS, hazratiImam, temurStatue, forumsPalace, chimes } from './tashkent.js?v=2165ebae';
+import { buildCell, makeMaterials, WALK as WALK2 } from './osmbuild.js?v=2165ebae';
+import { busStopParts } from './cityday.js?v=2165ebae';
 
 const CELL = 500;
 const BASE = 'map/';
