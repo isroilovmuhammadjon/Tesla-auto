@@ -6,6 +6,52 @@ To'liq natijalar: `docs/TOSHKENT-1TO1.md`.
 
 Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 
+## 2026-11-28 kechki ish: Blender mashinalari, rul, Chorsu
+
+### Holat
+- **Branch:** `feature/toshkent-1to1`. Oxirgi commit `git log -1` da (shu fayl bilan birga push qilingan).
+- **Blender:** 5.3 `/Applications/Blender.app` da o'rnatilgan. Blender MCP vositasi bu sessiyada yo'q edi, shuning uchun Blender fon rejimida Python bilan ishlatildi.
+
+### Mashinalar (Blender)
+- **Skript:** `scripts/cars/build_cars.py`, ishga tushirish:
+  `/Applications/Blender.app/Contents/MacOS/Blender -b --python scripts/cars/build_cars.py -- cobalt gentra nexia spark malibu`
+- **Natija:** `assets/blender/<mashina>.blend` (tahrirlanadigan), `www/models/<mashina>.glb` (~14 ming uchburchak) va `www/models/<mashina>.surf.json` (kuzov sirti xaritasi).
+- **Qanday qurilgan:**
+  - kuzov suratlarga moslangan ko'ndalang kesimlardan qurilgan, yelka va ostona chiziqlarida keskin qirra, Catmull-Clark silliqlash;
+  - g'ildirak o'yiqlari haqiqiy;
+  - kabina yuzlari bo'yoq, shisha va qora bezakka bo'lingan.
+- **O'yinga ulanishi:**
+  - `www/js/glb.js` (kichik GLB o'quvchi), `uzcars.js` dagi `BLENDER_CARS`;
+  - faralar, panjaralar, eshik chiziqlari va Cobalt orqa chiroqlari GLB sirtiga yotqiziladi;
+  - tormoz chiroqlari va ko'rsatkichlar ishlaydi;
+  - GLB yuklanmasa avvalgi protsedurali model ishlaydi.
+- **Damas** hali protsedurali.
+- **Ochiq aytaman:** Cobalt orqa ko'rinishda tanilarli (`docs/compare/cobalt-blender-chase.jpg`). Old tomoni hali "pufak" shaklida, faralar kichik. Gentra, Nexia, Spark va Malibu kabinalari ko'p burchakdan qora blok bo'lib ko'rinadi, oyna va tom ajralishini tekshirish kerak.
+
+### Rul (tezlikda)
+- Tugma qo'yib yuborilganda rul tezlikda sekin qaytadi; uzoq bosishda 90 km/soatda 0.33 g.
+- **Temur Malik burilishi** (edge 57560, 41.337288, 69.378592 → 41.333991, 69.377995), pursuit-bot, 200 ms reaksiya:
+
+  | km/soat | Chetlanish (oldin → keyin) | Tugma almashishi (oldin → keyin) |
+  |---|---|---|
+  | 90 | 0.34 → 0.19 m | 31 → 13 |
+  | 60 | 0.33 → 0.24 m | 49 → 41 |
+  | 30 | o'zgarmadi | o'zgarmadi |
+
+- 30, 60 va 120 fps natijalari bir xil.
+- **Tekshirildi:** lane change, burilishda tormoz (teskari aylanish yo'q), orqaga yurish, tor burchakdan 6 km/soatda o'tish (Cobalt, urilishsiz).
+
+### Shahar
+- **Chorsu:** naqshli feruza gumbaz, uchli arkali deraza halqasi, ko'k koshinli pastki arkalar (`docs/compare/chorsu-amirtemur-after2.jpg`).
+- **Bog'lar:** ~9 m oraliqda zich daraxtlar, har bir katak uchun chegara bilan.
+- **Amir Temur xiyoboni:** hali siyrak va bir xil tojlar.
+
+### Bajarilmagan (oyna yashirin bo'lgani uchun real vaqtdagi sinovlar to'xtadi)
+- Tinchlik chorrahasini qizil fazada qayta sinash.
+- Gentra va Nexia bilan Mahzuna smenasi (`__testShift({car, force})` ishga tushirilgan, oyna yashirin bo'lgani uchun to'xtab qoldi).
+- O'rikzor bozori → Tinchlik HUD o'chiq qabul haydovi va boshqa tumanlar bo'ylab marshrutlar.
+- Mobil o'lcham va FPS o'lchovi.
+
 ## 2026-11-28 kunduzgi ish, 5-qism: Cobalt detallari, keyin qolgan 5 mashina
 
 ### Cobalt (6991f57 dan, kuzov o'lchamlari saqlandi)
@@ -382,9 +428,11 @@ Oxirgi sinalgan commit va keyingi vazifa shu fayl oxirida.
 Shu fayl bilan birga push qilingan commit (`git log -1`), preview'da tekshirildi.
 
 ## BIRINCHI TUGALLANMAGAN VAZIFA
-- Gentra, Nexia 3, Spark, Damas va Malibu uchun Cobalt'dagi kontur jarayoni: suratdan kamera hisobi (`camsolve*.py`), konturni qo'yish (`__carOverlay` + `overlay.py`), uzunlik, kabina, burun va dumni tuzatish.
-- So'ng detal to'plamlarini aniqlashtirish.
-- Cobalt: kapot qanot qirrasi va orqa chiroqlarning ichki bo'limlari.
+- Brauzer oynasi ko'rinib turgan holda `?test` bilan:
+  - `__testShift({car:'gentra', force:{pickup:{e:1548,s:9}, dest:...}})`, so'ng Nexia (Mahzuna bekati);
+  - `__junctionRun('Tinchlik','Chorsu bozori',{after:700})` qizil fazada;
+  - O'rikzor bozori → Tinchlik HUD o'chiq klip.
+- So'ng Gentra, Nexia, Spark va Malibu Blender kabinalaridagi oyna/tom bo'linishini tekshirish va Cobalt old tomonini (faralar, kapot) yaxshilash.
 
 ## Keyingi navbat
 1. **Qolgan obyektlar:**
