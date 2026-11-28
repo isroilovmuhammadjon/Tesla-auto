@@ -4,12 +4,12 @@
 // (bicycle-model steering) with the same powertrain as the race mode.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=c5bfaae2';
-import { createUzCar, pickUzType } from './uzcars.js?v=c5bfaae2';
-import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=c5bfaae2';
-import { People, windSway, WIND } from './life.js?v=c5bfaae2';
+import { LANDMARK_BUILDERS, panelTexture, glassTexture } from './tashkent.js?v=759f3173';
+import { createUzCar, pickUzType } from './uzcars.js?v=759f3173';
+import { chassisFor, stepChassis, SkidMarks } from './vehicle.js?v=759f3173';
+import { People, windSway, WIND } from './life.js?v=759f3173';
 import { dayPanelTexture, dayGlassTexture, signAtlas, signGeometry, SHOP_SIGNS, busStopParts, trafficLightParts, SIGNAL, daySky,
-  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=c5bfaae2';
+  facadeTexture, STOREFRONTS, storefrontAtlas, storefrontGeometry, zebraTexture, crossingSignTexture } from './cityday.js?v=759f3173';
 
 // warm afternoon sun from the south-west, high enough that the street itself is in the sun
 // (lower, the tall blocks would shade whole streets) while the trees throw shade across the lanes
@@ -962,7 +962,17 @@ export class CityMode {
     // a little past what the tyres can use, like a driver who feels the grip through the wheel
     const P = s.chassis || (s.chassis = chassisFor(def));
     const sp = Math.max(1, Math.abs(s.v));
-    const maxSteer = Math.min(P.maxWheel, (P.L * P.mu * 9.81) / (sp * sp) + 0.06);
+    // Lock available at this speed. Before 2026-11-28 (v2, kept for before/after tests) it was the grip
+    // limit plus 0.06 rad, so a held A/D at 90 km/h asked for 1 g and the car darted into the bend; the
+    // driver had to tap 20-50 times through one curve. Now a held key asks for a lateral pull that falls
+    // with speed (about 0.85 g in town, 0.45 g at 90 km/h), like the wheel angle a driver actually uses,
+    // so holding the key through a normal bend works and short taps add to it.
+    let maxSteer;
+    if (this.steerV2 || this.legacySteer) maxSteer = Math.min(P.maxWheel, (P.L * P.mu * 9.81) / (sp * sp) + 0.06);
+    else {
+      const pull = P.mu * 9.81 * Math.max(0.45, Math.min(1, 1 - (sp - 8) * 0.033));
+      maxSteer = Math.min(P.maxWheel, (P.L * pull * 1.3) / (sp * sp) + 0.012);
+    }
     // A virtual steering wheel u (-1..1): holding A/D (or a touch button) turns it at a steady rate, so a
     // short tap is a small correction and a held key builds up to full lock in about half a second; let go
     // and it self-centres. The road-wheel angle is u (finer near the centre) times the speed-dependent
@@ -974,16 +984,19 @@ export class CityMode {
       const rate = (Math.abs(target) > Math.abs(s.steer) && Math.sign(target) === Math.sign(s.steer || target) ? 1.5 : 2.6) * dt;
       s.steer += Math.max(-rate, Math.min(rate, target - s.steer));
     } else {
+    // the wheel turns more slowly at speed (as a driver's hands do): full lock in 0.3 s when parking,
+    // about 0.65 s at 90 km/h, so the length of a press sets how sharp the turn is
+    const v2 = this.steerV2, rate = v2 ? 3.4 : Math.max(1.5, Math.min(3.4, 3.4 - (sp - 5) * 0.09)) * (P.steerRate || 1);
     if (keySteer !== 0) {
-      const toward = keySteer * (Math.sign(s.wheelU) === -keySteer ? 6 : 3.4);   // counter-steer is quicker
+      const toward = keySteer * (Math.sign(s.wheelU) === -keySteer ? rate * 1.8 : rate);   // counter-steer is quicker
       s.wheelU = Math.max(-1, Math.min(1, s.wheelU + toward * dt));
     } else if (d.tilt.enabled && d.tilt.axis) {
       s.wheelU += (d.tilt.axis - s.wheelU) * Math.min(1, dt * 10);
     } else {
-      const back = Math.min(Math.abs(s.wheelU), (3.2 + Math.abs(s.wheelU) * 2) * dt);
+      const back = Math.min(Math.abs(s.wheelU), (v2 ? 3.2 + Math.abs(s.wheelU) * 2 : rate * (0.95 + Math.abs(s.wheelU) * 0.6)) * dt);
       s.wheelU -= Math.sign(s.wheelU) * back;
     }
-    const u = s.wheelU, shaped = u * (0.4 + 0.6 * Math.abs(u));
+    const u = s.wheelU, shaped = this.steerV2 ? u * (0.4 + 0.6 * Math.abs(u)) : u * (0.5 + 0.5 * Math.abs(u));
     s.steer = shaped * maxSteer;
     }
     // Keep the front tyres near their grip peak: the road wheels may point at most ~8 degrees beyond the
@@ -1101,7 +1114,8 @@ export class CityMode {
     s.pitchV += ((Math.max(-0.07, Math.min(0.05, s.ax * 0.0032)) - s.pitch) * k - s.pitchV * c) * dt;
     s.pitch += s.pitchV * dt;
     const latAcc = -ay;
-    s.rollV += ((Math.max(-0.08, Math.min(0.08, latAcc * 0.006)) - s.roll) * k - s.rollV * c) * dt;
+    const rg = P.roll || 1;                              // the tall Damas leans much more than a sedan
+    s.rollV += ((Math.max(-0.08 * rg, Math.min(0.08 * rg, latAcc * 0.006 * rg)) - s.roll) * k - s.rollV * c) * dt;
     s.roll += s.rollV * dt;
     player.group.position.set(s.x, s.y, s.z);
     // in the air the car banks into turns and pitches with climb / descent

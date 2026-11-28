@@ -7,9 +7,9 @@
 // wrong turn; the passenger waits on the pavement at a kerb you can reach, and only gets in or out
 // once you have stopped next to them on their side of the street.
 import * as THREE from 'three';
-import { storageGet, storageSet } from './config.js?v=c5bfaae2';
-import { RoadGraph } from './route.js?v=c5bfaae2';
-import { MAP_VER } from './osmcity.js?v=c5bfaae2';
+import { storageGet, storageSet } from './config.js?v=759f3173';
+import { RoadGraph } from './route.js?v=759f3173';
+import { MAP_VER } from './osmcity.js?v=759f3173';
 
 const KEY_BAL = 'sr3d_taxi_balance', KEY_TRIPS = 'sr3d_taxi_trips';
 // where a taxi may stop: not on main roads, bridges, tunnels or roundabouts, and not in lanes too narrow to pull in
